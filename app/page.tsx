@@ -33,6 +33,7 @@ export default function App() {
   const [dateVal, setDateVal] = useState(todayDate);
   const [absentTeachers, setAbsentTeachers] = useState<string[]>([]);
   const [teacherSearch, setTeacherSearch] = useState('');
+  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [clubs, setClubs] = useState<Record<string, boolean>>({});
   const [report, setReport] = useState<ReportRow[] | null>(null);
@@ -189,11 +190,34 @@ export default function App() {
           </div>
           {/* Absent teacher multi-select */}
           <label className="block text-xs text-slate-500 mb-1">Mark Teachers as Absent</label>
-          <input
-            type="text" placeholder="Search teachers…"
-            value={teacherSearch} onChange={e => setTeacherSearch(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
+          <div className="relative">
+            <input
+              type="text" placeholder="Search or tap to see all teachers…"
+              value={teacherSearch}
+              onChange={e => setTeacherSearch(e.target.value)}
+              onFocus={() => setShowTeacherDropdown(true)}
+              onBlur={() => setTimeout(() => setShowTeacherDropdown(false), 150)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            {showTeacherDropdown && (
+              <div className="absolute z-20 left-0 right-0 top-full -mt-1 border border-slate-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto shadow-lg bg-white">
+                {allTeachers
+                  .filter(t => !absentTeachers.includes(t) && t.toLowerCase().includes(teacherSearch.toLowerCase()))
+                  .map(t => (
+                    <button key={t}
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => { setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); setShowTeacherDropdown(false); }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 border-b border-slate-100 last:border-0">
+                      {shortName(t)}
+                    </button>
+                  ))
+                }
+                {allTeachers.filter(t => !absentTeachers.includes(t) && t.toLowerCase().includes(teacherSearch.toLowerCase())).length === 0 && (
+                  <div className="px-3 py-2.5 text-sm text-slate-400">No teachers found</div>
+                )}
+              </div>
+            )}
+          </div>
           {/* Selected absent pills */}
           {absentTeachers.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -203,20 +227,6 @@ export default function App() {
                   <button onClick={() => setAbsentTeachers(prev => prev.filter(x => x !== t))} className="ml-0.5 text-red-400 hover:text-red-700">×</button>
                 </span>
               ))}
-            </div>
-          )}
-          {/* Dropdown list */}
-          {teacherSearch && (
-            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-44 overflow-y-auto shadow-sm">
-              {allTeachers
-                .filter(t => !absentTeachers.includes(t) && t.toLowerCase().includes(teacherSearch.toLowerCase()))
-                .map(t => (
-                  <button key={t} onClick={() => { setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 border-b border-slate-100 last:border-0">
-                    {shortName(t)} <span className="text-slate-400 text-xs ml-1">{t}</span>
-                  </button>
-                ))
-              }
             </div>
           )}
         </div>
