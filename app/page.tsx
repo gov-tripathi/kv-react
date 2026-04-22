@@ -197,7 +197,7 @@ export default function App() {
                   .map(t => (
                     <button key={t}
                       onMouseDown={e => e.preventDefault()}
-                      onClick={() => { setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); setShowTeacherDropdown(false); }}
+                      onClick={() => { setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 border-b border-slate-100 last:border-0">
                       {shortName(t)}
                     </button>
