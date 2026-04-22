@@ -6,7 +6,7 @@ import {
   TimetableRow, AbsentPeriod, ReportRow, TeacherData,
 } from '@/lib/types';
 import {
-  DAYS_ORDER, ALL_PERIODS, DAY_MAP,
+  ALL_PERIODS, DAY_MAP,
   avColor, avInitials, shortName, getAllTeachers,
   getSchedule, busySet, teacherPeriodInfo, masterLoad,
   buildAbsentPeriods, computeSubWorkload, autoFillAll,
@@ -17,9 +17,6 @@ import { generatePDF } from '@/lib/pdf';
 // ─── tiny helpers ────────────────────────────────────────────────────────────
 const subKey = (teacher: string, period: number) => `${teacher}__${period}`;
 
-function todayDay(): string {
-  return DAY_MAP[new Date().getDay()] ?? 'MON';
-}
 function todayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
@@ -29,8 +26,11 @@ export default function App() {
   const [df, setDf] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status'>('arrangement');
-  const [selectedDay, setSelectedDay] = useState(todayDay);
   const [dateVal, setDateVal] = useState(todayDate);
+  const selectedDay = useMemo(() => {
+    const d = new Date(dateVal + 'T00:00:00');
+    return DAY_MAP[d.getDay()] ?? 'MON';
+  }, [dateVal]);
   const [absentTeachers, setAbsentTeachers] = useState<string[]>([]);
   const [teacherSearch, setTeacherSearch] = useState('');
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
@@ -168,25 +168,16 @@ export default function App() {
         {/* Morning Setup */}
         <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Morning Setup</p>
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Day</label>
-              <select
-                value={selectedDay}
-                onChange={e => { setSelectedDay(e.target.value); setAbsentTeachers([]); }}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                {DAYS_ORDER.map(d => <option key={d}>{d}</option>)}
-              </select>
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-slate-500">Date</label>
+              <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">{selectedDay}</span>
             </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Date</label>
-              <input
-                type="date" value={dateVal}
-                onChange={e => setDateVal(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            </div>
+            <input
+              type="date" value={dateVal}
+              onChange={e => { setDateVal(e.target.value); setAbsentTeachers([]); }}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
           </div>
           {/* Absent teacher multi-select */}
           <label className="block text-xs text-slate-500 mb-1">Mark Teachers as Absent</label>
