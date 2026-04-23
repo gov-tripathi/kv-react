@@ -26,27 +26,37 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
 
   const margin = 15;
   const pageW = 210;
-  let y = 15;
+  const headerH = 26;   // total header block height in mm
+  let y = 12;
 
-  // Header
-  if (kvImg) doc.addImage(kvImg, 'PNG', margin, y, 18, 18);
-  if (pmImg) doc.addImage(pmImg, 'PNG', pageW - margin - 22, y + 2, 22, 9);
+  // Both logos same height (20mm), vertically centred in headerH
+  const logoH = 20;
+  const logoY = y + (headerH - logoH) / 2;
 
+  // KV logo: roughly square — keep 20×20
+  if (kvImg) doc.addImage(kvImg, 'PNG', margin, logoY, 20, 20);
+
+  // PM SHRI logo: landscape ~2.5:1 ratio — 20mm tall → 18mm wide keeps it proportional
+  if (pmImg) doc.addImage(pmImg, 'PNG', pageW - margin - 22, logoY + 2, 22, 16);
+
+  // Text block: 3 lines, centre them vertically in headerH
+  // line1 at y+8, line2 at y+14, line3 at y+20
+  const cx = pageW / 2;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(30, 64, 175);
-  doc.text('PM SHRI KENDRIYA VIDYALAYA BURHANPUR', pageW / 2, y + 5, { align: 'center' });
+  doc.text('PM SHRI KENDRIYA VIDYALAYA BURHANPUR', cx, y + 8, { align: 'center' });
 
   doc.setFontSize(9);
   doc.setTextColor(30, 41, 59);
-  doc.text('DAILY TEACHER ARRANGEMENT', pageW / 2, y + 11, { align: 'center' });
+  doc.text('DAILY TEACHER ARRANGEMENT', cx, y + 14, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text(`${day}  ·  ${dateStr}  ·  Academic Year 2026-27`, pageW / 2, y + 17, { align: 'center' });
+  doc.text(`${day}  ·  ${dateStr}  ·  Academic Year 2026-27`, cx, y + 20, { align: 'center' });
 
-  y += 21;
+  y += headerH;
   doc.setDrawColor(30, 64, 175);
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageW - margin, y);
