@@ -26,6 +26,12 @@ export interface ReportRow {
   Sub_Own_Subject: string;
 }
 
+export interface AbsenceConfig {
+  halfDay: boolean;
+  halfDayType: 'before' | 'after';
+  halfDayPeriod: number;
+}
+
 export interface TeacherData {
   name: string;
   periodStatus: Record<number, 'teaching' | 'sub' | 'free'>;

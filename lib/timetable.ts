@@ -1,4 +1,4 @@
-import { TimetableRow, AbsentPeriod, ReportRow } from './types';
+import { TimetableRow, AbsentPeriod, ReportRow, AbsenceConfig } from './types';
 
 export const DAYS_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 export const ALL_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -34,6 +34,10 @@ export function shortName(name: string): string {
 
 export function getAllTeachers(df: TimetableRow[]): string[] {
   return [...new Set(df.map(r => r.Teacher_Name))].sort();
+}
+
+export function getNotReqTeachers(df: TimetableRow[]): Set<string> {
+  return new Set(df.filter(r => r.Subject === 'Not Req').map(r => r.Teacher_Name));
 }
 
 export function getAllClasses(df: TimetableRow[]): string[] {
@@ -94,13 +98,25 @@ export function masterLoad(df: TimetableRow[], teacher: string, day: string): nu
   return df.filter(r => r.Teacher_Name === teacher && r.Day === day).length;
 }
 
+export function isTeacherAbsentInPeriod(
+  teacher: string, period: number,
+  absentTeachers: string[], absenceConfigs: Record<string, AbsenceConfig>,
+): boolean {
+  if (!absentTeachers.includes(teacher)) return false;
+  const cfg = absenceConfigs[teacher];
+  if (!cfg?.halfDay) return true;
+  return cfg.halfDayType === 'before' ? period <= cfg.halfDayPeriod : period > cfg.halfDayPeriod;
+}
+
 export function buildAbsentPeriods(
   df: TimetableRow[], teachers: string[], day: string,
+  absenceConfigs: Record<string, AbsenceConfig> = {},
 ): AbsentPeriod[] {
   const periods: AbsentPeriod[] = [];
   for (const t of teachers) {
     for (const row of getSchedule(df, t, day)) {
       if (row.Subject === 'Not Req') continue;
+      if (!isTeacherAbsentInPeriod(t, row.Period, teachers, absenceConfigs)) continue;
       periods.push({ teacher: t, period: row.Period, cls: row.Class, subj: row.Subject });
     }
   }
@@ -127,6 +143,7 @@ export function autoFillAll(
   currentSubs: Record<string, string>,
   cancelledClasses: string[] = [],
   useCancelledTeachers: boolean = false,
+  absenceConfigs: Record<string, AbsenceConfig> = {},
 ): Record<string, string> {
   const newSubs = { ...currentSubs };
   const subWl: Record<string, number> = {};
@@ -136,6 +153,7 @@ export function autoFillAll(
   }
 
   const allTeachers = getAllTeachers(df);
+  const notReq = getNotReqTeachers(df);
 
   for (const e of absentPeriods) {
     const key = `${e.teacher}__${e.period}`;
@@ -148,8 +166,9 @@ export function autoFillAll(
         .map(e2 => newSubs[`${e2.teacher}__${e2.period}`] ?? '')
         .filter(Boolean),
     );
-    const unavail = new Set([...periodBusy, ...alreadyThis, ...absentTeachers]);
-    const free = allTeachers.filter(t => !unavail.has(t));
+    const absentThisPeriod = absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs));
+    const unavail = new Set([...periodBusy, ...alreadyThis, ...absentThisPeriod]);
+    const free = allTeachers.filter(t => !unavail.has(t) && !notReq.has(t));
     if (!free.length) continue;
 
     const best = free.reduce((a, b) =>

@@ -10,8 +10,9 @@ import {
   avColor, avInitials, shortName, getAllTeachers, getAllClasses,
   getSchedule, busySetExcludingCancelled, teacherPeriodInfo, masterLoad,
   buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
-  buildReportRowsWithCancelled, whatsappText,
+  buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod, getNotReqTeachers,
 } from '@/lib/timetable';
+import type { AbsenceConfig } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
 
 // ─── auth ─────────────────────────────────────────────────────────────────────
@@ -94,6 +95,7 @@ export default function App() {
   const [absentTeachers, setAbsentTeachers] = useState<string[]>([]);
   const [teacherSearch, setTeacherSearch] = useState('');
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
+  const [absenceConfigs, setAbsenceConfigs] = useState<Record<string, AbsenceConfig>>({});
   const [cancelledClasses, setCancelledClasses] = useState<string[]>([]);
   const [useCancelledTeachers, setUseCancelledTeachers] = useState(false);
   const [subs, setSubs] = useState<Record<string, string>>({});
@@ -128,8 +130,8 @@ export default function App() {
   const allClasses = useMemo(() => getAllClasses(df), [df]);
 
   const absentPeriods = useMemo(
-    () => buildAbsentPeriods(df, absentTeachers, selectedDay),
-    [df, absentTeachers, selectedDay],
+    () => buildAbsentPeriods(df, absentTeachers, selectedDay, absenceConfigs),
+    [df, absentTeachers, selectedDay, absenceConfigs],
   );
 
   const cancelledPeriods = useMemo(
@@ -144,10 +146,11 @@ export default function App() {
     setReport(null);
   }, [selectedDay, absentTeachers]);
 
-  // Reset cancelled classes when day changes
+  // Reset cancelled classes and absence configs when day changes
   useEffect(() => {
     setCancelledClasses([]);
     setUseCancelledTeachers(false);
+    setAbsenceConfigs({});
   }, [selectedDay]);
 
   const subWl = useMemo(
@@ -161,10 +164,10 @@ export default function App() {
   );
 
   const handleAutoFill = useCallback(() => {
-    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers);
+    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs);
     setSubs(newSubs);
     setReport(null);
-  }, [df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers]);
+  }, [df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs]);
 
   const handleSetSub = useCallback((teacher: string, period: number, val: string) => {
     setSubs(prev => ({ ...prev, [subKey(teacher, period)]: val }));
@@ -290,16 +293,53 @@ export default function App() {
               </div>
             )}
           </div>
-          {/* Selected absent pills */}
+          {/* Selected absent pills + half-day config */}
           {absentTeachers.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {absentTeachers.map(t => (
-                <span key={t} className="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 rounded-full px-2 py-0.5 text-xs font-semibold">
-                  {shortName(t)}
-                  <button onClick={() => setAbsentTeachers(prev => prev.filter(x => x !== t))} className="ml-0.5 text-red-400 hover:text-red-700">×</button>
-                </span>
-              ))}
-            </div>
+            <>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {absentTeachers.map(t => (
+                  <span key={t} className="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 rounded-full px-2 py-0.5 text-xs font-semibold">
+                    {shortName(t)}
+                    <button onClick={() => setAbsentTeachers(prev => prev.filter(x => x !== t))} className="ml-0.5 text-red-400 hover:text-red-700">×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="space-y-1.5 mb-2">
+                {absentTeachers.map(t => {
+                  const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, halfDayType: 'before', halfDayPeriod: 4 };
+                  return (
+                    <div key={t} className="flex items-center gap-2 text-xs flex-wrap">
+                      <span className="text-slate-500 w-28 truncate font-medium">{shortName(t)}</span>
+                      <button
+                        onClick={() => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDay: !cfg.halfDay } })); setReport(null); }}
+                        className={`px-2 py-0.5 rounded-full font-semibold border transition-colors ${cfg.halfDay ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
+                      >
+                        {cfg.halfDay ? 'Half Day' : 'Full Day'}
+                      </button>
+                      {cfg.halfDay && (
+                        <>
+                          <span className="text-slate-400">not available</span>
+                          <select
+                            value={cfg.halfDayType}
+                            onChange={e2 => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDayType: e2.target.value as 'before' | 'after' } })); setReport(null); }}
+                            className="border border-slate-200 rounded-lg px-1.5 py-0.5 bg-slate-50 text-slate-700 focus:outline-none"
+                          >
+                            <option value="before">before</option>
+                            <option value="after">after</option>
+                          </select>
+                          <span className="text-slate-400">period</span>
+                          <input
+                            type="number" min={1} max={8} value={cfg.halfDayPeriod}
+                            onChange={e2 => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDayPeriod: Math.min(8, Math.max(1, Number(e2.target.value))) } })); setReport(null); }}
+                            className="w-10 border border-slate-200 rounded-lg px-1.5 py-0.5 bg-slate-50 text-slate-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           {/* Cancel Classes */}
@@ -363,6 +403,7 @@ export default function App() {
         {activeTab === 'arrangement' && (
           <ArrangementTab
             df={df} absentTeachers={absentTeachers} absentPeriods={absentPeriods}
+            absenceConfigs={absenceConfigs}
             cancelledClasses={cancelledClasses} cancelledPeriods={cancelledPeriods}
             useCancelledTeachers={useCancelledTeachers}
             selectedDay={selectedDay} dateVal={dateVal}
@@ -396,6 +437,7 @@ export default function App() {
 // ─────────────────────────────────────────────────────────────────────────────
 interface ArrProps {
   df: TimetableRow[]; absentTeachers: string[]; absentPeriods: AbsentPeriod[];
+  absenceConfigs: Record<string, AbsenceConfig>;
   cancelledClasses: string[]; cancelledPeriods: AbsentPeriod[];
   useCancelledTeachers: boolean;
   selectedDay: string; dateVal: string;
@@ -414,7 +456,7 @@ interface ArrProps {
 
 function ArrangementTab({
   df, absentTeachers, absentPeriods,
-  cancelledClasses, cancelledPeriods, useCancelledTeachers,
+  absenceConfigs, cancelledClasses, cancelledPeriods, useCancelledTeachers,
   selectedDay, dateVal,
   subs, clubs, subWl, covered, report, pdfLoading,
   log, showLog, setShowLog,
@@ -514,6 +556,7 @@ function ArrangementTab({
               <PeriodRow key={e.period}
                 df={df} e={e} teacher={teacher} selectedDay={selectedDay}
                 absentTeachers={absentTeachers} absentPeriods={absentPeriods}
+                absenceConfigs={absenceConfigs}
                 cancelledClasses={cancelledClasses} useCancelledTeachers={useCancelledTeachers}
                 subs={subs} clubs={clubs} subWl={subWl}
                 onSetSub={onSetSub} onSetClub={onSetClub}
@@ -663,6 +706,7 @@ function ArrangementTab({
 interface PeriodRowProps {
   df: TimetableRow[]; e: AbsentPeriod; teacher: string; selectedDay: string;
   absentTeachers: string[]; absentPeriods: AbsentPeriod[];
+  absenceConfigs: Record<string, AbsenceConfig>;
   cancelledClasses: string[]; useCancelledTeachers: boolean;
   subs: Record<string, string>; clubs: Record<string, boolean>;
   subWl: Record<string, number>;
@@ -672,7 +716,7 @@ interface PeriodRowProps {
 
 function PeriodRow({
   df, e, teacher, selectedDay, absentTeachers, absentPeriods,
-  cancelledClasses, useCancelledTeachers,
+  absenceConfigs, cancelledClasses, useCancelledTeachers,
   subs, clubs, subWl, onSetSub, onSetClub,
 }: PeriodRowProps) {
   const k = subKey(e.teacher, e.period);
@@ -692,21 +736,27 @@ function PeriodRow({
   ), [absentPeriods, e.period, teacher, subs]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
+  const notReqTeachers = useMemo(() => getNotReqTeachers(df), [df]);
+
+  const absentThisPeriod = useMemo(
+    () => absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs)),
+    [absentTeachers, e.period, absenceConfigs],
+  );
 
   const unavail = useMemo(
-    () => new Set([...periodBusy, ...alreadyThis, ...absentTeachers]),
-    [periodBusy, alreadyThis, absentTeachers],
+    () => new Set([...periodBusy, ...alreadyThis, ...absentThisPeriod]),
+    [periodBusy, alreadyThis, absentThisPeriod],
   );
 
   const freeTeachers = useMemo(
-    () => allTeachers.filter(t => !unavail.has(t))
+    () => allTeachers.filter(t => !unavail.has(t) && !notReqTeachers.has(t))
       .sort((a, b) => (masterLoad(df, a, selectedDay) + (subWl[a] ?? 0)) - (masterLoad(df, b, selectedDay) + (subWl[b] ?? 0))),
-    [allTeachers, unavail, df, selectedDay, subWl],
+    [allTeachers, unavail, notReqTeachers, df, selectedDay, subWl],
   );
 
   const clubTeachers = useMemo(
-    () => allTeachers.filter(t => (periodBusy.has(t) || alreadyThis.has(t)) && !absentTeachers.includes(t)),
-    [allTeachers, periodBusy, alreadyThis, absentTeachers],
+    () => allTeachers.filter(t => (periodBusy.has(t) || alreadyThis.has(t)) && !absentThisPeriod.includes(t) && !notReqTeachers.has(t)),
+    [allTeachers, periodBusy, alreadyThis, absentThisPeriod, notReqTeachers],
   );
 
   function clubLabel(t: string): string {
