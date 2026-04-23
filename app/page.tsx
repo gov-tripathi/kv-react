@@ -7,10 +7,10 @@ import {
 } from '@/lib/types';
 import {
   ALL_PERIODS, DAY_MAP,
-  avColor, avInitials, shortName, getAllTeachers,
-  getSchedule, busySet, teacherPeriodInfo, masterLoad,
-  buildAbsentPeriods, computeSubWorkload, autoFillAll,
-  buildReportRows, whatsappText,
+  avColor, avInitials, shortName, getAllTeachers, getAllClasses,
+  getSchedule, busySetExcludingCancelled, teacherPeriodInfo, masterLoad,
+  buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
+  buildReportRowsWithCancelled, whatsappText,
 } from '@/lib/timetable';
 import { generatePDF } from '@/lib/pdf';
 
@@ -94,6 +94,8 @@ export default function App() {
   const [absentTeachers, setAbsentTeachers] = useState<string[]>([]);
   const [teacherSearch, setTeacherSearch] = useState('');
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
+  const [cancelledClasses, setCancelledClasses] = useState<string[]>([]);
+  const [useCancelledTeachers, setUseCancelledTeachers] = useState(false);
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [clubs, setClubs] = useState<Record<string, boolean>>({});
   const [report, setReport] = useState<ReportRow[] | null>(null);
@@ -123,18 +125,30 @@ export default function App() {
   }, []);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
+  const allClasses = useMemo(() => getAllClasses(df), [df]);
 
   const absentPeriods = useMemo(
     () => buildAbsentPeriods(df, absentTeachers, selectedDay),
     [df, absentTeachers, selectedDay],
   );
 
-  // Reset subs/clubs when day changes
+  const cancelledPeriods = useMemo(
+    () => getCancelledPeriods(df, cancelledClasses, selectedDay),
+    [df, cancelledClasses, selectedDay],
+  );
+
+  // Reset subs/clubs when absent teachers or day changes
   useEffect(() => {
     setSubs({});
     setClubs({});
     setReport(null);
   }, [selectedDay, absentTeachers]);
+
+  // Reset cancelled classes when day changes
+  useEffect(() => {
+    setCancelledClasses([]);
+    setUseCancelledTeachers(false);
+  }, [selectedDay]);
 
   const subWl = useMemo(
     () => computeSubWorkload(absentPeriods, subs),
@@ -147,10 +161,10 @@ export default function App() {
   );
 
   const handleAutoFill = useCallback(() => {
-    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs);
+    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers);
     setSubs(newSubs);
     setReport(null);
-  }, [df, absentPeriods, absentTeachers, selectedDay, subs]);
+  }, [df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers]);
 
   const handleSetSub = useCallback((teacher: string, period: number, val: string) => {
     setSubs(prev => ({ ...prev, [subKey(teacher, period)]: val }));
@@ -164,13 +178,13 @@ export default function App() {
   }, []);
 
   const handleGenerateReport = useCallback(() => {
-    const rows = buildReportRows(df, absentPeriods, subs, clubs, selectedDay, dateVal);
+    const rows = buildReportRowsWithCancelled(df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal);
     setReport(rows);
     // Persist to log
     const newLog = [...log, ...rows];
     setLog(newLog);
     try { localStorage.setItem('kv_arrangement_log', JSON.stringify(newLog)); } catch {}
-  }, [df, absentPeriods, subs, clubs, selectedDay, dateVal, log]);
+  }, [df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal, log]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!report) return;
@@ -287,6 +301,48 @@ export default function App() {
               ))}
             </div>
           )}
+
+          {/* Cancel Classes */}
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <label className="block text-xs text-slate-500 mb-1">Cancel Classes</label>
+            <select
+              value=""
+              onChange={e => {
+                const cls = e.target.value;
+                if (cls && !cancelledClasses.includes(cls)) {
+                  setCancelledClasses(prev => [...prev, cls]);
+                  setReport(null);
+                }
+              }}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            >
+              <option value="">Select a class to cancel…</option>
+              {allClasses.filter(c => !cancelledClasses.includes(c)).map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {cancelledClasses.length > 0 && (
+              <>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {cancelledClasses.map(c => (
+                    <span key={c} className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5 text-xs font-semibold">
+                      {c}
+                      <button onClick={() => { setCancelledClasses(prev => prev.filter(x => x !== c)); setReport(null); }} className="ml-0.5 text-orange-400 hover:text-orange-700">×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => setUseCancelledTeachers(v => !v)}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${useCancelledTeachers ? 'bg-green-500' : 'bg-slate-300'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${useCancelledTeachers ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                  <span className="text-xs text-slate-600">Use freed teachers in arrangement</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -307,6 +363,8 @@ export default function App() {
         {activeTab === 'arrangement' && (
           <ArrangementTab
             df={df} absentTeachers={absentTeachers} absentPeriods={absentPeriods}
+            cancelledClasses={cancelledClasses} cancelledPeriods={cancelledPeriods}
+            useCancelledTeachers={useCancelledTeachers}
             selectedDay={selectedDay} dateVal={dateVal}
             subs={subs} clubs={clubs} subWl={subWl} covered={covered}
             report={report} pdfLoading={pdfLoading}
@@ -338,6 +396,8 @@ export default function App() {
 // ─────────────────────────────────────────────────────────────────────────────
 interface ArrProps {
   df: TimetableRow[]; absentTeachers: string[]; absentPeriods: AbsentPeriod[];
+  cancelledClasses: string[]; cancelledPeriods: AbsentPeriod[];
+  useCancelledTeachers: boolean;
   selectedDay: string; dateVal: string;
   subs: Record<string, string>; clubs: Record<string, boolean>;
   subWl: Record<string, number>; covered: number;
@@ -353,24 +413,26 @@ interface ArrProps {
 }
 
 function ArrangementTab({
-  df, absentTeachers, absentPeriods, selectedDay, dateVal,
+  df, absentTeachers, absentPeriods,
+  cancelledClasses, cancelledPeriods, useCancelledTeachers,
+  selectedDay, dateVal,
   subs, clubs, subWl, covered, report, pdfLoading,
   log, showLog, setShowLog,
   onAutoFill, onSetSub, onSetClub, onGenerateReport,
   onDownloadPDF, onDownloadCSV, onDownloadLog,
 }: ArrProps) {
 
-  if (!absentTeachers.length) return (
+  if (!absentTeachers.length && !cancelledClasses.length) return (
     <div className="text-center py-16 text-slate-400">
       <div className="text-5xl mb-3">☀️</div>
       <div className="font-semibold text-slate-600">Good morning!</div>
-      <div className="text-sm mt-1">Mark absent teachers above to begin the arrangement.</div>
+      <div className="text-sm mt-1">Mark absent teachers or cancel classes above to begin.</div>
     </div>
   );
 
-  if (!absentPeriods.length) return (
+  if (!absentPeriods.length && !cancelledPeriods.length) return (
     <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-sm">
-      None of the selected teachers have classes on <strong>{selectedDay}</strong>.
+      None of the selected teachers / classes have periods on <strong>{selectedDay}</strong>.
     </div>
   );
 
@@ -379,8 +441,28 @@ function ArrangementTab({
 
   return (
     <>
+      {/* Cancelled Classes Card */}
+      {cancelledPeriods.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-widest text-orange-400 mb-2">
+            Cancelled · {cancelledClasses.join(', ')}
+            {useCancelledTeachers && <span className="ml-2 text-green-600 normal-case font-semibold">· freed teachers available for arrangement</span>}
+          </p>
+          {[...new Set(cancelledPeriods.map(e => e.period))].sort((a, b) => a - b).map(p => (
+            <div key={p} className="flex flex-wrap items-center gap-2 mb-1.5">
+              <span className="text-xs font-bold text-orange-700 w-14">Period {p}</span>
+              {cancelledPeriods.filter(e => e.period === p).map(e => (
+                <span key={e.teacher + e.period} className="text-xs bg-orange-100 text-orange-800 border border-orange-200 rounded-full px-2 py-0.5">
+                  {e.cls} · {e.subj} <span className="text-orange-500">({shortName(e.teacher)})</span>
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Progress */}
-      <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
+      {absentPeriods.length > 0 && <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
         <div className="flex items-center gap-4 mb-3">
           <div className="flex-1">
             <div className="text-2xl font-extrabold text-slate-800">
@@ -405,7 +487,7 @@ function ArrangementTab({
             ⚡ Auto-Fill
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Per-teacher cards */}
       {absentTeachers.map(teacher => {
@@ -432,6 +514,7 @@ function ArrangementTab({
               <PeriodRow key={e.period}
                 df={df} e={e} teacher={teacher} selectedDay={selectedDay}
                 absentTeachers={absentTeachers} absentPeriods={absentPeriods}
+                cancelledClasses={cancelledClasses} useCancelledTeachers={useCancelledTeachers}
                 subs={subs} clubs={clubs} subWl={subWl}
                 onSetSub={onSetSub} onSetClub={onSetClub}
               />
@@ -469,14 +552,20 @@ function ArrangementTab({
                     <td className="px-2 py-2">{shortName(r.Absent_Teacher)}</td>
                     <td className="px-2 py-2">{r.Class}</td>
                     <td className="px-2 py-2">
-                      {r.Type === 'CLUBBED'
+                      {r.Type === 'CANCELLED'
+                        ? <span className="text-orange-700 font-semibold">🚫 Class Cancelled</span>
+                        : r.Type === 'CLUBBED'
                         ? <span className="text-amber-700 font-semibold">🔀 {shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
                         : <span className="font-semibold text-slate-800">{shortName(r.Substitute)}</span>
                       }
                     </td>
                     <td className="px-2 py-2">
-                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                        {r.Type === 'CLUBBED' ? 'CLUB' : 'SUB'}
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                        r.Type === 'CANCELLED' ? 'bg-orange-100 text-orange-700' :
+                        r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {r.Type === 'CANCELLED' ? 'CANCEL' : r.Type === 'CLUBBED' ? 'CLUB' : 'SUB'}
                       </span>
                     </td>
                   </tr>
@@ -574,6 +663,7 @@ function ArrangementTab({
 interface PeriodRowProps {
   df: TimetableRow[]; e: AbsentPeriod; teacher: string; selectedDay: string;
   absentTeachers: string[]; absentPeriods: AbsentPeriod[];
+  cancelledClasses: string[]; useCancelledTeachers: boolean;
   subs: Record<string, string>; clubs: Record<string, boolean>;
   subWl: Record<string, number>;
   onSetSub: (t: string, p: number, v: string) => void;
@@ -582,6 +672,7 @@ interface PeriodRowProps {
 
 function PeriodRow({
   df, e, teacher, selectedDay, absentTeachers, absentPeriods,
+  cancelledClasses, useCancelledTeachers,
   subs, clubs, subWl, onSetSub, onSetClub,
 }: PeriodRowProps) {
   const k = subKey(e.teacher, e.period);
@@ -589,7 +680,10 @@ function PeriodRow({
   const clubMode = clubs[k] ?? false;
   const isAssigned = !!currentSub;
 
-  const periodBusy = useMemo(() => busySet(df, selectedDay, e.period), [df, selectedDay, e.period]);
+  const periodBusy = useMemo(
+    () => busySetExcludingCancelled(df, selectedDay, e.period, cancelledClasses, useCancelledTeachers),
+    [df, selectedDay, e.period, cancelledClasses, useCancelledTeachers],
+  );
   const alreadyThis = useMemo(() => new Set(
     absentPeriods
       .filter(e2 => e2.period === e.period && e2.teacher !== teacher)

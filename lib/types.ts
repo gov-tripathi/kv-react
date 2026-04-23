@@ -21,7 +21,7 @@ export interface ReportRow {
   Class: string;
   Subject: string;
   Substitute: string;
-  Type: 'SUBSTITUTE' | 'CLUBBED';
+  Type: 'SUBSTITUTE' | 'CLUBBED' | 'CANCELLED';
   Sub_Own_Class: string;
   Sub_Own_Subject: string;
 }

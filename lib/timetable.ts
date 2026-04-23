@@ -36,6 +36,43 @@ export function getAllTeachers(df: TimetableRow[]): string[] {
   return [...new Set(df.map(r => r.Teacher_Name))].sort();
 }
 
+export function getAllClasses(df: TimetableRow[]): string[] {
+  const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+  return [...new Set(df.map(r => r.Class))].sort((a, b) => {
+    const [aNum, aSec = ''] = a.split(' ');
+    const [bNum, bSec = ''] = b.split(' ');
+    const ai = order.indexOf(aNum), bi = order.indexOf(bNum);
+    if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    return aSec.localeCompare(bSec);
+  });
+}
+
+export function getCancelledPeriods(
+  df: TimetableRow[], cancelledClasses: string[], day: string,
+): AbsentPeriod[] {
+  if (!cancelledClasses.length) return [];
+  return df
+    .filter(r => r.Day === day && cancelledClasses.includes(r.Class))
+    .map(r => ({ teacher: r.Teacher_Name, period: r.Period, cls: r.Class, subj: r.Subject }))
+    .sort((a, b) => a.period - b.period || a.cls.localeCompare(b.cls));
+}
+
+export function busySetExcludingCancelled(
+  df: TimetableRow[], day: string, period: number,
+  cancelledClasses: string[], useCancelledTeachers: boolean,
+): Set<string> {
+  const rows = df.filter(r => r.Day === day && r.Period === period);
+  if (!useCancelledTeachers || !cancelledClasses.length) {
+    return new Set(rows.map(r => r.Teacher_Name));
+  }
+  const result = new Set<string>();
+  for (const t of new Set(rows.map(r => r.Teacher_Name))) {
+    const hasNonCancelled = rows.some(r => r.Teacher_Name === t && !cancelledClasses.includes(r.Class));
+    if (hasNonCancelled) result.add(t);
+  }
+  return result;
+}
+
 export function getSchedule(df: TimetableRow[], teacher: string, day: string): TimetableRow[] {
   return df
     .filter(r => r.Teacher_Name === teacher && r.Day === day)
@@ -88,6 +125,8 @@ export function autoFillAll(
   absentTeachers: string[],
   day: string,
   currentSubs: Record<string, string>,
+  cancelledClasses: string[] = [],
+  useCancelledTeachers: boolean = false,
 ): Record<string, string> {
   const newSubs = { ...currentSubs };
   const subWl: Record<string, number> = {};
@@ -102,7 +141,7 @@ export function autoFillAll(
     const key = `${e.teacher}__${e.period}`;
     if (newSubs[key]) continue;
 
-    const periodBusy = busySet(df, day, e.period);
+    const periodBusy = busySetExcludingCancelled(df, day, e.period, cancelledClasses, useCancelledTeachers);
     const alreadyThis = new Set(
       absentPeriods
         .filter(e2 => e2.period === e.period && e2.teacher !== e.teacher)
@@ -150,21 +189,46 @@ export function buildReportRows(
   });
 }
 
+export function buildReportRowsWithCancelled(
+  df: TimetableRow[],
+  absentPeriods: AbsentPeriod[],
+  cancelledPeriods: AbsentPeriod[],
+  subs: Record<string, string>,
+  clubs: Record<string, boolean>,
+  day: string,
+  dateStr: string,
+): ReportRow[] {
+  const subRows = buildReportRows(df, absentPeriods, subs, clubs, day, dateStr);
+  const cancelRows: ReportRow[] = cancelledPeriods.map(e => ({
+    Date: dateStr, Day: day, Period: e.period,
+    Absent_Teacher: e.teacher, Class: e.cls, Subject: e.subj,
+    Substitute: 'Class Cancelled', Type: 'CANCELLED',
+    Sub_Own_Class: '', Sub_Own_Subject: '',
+  }));
+  return [...subRows, ...cancelRows].sort((a, b) => a.Period - b.Period || a.Class.localeCompare(b.Class));
+}
+
 export function whatsappText(rows: ReportRow[], day: string, dateStr: string): string {
   const lines: string[] = [
     `📋 *KV BURHANPUR ARRANGEMENT*`,
     `📅 ${day}, ${dateStr}`,
     '',
   ];
-  const absentList = [...new Set(rows.map(r => r.Absent_Teacher))];
-  lines.push(`🔴 Absent: ${absentList.map(shortName).join(', ')}`);
+  const subRows = rows.filter(r => r.Type !== 'CANCELLED');
+  const cancelRows = rows.filter(r => r.Type === 'CANCELLED');
+  const absentList = [...new Set(subRows.map(r => r.Absent_Teacher))];
+  if (absentList.length) lines.push(`🔴 Absent: ${absentList.map(shortName).join(', ')}`);
+  const cancelledClassList = [...new Set(cancelRows.map(r => r.Class))];
+  if (cancelledClassList.length) lines.push(`🚫 Cancelled Classes: ${cancelledClassList.join(', ')}`);
   lines.push('');
 
   const periods = [...new Set(rows.map(r => r.Period))].sort((a, b) => a - b);
   for (const p of periods) {
     lines.push(`*Period ${p}*`);
     for (const r of rows.filter(row => row.Period === p)) {
-      if (r.Type === 'CLUBBED') {
+      if (r.Type === 'CANCELLED') {
+        lines.push(`  🚫  ${r.Class} (${r.Subject}) — *Class Cancelled* _(${shortName(r.Absent_Teacher)})_`);
+      } else if (r.Type === 'CLUBBED') {
         const clubInfo = r.Sub_Own_Class + (r.Sub_Own_Subject ? ` · ${r.Sub_Own_Subject}` : '');
         const clubNote = clubInfo ? ` _(clubbing with ${clubInfo})_` : '';
         lines.push(`  🔀  ${r.Class} (${r.Subject}) — ${shortName(r.Absent_Teacher)} → *${shortName(r.Substitute)}*${clubNote}`);
