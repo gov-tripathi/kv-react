@@ -63,6 +63,7 @@ export function buildAbsentPeriods(
   const periods: AbsentPeriod[] = [];
   for (const t of teachers) {
     for (const row of getSchedule(df, t, day)) {
+      if (row.Subject === 'Not Req') continue;
       periods.push({ teacher: t, period: row.Period, cls: row.Class, subj: row.Subject });
     }
   }
@@ -91,7 +92,7 @@ export function autoFillAll(
   const newSubs = { ...currentSubs };
   const subWl: Record<string, number> = {};
 
-  for (const [k, v] of Object.entries(newSubs)) {
+  for (const [, v] of Object.entries(newSubs)) {
     if (v) subWl[v] = (subWl[v] ?? 0) + 1;
   }
 
