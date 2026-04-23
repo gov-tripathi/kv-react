@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, FormEvent } from 'react';
 import Papa from 'papaparse';
 import {
   TimetableRow, AbsentPeriod, ReportRow, TeacherData,
@@ -14,6 +14,62 @@ import {
 } from '@/lib/timetable';
 import { generatePDF } from '@/lib/pdf';
 
+// ─── auth ─────────────────────────────────────────────────────────────────────
+const USERS: Record<string, string> = {
+  'iamgovind560@gmail.com': 'govind@kv2025',
+  'nt4472@gmail.com': 'nt4472@6065',
+};
+
+function LoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (USERS[email.trim()] === password) {
+      try { localStorage.setItem('kv_auth', email.trim()); } catch {}
+      onLogin();
+    } else {
+      setError('Invalid email or password.');
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+        <h1 className="text-xl font-bold text-slate-800 mb-1 text-center">KV Burhanpur</h1>
+        <p className="text-sm text-slate-500 text-center mb-6">Arrangement System</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+            <input
+              type="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="you@example.com" autoComplete="email"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Password</label>
+            <input
+              type="password" value={password} onChange={e => { setPassword(e.target.value); setError(''); }}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="••••••••" autoComplete="current-password"
+            />
+          </div>
+          {error && <p className="text-red-500 text-xs">{error}</p>}
+          <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
+          >
+            Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── tiny helpers ────────────────────────────────────────────────────────────
 const subKey = (teacher: string, period: number) => `${teacher}__${period}`;
 
@@ -24,6 +80,9 @@ function todayDate(): string {
 
 // ─── component ───────────────────────────────────────────────────────────────
 export default function App() {
+  const [authed, setAuthed] = useState(() => {
+    try { return !!localStorage.getItem('kv_auth'); } catch { return false; }
+  });
   const [df, setDf] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status'>('arrangement');
@@ -141,6 +200,8 @@ export default function App() {
     a.download = 'arrangements_log.csv'; a.click();
     URL.revokeObjectURL(url);
   }, [log]);
+
+  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
   if (loading) return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center">
