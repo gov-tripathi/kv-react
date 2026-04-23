@@ -100,7 +100,7 @@ export default function App() {
 
   const handleSetClub = useCallback((teacher: string, period: number, val: boolean) => {
     setClubs(prev => ({ ...prev, [subKey(teacher, period)]: val }));
-    if (!val) setSubs(prev => ({ ...prev, [subKey(teacher, period)]: '' }));
+    setSubs(prev => ({ ...prev, [subKey(teacher, period)]: '' }));
     setReport(null);
   }, []);
 
@@ -564,11 +564,13 @@ function PeriodRow({
   }
 
   let statusEl: React.ReactNode;
-  if (!isAssigned) {
+  if (clubMode && !isAssigned) {
+    statusEl = <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">🔀 Club — select teacher</span>;
+  } else if (!isAssigned) {
     statusEl = <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">● Unassigned</span>;
   } else if (clubMode) {
     const [tc] = teacherPeriodInfo(df, currentSub, selectedDay, e.period);
-    statusEl = <span className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">🔀 Clubbed · {tc || shortName(currentSub)}</span>;
+    statusEl = <span className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">🔀 Clubbed · {shortName(currentSub)}{tc ? ` (${tc})` : ''}</span>;
   } else {
     statusEl = (
       <span className="text-xs font-semibold text-emerald-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 flex items-center gap-1">
