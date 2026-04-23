@@ -219,22 +219,25 @@ export function whatsappText(rows: ReportRow[], day: string, dateStr: string): s
   const absentList = [...new Set(subRows.map(r => r.Absent_Teacher))];
   if (absentList.length) lines.push(`🔴 Absent: ${absentList.map(shortName).join(', ')}`);
   const cancelledClassList = [...new Set(cancelRows.map(r => r.Class))];
-  if (cancelledClassList.length) lines.push(`🚫 Cancelled Classes: ${cancelledClassList.join(', ')}`);
   lines.push('');
 
-  const periods = [...new Set(rows.map(r => r.Period))].sort((a, b) => a - b);
+  const periods = [...new Set(subRows.map(r => r.Period))].sort((a, b) => a - b);
   for (const p of periods) {
     lines.push(`*Period ${p}*`);
-    for (const r of rows.filter(row => row.Period === p)) {
-      if (r.Type === 'CANCELLED') {
-        lines.push(`  🚫  ${r.Class} (${r.Subject}) — *Class Cancelled* _(${shortName(r.Absent_Teacher)})_`);
-      } else if (r.Type === 'CLUBBED') {
+    for (const r of subRows.filter(row => row.Period === p)) {
+      if (r.Type === 'CLUBBED') {
         const clubInfo = r.Sub_Own_Class + (r.Sub_Own_Subject ? ` · ${r.Sub_Own_Subject}` : '');
         const clubNote = clubInfo ? ` _(clubbing with ${clubInfo})_` : '';
         lines.push(`  🔀  ${r.Class} (${r.Subject}) — ${shortName(r.Absent_Teacher)} → *${shortName(r.Substitute)}*${clubNote}`);
       } else {
         lines.push(`  ✅  ${r.Class} (${r.Subject}) — ${shortName(r.Absent_Teacher)} → *${shortName(r.Substitute)}*`);
       }
+    }
+    lines.push('');
+  }
+  if (cancelledClassList.length) {
+    for (const cls of cancelledClassList) {
+      lines.push(`🚫 _${cls} has been cancelled_`);
     }
     lines.push('');
   }
