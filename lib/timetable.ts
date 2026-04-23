@@ -2,8 +2,9 @@ import { TimetableRow, AbsentPeriod, ReportRow } from './types';
 
 export const DAYS_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 export const ALL_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
+// JS getDay(): 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
 export const DAY_MAP: Record<number, string> = {
-  0: 'MON', 1: 'TUE', 2: 'WED', 3: 'THU', 4: 'FRI', 5: 'SAT', 6: 'MON',
+  0: 'SUN', 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI', 6: 'SAT',
 };
 
 const AVATAR_COLORS = [
