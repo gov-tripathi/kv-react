@@ -225,6 +225,11 @@ export default function App() {
             <p className="text-xs opacity-75 mt-0.5">Teacher Arrangement &amp; Substitution · Academic Year 2026-27</p>
           </div>
           <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto flex-shrink-0 object-contain" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.25))' }} />
+          <button
+            onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
+            className="ml-2 text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg transition-colors flex-shrink-0"
+            title="Sign out"
+          >⎋ Out</button>
         </div>
 
         {/* Morning Setup */}
