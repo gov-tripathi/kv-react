@@ -95,8 +95,8 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
       1: { cellWidth: 32 },
-      2: { halign: 'center', cellWidth: 10 },
-      3: { halign: 'center', cellWidth: 20 },
+      2: { halign: 'center', cellWidth: 10, fontStyle: 'bolditalic' },
+      3: { halign: 'center', cellWidth: 20, fontStyle: 'bolditalic' },
       4: { halign: 'center', cellWidth: 22 },
       5: { cellWidth: 42 },
       6: { halign: 'center', cellWidth: 14 },
