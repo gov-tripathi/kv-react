@@ -1000,8 +1000,8 @@ interface StatusProps {
 }
 
 function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs }: StatusProps) {
-  // Full-day absent teachers are hidden; half-day absent teachers are shown
-  // with their available periods rendered normally and absent periods marked.
+  const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher');
+
   const halfDayAbsent = absentTeachers.filter(t => absenceConfigs[t]?.halfDay);
   const presentTeachers = [
     ...allTeachers.filter(t => !absentTeachers.includes(t)),
@@ -1062,6 +1062,30 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
     });
   }, [df, presentTeachers, selectedDay, absentPeriods, subs]);
 
+  const classData = useMemo(() => {
+    const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+    const classes = [...new Set(
+      df.filter(r => r.Day === selectedDay && r.Subject !== 'Not Req' && order.includes(r.Class.split(' ')[0]))
+        .map(r => r.Class),
+    )].sort((a, b) => {
+      const [aNum, aSec = ''] = a.split(' ');
+      const [bNum, bSec = ''] = b.split(' ');
+      const ai = order.indexOf(aNum), bi = order.indexOf(bNum);
+      if (ai !== bi) return ai - bi;
+      return aSec.localeCompare(bSec);
+    });
+    return classes.map(cls => {
+      const periods = ALL_PERIODS.flatMap(p => {
+        const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && r.Subject !== 'Not Req');
+        if (!row) return [];
+        const isAbsent = isTeacherAbsentInPeriod(row.Teacher_Name, p, absentTeachers, absenceConfigs);
+        const sub = isAbsent ? (subs[`${row.Teacher_Name}__${p}`] || null) : null;
+        return [{ period: p, teacher: row.Teacher_Name, subject: row.Subject, isAbsent, substitute: sub }];
+      });
+      return { cls, periods };
+    }).filter(c => c.periods.length > 0);
+  }, [df, selectedDay, absentTeachers, absenceConfigs, subs]);
+
   const nPresent = presentTeachers.length;
   const nAbsent = absentTeachers.length;
   const nFreeAll = teacherData.filter(td => td.freeCount === 8).length;
@@ -1109,12 +1133,29 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         </div>
       )}
 
-      {/* Teacher grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {teacherData.map(td => (
-          <TeacherStatusCard key={td.name} td={td} />
+      {/* View toggle */}
+      <div className="flex bg-white rounded-xl shadow-sm border border-slate-100 mb-4 overflow-hidden">
+        {(['teacher', 'class'] as const).map(v => (
+          <button key={v} onClick={() => setViewMode(v)}
+            className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+              viewMode === v ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'
+            }`}>
+            {v === 'teacher' ? '👥 Teacher View' : '🏫 Class View'}
+          </button>
         ))}
       </div>
+
+      {viewMode === 'teacher' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {teacherData.map(td => <TeacherStatusCard key={td.name} td={td} />)}
+        </div>
+      )}
+
+      {viewMode === 'class' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {classData.map(cd => <ClassStatusCard key={cd.cls} cd={cd} />)}
+        </div>
+      )}
     </>
   );
 }
@@ -1177,6 +1218,60 @@ function TeacherStatusCard({ td }: { td: TeacherData }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Class Status Card
+// ─────────────────────────────────────────────────────────────────────────────
+type ClassPeriodInfo = {
+  period: number; teacher: string; subject: string;
+  isAbsent: boolean; substitute: string | null;
+};
+
+function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[] } }) {
+  const hasIssue = cd.periods.some(p => p.isAbsent);
+
+  return (
+    <div className={`bg-white rounded-2xl p-3.5 shadow-sm ${hasIssue ? 'ring-1 ring-amber-200' : ''}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-9 h-9 rounded-xl bg-blue-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          {cd.cls.replace(' ', '')}
+        </div>
+        <div>
+          <div className="text-sm font-bold text-slate-800">Class {cd.cls}</div>
+          <div className="text-xs text-slate-400">{cd.periods.length} periods today</div>
+        </div>
+      </div>
+
+      {/* Period rows */}
+      <div className="space-y-1">
+        {cd.periods.map(p => (
+          <div key={p.period} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
+            p.isAbsent && !p.substitute ? 'bg-red-50' :
+            p.isAbsent ? 'bg-amber-50' : 'bg-slate-50'
+          }`}>
+            <span className="text-xs font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
+            <span className="text-xs text-slate-500 w-16 flex-shrink-0 truncate">{p.subject}</span>
+            <div className="flex-1 min-w-0 flex items-center gap-1">
+              {p.isAbsent ? (
+                <>
+                  <span className="text-xs text-red-400 line-through truncate">{shortName(p.teacher)}</span>
+                  {p.substitute
+                    ? <><span className="text-xs text-slate-400 flex-shrink-0">→</span>
+                        <span className="text-xs font-semibold text-amber-700 truncate">{shortName(p.substitute)}</span></>
+                    : <span className="text-xs font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
+                  }
+                </>
+              ) : (
+                <span className="text-xs font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
