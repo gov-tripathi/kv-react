@@ -470,6 +470,15 @@ function ArrangementTab({
   onAutoFill, onSetSub, onSetClub, onGenerateReport,
   onDownloadPDF, onDownloadCSV, onDownloadLog,
 }: ArrProps) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopyWA() {
+    if (!report) return;
+    navigator.clipboard.writeText(whatsappText(report, selectedDay, dateVal)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   if (!absentTeachers.length && !cancelledClasses.length) return (
     <div className="text-center py-16 text-slate-400">
@@ -626,7 +635,15 @@ function ArrangementTab({
 
           {/* WhatsApp text */}
           <div className="mb-4">
-            <p className="text-xs font-semibold text-slate-500 mb-1">📱 WhatsApp Summary</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-semibold text-slate-500">Time-Table In-Charge(Primary)</p>
+              <button
+                onClick={handleCopyWA}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors ${copied ? 'bg-green-50 text-green-700 border-green-300' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'}`}
+              >
+                {copied ? '✓ Copied!' : '📋 Copy'}
+              </button>
+            </div>
             <textarea
               readOnly
               value={whatsappText(report, selectedDay, dateVal)}
