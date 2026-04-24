@@ -247,26 +247,28 @@ export default function App() {
       <div className="max-w-3xl mx-auto px-3 py-4 pb-20">
 
         {/* Header */}
-        <div className="rounded-2xl px-4 pt-3 pb-4 mb-4 text-white"
+        <div className="relative rounded-2xl px-4 pt-4 pb-4 mb-4 text-white overflow-hidden"
           style={{ background: 'linear-gradient(135deg,#1E3A8A 0%,#2563EB 60%,#3B82F6 100%)', boxShadow: '0 4px 24px rgba(37,99,235,.3)' }}>
-          {/* Logo row */}
-          <div className="flex items-center justify-between mb-2">
-            <img src="/2023042075.png" alt="KV Logo" className="h-11 w-auto object-contain flex-shrink-0"
-              style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.25))' }} />
-            <div className="flex items-center gap-2">
-              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto object-contain flex-shrink-0"
-                style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.25))' }} />
-              <button
-                onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
-                className="text-xs bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-lg transition-colors flex-shrink-0"
-                title="Sign out"
-              >⎋ Out</button>
+          {/* Sign-out — absolute top-right corner */}
+          <button
+            onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
+            className="absolute top-2.5 right-2.5 text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-full transition-colors leading-tight"
+            title="Sign out"
+          >⎋ Out</button>
+
+          {/* Logos + title centred together */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="flex items-center gap-3">
+              <img src="/2023042075.png" alt="KV Logo" className="h-10 w-auto object-contain"
+                style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.3))' }} />
+              <div className="text-center">
+                <h1 className="text-base font-extrabold tracking-tight leading-tight">KV Burhanpur</h1>
+                <p className="text-[10px] opacity-60 leading-tight">PM SHRI KENDRIYA VIDYALAYA</p>
+              </div>
+              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-8 w-auto object-contain"
+                style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.3))' }} />
             </div>
-          </div>
-          {/* Title row */}
-          <div className="text-center">
-            <h1 className="text-lg font-extrabold tracking-tight leading-tight">🏫 KV Burhanpur</h1>
-            <p className="text-xs opacity-70 mt-0.5">Teacher Arrangement &amp; Substitution · 2026-27</p>
+            <p className="text-[11px] opacity-70 tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
           </div>
         </div>
 
@@ -495,7 +497,7 @@ export default function App() {
             df={df} allTeachers={allTeachers}
             absentTeachers={absentTeachers} absentPeriods={absentPeriods}
             absenceConfigs={absenceConfigs}
-            selectedDay={selectedDay} subs={subs}
+            selectedDay={selectedDay} subs={subs} clubs={clubs}
             cancelledClasses={cancelledClasses}
             schoolMaxPeriod={schoolMaxPeriod}
           />
@@ -980,12 +982,12 @@ interface StatusProps {
   df: TimetableRow[]; allTeachers: string[];
   absentTeachers: string[]; absentPeriods: AbsentPeriod[];
   absenceConfigs: Record<string, AbsenceConfig>;
-  selectedDay: string; subs: Record<string, string>;
+  selectedDay: string; subs: Record<string, string>; clubs: Record<string, boolean>;
   cancelledClasses: string[];
   schoolMaxPeriod: number;
 }
 
-function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, cancelledClasses, schoolMaxPeriod }: StatusProps) {
+function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, clubs, cancelledClasses, schoolMaxPeriod }: StatusProps) {
   const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher');
   const activePeriods = ALL_PERIODS.filter(p => p <= schoolMaxPeriod);
 
@@ -1008,13 +1010,17 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         }
       }
       const isHalfDayAbsent = absentTeachers.includes(t) && !!absenceConfigs[t]?.halfDay;
-      const periodStatus: Record<number, 'teaching' | 'sub' | 'free' | 'notReq' | 'absent'> = {};
+      const periodStatus: Record<number, 'teaching' | 'sub' | 'clubbed' | 'free' | 'notReq' | 'absent'> = {};
       const periodClass: Record<number, string> = {};
       for (const p of activePeriods) {
         // For half-day absent teachers, mark their absent periods
         if (isHalfDayAbsent && isTeacherAbsentInPeriod(t, p, absentTeachers, absenceConfigs)) {
           periodStatus[p] = 'absent';
           periodClass[p] = 'Absent';
+        } else if (subPs.has(p) && (clubs[`${subFor[p]}__${p}`] ?? false)) {
+          // Clubbing: teacher covers absent class while staying in their own
+          periodStatus[p] = 'clubbed';
+          periodClass[p] = `Clubbing ${shortName(subFor[p])}`;
         } else if (masterPs.has(p)) {
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
           if (row?.Subject === 'Not Req') {
@@ -1068,11 +1074,12 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         if (!row) return [];
         const isAbsent = isTeacherAbsentInPeriod(row.Teacher_Name, p, absentTeachers, absenceConfigs);
         const sub = isAbsent ? (subs[`${row.Teacher_Name}__${p}`] || null) : null;
-        return [{ period: p, teacher: row.Teacher_Name, subject: row.Subject, isAbsent, substitute: sub }];
+        const isClub = isAbsent && !!(sub) && !!(clubs[`${row.Teacher_Name}__${p}`]);
+        return [{ period: p, teacher: row.Teacher_Name, subject: row.Subject, isAbsent, substitute: sub, isClub }];
       });
       return { cls, periods, isCancelled };
     }).filter(c => c.periods.length > 0);
-  }, [df, selectedDay, absentTeachers, absenceConfigs, subs]);
+  }, [df, selectedDay, absentTeachers, absenceConfigs, subs, clubs]);
 
   const nPresent = presentTeachers.length;
   const nAbsent = absentTeachers.length;
@@ -1101,7 +1108,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
 
       {/* Legend */}
       <div className="flex gap-4 mb-3 flex-wrap">
-        {[['#3B82F6', 'Teaching'], ['#F59E0B', 'Substituting'], ['#E2E8F0', 'Free'], ['#A855F7', 'Upper Class'], ['#FCA5A5', 'Absent']].map(([c, l]) => (
+        {[['#3B82F6', 'Teaching'], ['#F59E0B', 'Substituting'], ['#F97316', 'Clubbing'], ['#E2E8F0', 'Free'], ['#A855F7', 'Upper Class'], ['#FCA5A5', 'Absent']].map(([c, l]) => (
           <span key={l} className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
             <span className="w-3 h-3 rounded-sm inline-block" style={{ background: c }} />
             {l}
@@ -1154,8 +1161,8 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
   const loadPct = activePeriods.length ? busyCount / activePeriods.length : 0;
   const barColor = loadPct >= 0.75 ? '#EF4444' : loadPct >= 0.5 ? '#F59E0B' : '#10B981';
 
-  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', free: '#E2E8F0', notReq: '#A855F7', absent: '#FCA5A5' };
-  const dotText  = { teaching: '#fff',    sub: '#fff',    free: '#94A3B8', notReq: '#fff',    absent: '#EF4444' };
+  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', clubbed: '#F97316', free: '#E2E8F0', notReq: '#A855F7', absent: '#FCA5A5' };
+  const dotText  = { teaching: '#fff',    sub: '#fff',    clubbed: '#fff',    free: '#94A3B8', notReq: '#fff',    absent: '#EF4444' };
 
   return (
     <div className="bg-white rounded-2xl p-3.5 shadow-sm">
@@ -1180,7 +1187,7 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
       <div className="flex gap-1 flex-wrap mb-2">
         {activePeriods.map(p => {
           const s = td.periodStatus[p];
-          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'notReq' ? 'UC' : s === 'absent' ? 'A' : String(p);
+          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'clubbed' ? 'C' : s === 'notReq' ? 'UC' : s === 'absent' ? 'A' : String(p);
           return (
             <div key={p} title={`P${p}: ${td.periodClass[p] || s}`}
               className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-default"
@@ -1215,7 +1222,7 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
 // ─────────────────────────────────────────────────────────────────────────────
 type ClassPeriodInfo = {
   period: number; teacher: string; subject: string;
-  isAbsent: boolean; substitute: string | null;
+  isAbsent: boolean; substitute: string | null; isClub: boolean;
 };
 
 function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]; isCancelled: boolean } }) {
@@ -1246,6 +1253,7 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
         {cd.periods.map(p => (
           <div key={p.period} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
             p.isAbsent && !p.substitute ? 'bg-red-50' :
+            p.isClub ? 'bg-orange-50' :
             p.isAbsent ? 'bg-amber-50' : 'bg-slate-50'
           }`}>
             <span className="text-xs font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
@@ -1256,7 +1264,8 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
                   <span className="text-xs text-red-400 line-through truncate">{shortName(p.teacher)}</span>
                   {p.substitute
                     ? <><span className="text-xs text-slate-400 flex-shrink-0">→</span>
-                        <span className="text-xs font-semibold text-amber-700 truncate">{shortName(p.substitute)}</span></>
+                        <span className={`text-xs font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>{shortName(p.substitute)}</span>
+                        {p.isClub && <span className="text-xs font-bold text-orange-500 flex-shrink-0">CLUB</span>}</>
                     : <span className="text-xs font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
                   }
                 </>
