@@ -46,11 +46,16 @@ export function getNotReqTeachersForPeriod(df: TimetableRow[], day: string, peri
 
 export function getAllClasses(df: TimetableRow[]): string[] {
   const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
-  return [...new Set(df.filter(r => r.Subject !== 'Not Req').map(r => r.Class))].sort((a, b) => {
+  return [...new Set(
+    df
+      .filter(r => r.Subject !== 'Not Req')
+      .map(r => r.Class)
+      .filter(cls => order.includes(cls.split(' ')[0])), // only valid Roman-numeral classes
+  )].sort((a, b) => {
     const [aNum, aSec = ''] = a.split(' ');
     const [bNum, bSec = ''] = b.split(' ');
     const ai = order.indexOf(aNum), bi = order.indexOf(bNum);
-    if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    if (ai !== bi) return ai - bi;
     return aSec.localeCompare(bSec);
   });
 }
@@ -165,7 +170,7 @@ const G3_START_IDX = 10;
 const MOHIT_IDX    = 0;
 const AMIT_IDX     = PRIORITY_SEQ.length - 1;
 
-function priorityIdx(teacher: string): number {
+export function priorityIdx(teacher: string): number {
   const sn = shortName(teacher).toUpperCase();
   const idx = PRIORITY_SEQ.findIndex(pats => pats.some(p => sn.includes(p)));
   return idx === -1 ? PRIORITY_SEQ.length : idx; // unknown → lowest priority

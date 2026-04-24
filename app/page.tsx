@@ -10,7 +10,7 @@ import {
   avColor, avInitials, shortName, getAllTeachers, getAllClasses,
   getSchedule, busySetExcludingCancelled, teacherPeriodInfo, masterLoad,
   buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
-  buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod, getNotReqTeachersForPeriod,
+  buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod, getNotReqTeachersForPeriod, priorityIdx,
 } from '@/lib/timetable';
 import type { AbsenceConfig } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
@@ -909,7 +909,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
             periodClass[p] = 'Upper Class';
           } else {
             periodStatus[p] = 'teaching';
-            periodClass[p] = row?.Class ?? '';
+            periodClass[p] = row ? `${row.Class} · ${row.Subject}` : '';
           }
         } else if (subPs.has(p)) {
           periodStatus[p] = 'sub';
@@ -924,7 +924,16 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         name: t, periodStatus, periodClass,
         masterCount: masterPs.size, subCount: subPs.size, freeCount,
       };
-    }).sort((a, b) => b.freeCount - a.freeCount || a.name.localeCompare(b.name));
+    }).sort((a, b) => {
+      // G3 first → G2 → G1; within each group last-to-first (descending priority index)
+      // Unknown teachers (not in any group) go at the very end
+      const TOTAL = 14; // PRIORITY_SEQ.length
+      const pa = priorityIdx(a.name), pb = priorityIdx(b.name);
+      const sa = pa >= TOTAL ? -1 : pa; // unknown → -1 (sort last)
+      const sb = pb >= TOTAL ? -1 : pb;
+      if (sa !== sb) return sb - sa; // descending: higher index first
+      return a.name.localeCompare(b.name);
+    });
   }, [df, presentTeachers, selectedDay, absentPeriods, subs]);
 
   const nPresent = presentTeachers.length;
