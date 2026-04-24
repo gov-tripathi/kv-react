@@ -496,6 +496,7 @@ export default function App() {
             absentTeachers={absentTeachers} absentPeriods={absentPeriods}
             absenceConfigs={absenceConfigs}
             selectedDay={selectedDay} subs={subs}
+            cancelledClasses={cancelledClasses}
           />
         )}
       </div>
@@ -979,9 +980,10 @@ interface StatusProps {
   absentTeachers: string[]; absentPeriods: AbsentPeriod[];
   absenceConfigs: Record<string, AbsenceConfig>;
   selectedDay: string; subs: Record<string, string>;
+  cancelledClasses: string[];
 }
 
-function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs }: StatusProps) {
+function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, cancelledClasses }: StatusProps) {
   const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher');
 
   const halfDayAbsent = absentTeachers.filter(t => absenceConfigs[t]?.halfDay);
@@ -1057,6 +1059,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       return aSec.localeCompare(bSec);
     });
     return classes.map(cls => {
+      const isCancelled = cancelledClasses.includes(cls);
       const periods = ALL_PERIODS.flatMap(p => {
         const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && r.Subject !== 'Not Req');
         if (!row) return [];
@@ -1064,7 +1067,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         const sub = isAbsent ? (subs[`${row.Teacher_Name}__${p}`] || null) : null;
         return [{ period: p, teacher: row.Teacher_Name, subject: row.Subject, isAbsent, substitute: sub }];
       });
-      return { cls, periods };
+      return { cls, periods, isCancelled };
     }).filter(c => c.periods.length > 0);
   }, [df, selectedDay, absentTeachers, absenceConfigs, subs]);
 
@@ -1212,23 +1215,30 @@ type ClassPeriodInfo = {
   isAbsent: boolean; substitute: string | null;
 };
 
-function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[] } }) {
-  const hasIssue = cd.periods.some(p => p.isAbsent);
+function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]; isCancelled: boolean } }) {
+  const hasIssue = !cd.isCancelled && cd.periods.some(p => p.isAbsent);
 
   return (
-    <div className={`bg-white rounded-2xl p-3.5 shadow-sm ${hasIssue ? 'ring-1 ring-amber-200' : ''}`}>
+    <div className={`rounded-2xl p-3.5 shadow-sm ${
+      cd.isCancelled ? 'bg-orange-50 ring-1 ring-orange-200' :
+      hasIssue ? 'bg-white ring-1 ring-amber-200' : 'bg-white'
+    }`}>
       {/* Header */}
       <div className="flex items-center gap-2.5 mb-3">
-        <div className="w-9 h-9 rounded-xl bg-blue-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${cd.isCancelled ? 'bg-orange-400' : 'bg-blue-700'}`}>
           {cd.cls.replace(' ', '')}
         </div>
-        <div>
+        <div className="flex-1">
           <div className="text-sm font-bold text-slate-800">Class {cd.cls}</div>
-          <div className="text-xs text-slate-400">{cd.periods.length} periods today</div>
+          {cd.isCancelled
+            ? <div className="text-xs font-semibold text-orange-600">🚫 Class Cancelled</div>
+            : <div className="text-xs text-slate-400">{cd.periods.length} periods today</div>
+          }
         </div>
       </div>
 
-      {/* Period rows */}
+      {/* Period rows — hidden when cancelled */}
+      {!cd.isCancelled && (
       <div className="space-y-1">
         {cd.periods.map(p => (
           <div key={p.period} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
@@ -1254,6 +1264,7 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
