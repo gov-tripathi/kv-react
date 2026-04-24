@@ -240,19 +240,27 @@ export default function App() {
       <div className="max-w-3xl mx-auto px-3 py-4 pb-20">
 
         {/* Header */}
-        <div className="rounded-2xl p-5 mb-4 text-white flex items-center gap-3"
+        <div className="rounded-2xl px-4 pt-3 pb-4 mb-4 text-white"
           style={{ background: 'linear-gradient(135deg,#1E3A8A 0%,#2563EB 60%,#3B82F6 100%)', boxShadow: '0 4px 24px rgba(37,99,235,.3)' }}>
-          <img src="/2023042075.png" alt="KV Logo" className="h-12 w-auto flex-shrink-0 object-contain" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.25))' }} />
-          <div className="flex-1 text-center">
-            <h1 className="text-xl font-extrabold tracking-tight">🏫 KV Burhanpur</h1>
-            <p className="text-xs opacity-75 mt-0.5">Teacher Arrangement &amp; Substitution · Academic Year 2026-27</p>
+          {/* Logo row */}
+          <div className="flex items-center justify-between mb-2">
+            <img src="/2023042075.png" alt="KV Logo" className="h-11 w-auto object-contain flex-shrink-0"
+              style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.25))' }} />
+            <div className="flex items-center gap-2">
+              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto object-contain flex-shrink-0"
+                style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.25))' }} />
+              <button
+                onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
+                className="text-xs bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-lg transition-colors flex-shrink-0"
+                title="Sign out"
+              >⎋ Out</button>
+            </div>
           </div>
-          <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto flex-shrink-0 object-contain" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.25))' }} />
-          <button
-            onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
-            className="ml-2 text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg transition-colors flex-shrink-0"
-            title="Sign out"
-          >⎋ Out</button>
+          {/* Title row */}
+          <div className="text-center">
+            <h1 className="text-lg font-extrabold tracking-tight leading-tight">🏫 KV Burhanpur</h1>
+            <p className="text-xs opacity-70 mt-0.5">Teacher Arrangement &amp; Substitution · 2026-27</p>
+          </div>
         </div>
 
         {/* Morning Setup */}
