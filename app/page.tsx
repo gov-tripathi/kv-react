@@ -497,6 +497,7 @@ export default function App() {
             absenceConfigs={absenceConfigs}
             selectedDay={selectedDay} subs={subs}
             cancelledClasses={cancelledClasses}
+            schoolMaxPeriod={schoolMaxPeriod}
           />
         )}
       </div>
@@ -981,10 +982,12 @@ interface StatusProps {
   absenceConfigs: Record<string, AbsenceConfig>;
   selectedDay: string; subs: Record<string, string>;
   cancelledClasses: string[];
+  schoolMaxPeriod: number;
 }
 
-function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, cancelledClasses }: StatusProps) {
+function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, cancelledClasses, schoolMaxPeriod }: StatusProps) {
   const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher');
+  const activePeriods = ALL_PERIODS.filter(p => p <= schoolMaxPeriod);
 
   const halfDayAbsent = absentTeachers.filter(t => absenceConfigs[t]?.halfDay);
   const presentTeachers = [
@@ -1007,7 +1010,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       const isHalfDayAbsent = absentTeachers.includes(t) && !!absenceConfigs[t]?.halfDay;
       const periodStatus: Record<number, 'teaching' | 'sub' | 'free' | 'notReq' | 'absent'> = {};
       const periodClass: Record<number, string> = {};
-      for (const p of ALL_PERIODS) {
+      for (const p of activePeriods) {
         // For half-day absent teachers, mark their absent periods
         if (isHalfDayAbsent && isTeacherAbsentInPeriod(t, p, absentTeachers, absenceConfigs)) {
           periodStatus[p] = 'absent';
@@ -1060,7 +1063,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
     });
     return classes.map(cls => {
       const isCancelled = cancelledClasses.includes(cls);
-      const periods = ALL_PERIODS.flatMap(p => {
+      const periods = activePeriods.flatMap(p => {
         const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && r.Subject !== 'Not Req');
         if (!row) return [];
         const isAbsent = isTeacherAbsentInPeriod(row.Teacher_Name, p, absentTeachers, absenceConfigs);
@@ -1132,7 +1135,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
 
       {viewMode === 'teacher' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {teacherData.map(td => <TeacherStatusCard key={td.name} td={td} />)}
+          {teacherData.map(td => <TeacherStatusCard key={td.name} td={td} activePeriods={activePeriods} />)}
         </div>
       )}
 
@@ -1145,10 +1148,10 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
   );
 }
 
-function TeacherStatusCard({ td }: { td: TeacherData }) {
+function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePeriods: number[] }) {
   const [expanded, setExpanded] = useState(false);
-  const busyCount = 8 - td.freeCount;
-  const loadPct = busyCount / 8;
+  const busyCount = activePeriods.length - td.freeCount;
+  const loadPct = activePeriods.length ? busyCount / activePeriods.length : 0;
   const barColor = loadPct >= 0.75 ? '#EF4444' : loadPct >= 0.5 ? '#F59E0B' : '#10B981';
 
   const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', free: '#E2E8F0', notReq: '#A855F7', absent: '#FCA5A5' };
@@ -1175,7 +1178,7 @@ function TeacherStatusCard({ td }: { td: TeacherData }) {
       </div>
       {/* Period dots */}
       <div className="flex gap-1 flex-wrap mb-2">
-        {ALL_PERIODS.map(p => {
+        {activePeriods.map(p => {
           const s = td.periodStatus[p];
           const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'notReq' ? 'UC' : s === 'absent' ? 'A' : String(p);
           return (
@@ -1194,7 +1197,7 @@ function TeacherStatusCard({ td }: { td: TeacherData }) {
       </button>
       {expanded && (
         <div className="mt-2 border-t border-slate-50 pt-2">
-          {ALL_PERIODS.map(p => (
+          {activePeriods.map(p => (
             <div key={p} className="flex items-center gap-2 py-0.5">
               <span className="w-5 text-xs text-slate-400 font-medium">P{p}</span>
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dotColor[td.periodStatus[p]] }} />
