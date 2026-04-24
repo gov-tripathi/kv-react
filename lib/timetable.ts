@@ -46,7 +46,7 @@ export function getNotReqTeachersForPeriod(df: TimetableRow[], day: string, peri
 
 export function getAllClasses(df: TimetableRow[]): string[] {
   const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
-  return [...new Set(df.map(r => r.Class))].sort((a, b) => {
+  return [...new Set(df.filter(r => r.Subject !== 'Not Req').map(r => r.Class))].sort((a, b) => {
     const [aNum, aSec = ''] = a.split(' ');
     const [bNum, bSec = ''] = b.split(' ');
     const ai = order.indexOf(aNum), bi = order.indexOf(bNum);
