@@ -62,10 +62,11 @@ export function getAllClasses(df: TimetableRow[]): string[] {
 
 export function getCancelledPeriods(
   df: TimetableRow[], cancelledClasses: string[], day: string,
+  maxPeriod: number = 8,
 ): AbsentPeriod[] {
   if (!cancelledClasses.length) return [];
   return df
-    .filter(r => r.Day === day && cancelledClasses.includes(r.Class))
+    .filter(r => r.Day === day && cancelledClasses.includes(r.Class) && r.Period <= maxPeriod)
     .map(r => ({ teacher: r.Teacher_Name, period: r.Period, cls: r.Class, subj: r.Subject }))
     .sort((a, b) => a.period - b.period || a.cls.localeCompare(b.cls));
 }
@@ -121,12 +122,14 @@ export function buildAbsentPeriods(
   df: TimetableRow[], teachers: string[], day: string,
   absenceConfigs: Record<string, AbsenceConfig> = {},
   cancelledClasses: string[] = [],
+  maxPeriod: number = 8,
 ): AbsentPeriod[] {
   const periods: AbsentPeriod[] = [];
   for (const t of teachers) {
     for (const row of getSchedule(df, t, day)) {
       if (row.Subject === 'Not Req') continue;
       if (cancelledClasses.includes(row.Class)) continue;
+      if (row.Period > maxPeriod) continue;
       if (!isTeacherAbsentInPeriod(t, row.Period, teachers, absenceConfigs)) continue;
       periods.push({ teacher: t, period: row.Period, cls: row.Class, subj: row.Subject });
     }

@@ -98,6 +98,8 @@ export default function App() {
   const [absenceConfigs, setAbsenceConfigs] = useState<Record<string, AbsenceConfig>>({});
   const [cancelledClasses, setCancelledClasses] = useState<string[]>([]);
   const [useCancelledTeachers, setUseCancelledTeachers] = useState(false);
+  const [schoolHalfDay, setSchoolHalfDay] = useState(false);
+  const [schoolHalfDayPeriod, setSchoolHalfDayPeriod] = useState(4);
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [clubs, setClubs] = useState<Record<string, boolean>>({});
   const [report, setReport] = useState<ReportRow[] | null>(null);
@@ -129,14 +131,16 @@ export default function App() {
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
   const allClasses = useMemo(() => getAllClasses(df), [df]);
 
+  const schoolMaxPeriod = schoolHalfDay ? schoolHalfDayPeriod : 8;
+
   const absentPeriods = useMemo(
-    () => buildAbsentPeriods(df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses),
-    [df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses],
+    () => buildAbsentPeriods(df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses, schoolMaxPeriod),
+    [df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses, schoolMaxPeriod],
   );
 
   const cancelledPeriods = useMemo(
-    () => getCancelledPeriods(df, cancelledClasses, selectedDay),
-    [df, cancelledClasses, selectedDay],
+    () => getCancelledPeriods(df, cancelledClasses, selectedDay, schoolMaxPeriod),
+    [df, cancelledClasses, selectedDay, schoolMaxPeriod],
   );
 
   // Reset subs/clubs when absent teachers or day changes
@@ -146,11 +150,13 @@ export default function App() {
     setReport(null);
   }, [selectedDay, absentTeachers]);
 
-  // Reset cancelled classes and absence configs when day changes
+  // Reset cancelled classes, absence configs and school half-day when day changes
   useEffect(() => {
     setCancelledClasses([]);
     setUseCancelledTeachers(false);
     setAbsenceConfigs({});
+    setSchoolHalfDay(false);
+    setSchoolHalfDayPeriod(4);
   }, [selectedDay]);
 
   const subWl = useMemo(
@@ -347,6 +353,36 @@ export default function App() {
               </div>
             </>
           )}
+
+          {/* School Half Day */}
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-slate-500 font-medium">School Half Day</label>
+              <button
+                onClick={() => { setSchoolHalfDay(v => !v); setReport(null); }}
+                className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${schoolHalfDay ? 'bg-blue-500' : 'bg-slate-300'}`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${schoolHalfDay ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+            {schoolHalfDay && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-400">School runs up to period</span>
+                <select
+                  value={schoolHalfDayPeriod}
+                  onChange={e => { setSchoolHalfDayPeriod(Number(e.target.value)); setReport(null); }}
+                  className="border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[36px]"
+                >
+                  {[1,2,3,4,5,6,7,8].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+                  Periods {schoolHalfDayPeriod + 1}–8 skipped
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Cancel Classes */}
           <div className="mt-3 pt-3 border-t border-slate-100">
