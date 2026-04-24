@@ -10,7 +10,7 @@ import {
   avColor, avInitials, shortName, getAllTeachers, getAllClasses,
   getSchedule, busySetExcludingCancelled, teacherPeriodInfo, masterLoad,
   buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
-  buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod, getNotReqTeachers,
+  buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod, getNotReqTeachersForPeriod,
 } from '@/lib/timetable';
 import type { AbsenceConfig } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
@@ -304,36 +304,42 @@ export default function App() {
                   </span>
                 ))}
               </div>
-              <div className="space-y-1.5 mb-2">
+              <div className="space-y-2 mb-2">
                 {absentTeachers.map(t => {
                   const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, halfDayType: 'before', halfDayPeriod: 4 };
                   return (
-                    <div key={t} className="flex items-center gap-2 text-xs flex-wrap">
-                      <span className="text-slate-500 w-28 truncate font-medium">{shortName(t)}</span>
-                      <button
-                        onClick={() => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDay: !cfg.halfDay } })); setReport(null); }}
-                        className={`px-2 py-0.5 rounded-full font-semibold border transition-colors ${cfg.halfDay ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
-                      >
-                        {cfg.halfDay ? 'Half Day' : 'Full Day'}
-                      </button>
+                    <div key={t} className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-600 font-semibold flex-1 truncate uppercase tracking-wide">{shortName(t)}</span>
+                        <button
+                          onClick={() => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDay: !cfg.halfDay } })); setReport(null); }}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors min-h-[32px] ${cfg.halfDay ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
+                        >
+                          {cfg.halfDay ? 'Half Day' : 'Full Day'}
+                        </button>
+                      </div>
                       {cfg.halfDay && (
-                        <>
-                          <span className="text-slate-400">not available</span>
+                        <div className="flex items-center gap-2 flex-wrap pl-1">
+                          <span className="text-xs text-slate-400">not available</span>
                           <select
                             value={cfg.halfDayType}
                             onChange={e2 => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDayType: e2.target.value as 'before' | 'after' } })); setReport(null); }}
-                            className="border border-slate-200 rounded-lg px-1.5 py-0.5 bg-slate-50 text-slate-700 focus:outline-none"
+                            className="border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[36px]"
                           >
                             <option value="before">before</option>
                             <option value="after">after</option>
                           </select>
-                          <span className="text-slate-400">period</span>
-                          <input
-                            type="number" min={1} max={8} value={cfg.halfDayPeriod}
-                            onChange={e2 => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDayPeriod: Math.min(8, Math.max(1, Number(e2.target.value))) } })); setReport(null); }}
-                            className="w-10 border border-slate-200 rounded-lg px-1.5 py-0.5 bg-slate-50 text-slate-700 text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </>
+                          <span className="text-xs text-slate-400">period</span>
+                          <select
+                            value={cfg.halfDayPeriod}
+                            onChange={e2 => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDayPeriod: Number(e2.target.value) } })); setReport(null); }}
+                            className="border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[36px]"
+                          >
+                            {[1,2,3,4,5,6,7,8].map(n => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                     </div>
                   );
@@ -736,7 +742,10 @@ function PeriodRow({
   ), [absentPeriods, e.period, teacher, subs]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
-  const notReqTeachers = useMemo(() => getNotReqTeachers(df), [df]);
+  const notReqTeachers = useMemo(
+    () => getNotReqTeachersForPeriod(df, selectedDay, e.period),
+    [df, selectedDay, e.period],
+  );
 
   const absentThisPeriod = useMemo(
     () => absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs)),
@@ -877,13 +886,18 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, sele
           subPs.add(e.period); subFor[e.period] = e.teacher;
         }
       }
-      const periodStatus: Record<number, 'teaching' | 'sub' | 'free'> = {};
+      const periodStatus: Record<number, 'teaching' | 'sub' | 'free' | 'notReq'> = {};
       const periodClass: Record<number, string> = {};
       for (const p of ALL_PERIODS) {
         if (masterPs.has(p)) {
-          periodStatus[p] = 'teaching';
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
-          periodClass[p] = row?.Class ?? '';
+          if (row?.Subject === 'Not Req') {
+            periodStatus[p] = 'notReq';
+            periodClass[p] = 'Upper Class';
+          } else {
+            periodStatus[p] = 'teaching';
+            periodClass[p] = row?.Class ?? '';
+          }
         } else if (subPs.has(p)) {
           periodStatus[p] = 'sub';
           periodClass[p] = `Sub for ${shortName(subFor[p])}`;
@@ -927,7 +941,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, sele
 
       {/* Legend */}
       <div className="flex gap-4 mb-3 flex-wrap">
-        {[['#3B82F6', 'Teaching'], ['#F59E0B', 'Substituting'], ['#E2E8F0', 'Free']].map(([c, l]) => (
+        {[['#3B82F6', 'Teaching'], ['#F59E0B', 'Substituting'], ['#E2E8F0', 'Free'], ['#A855F7', 'Upper Class']].map(([c, l]) => (
           <span key={l} className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
             <span className="w-3 h-3 rounded-sm inline-block" style={{ background: c }} />
             {l}
@@ -963,8 +977,8 @@ function TeacherStatusCard({ td }: { td: TeacherData }) {
   const loadPct = busyCount / 8;
   const barColor = loadPct >= 0.75 ? '#EF4444' : loadPct >= 0.5 ? '#F59E0B' : '#10B981';
 
-  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', free: '#E2E8F0' };
-  const dotText = { teaching: '#fff', sub: '#fff', free: '#94A3B8' };
+  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', free: '#E2E8F0', notReq: '#A855F7' };
+  const dotText  = { teaching: '#fff',    sub: '#fff',    free: '#94A3B8', notReq: '#fff'    };
 
   return (
     <div className="bg-white rounded-2xl p-3.5 shadow-sm">
@@ -989,7 +1003,7 @@ function TeacherStatusCard({ td }: { td: TeacherData }) {
       <div className="flex gap-1 flex-wrap mb-2">
         {ALL_PERIODS.map(p => {
           const s = td.periodStatus[p];
-          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : String(p);
+          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'notReq' ? 'UC' : String(p);
           return (
             <div key={p} title={`P${p}: ${td.periodClass[p] || s}`}
               className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-default"

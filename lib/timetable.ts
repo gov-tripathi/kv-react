@@ -40,6 +40,10 @@ export function getNotReqTeachers(df: TimetableRow[]): Set<string> {
   return new Set(df.filter(r => r.Subject === 'Not Req').map(r => r.Teacher_Name));
 }
 
+export function getNotReqTeachersForPeriod(df: TimetableRow[], day: string, period: number): Set<string> {
+  return new Set(df.filter(r => r.Day === day && r.Period === period && r.Subject === 'Not Req').map(r => r.Teacher_Name));
+}
+
 export function getAllClasses(df: TimetableRow[]): string[] {
   const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
   return [...new Set(df.map(r => r.Class))].sort((a, b) => {
@@ -135,6 +139,38 @@ export function computeSubWorkload(
   return wl;
 }
 
+// ─── Priority-based auto-fill helpers ────────────────────────────────────────
+
+// Priority sequence (lower index = higher priority).
+// Each entry lists one or more substrings to match against the teacher's short
+// name (uppercased). Multiple patterns handle spelling variants.
+const PRIORITY_SEQ: ReadonlyArray<readonly string[]> = [
+  ['MOHIT'],                    // G1 – index 0
+  ['RACHN'],                    // G1 – matches RACHNA / RACHANA
+  ['MADHUBALA'],                // G1
+  ['SAKSHI'],                   // G1
+  ['RUPESH'],                   // G1
+  ['PRATIKSHA'],                // G1
+  ['ARPIT'],                    // G2 – index 6
+  ['DEEKSHA'],                  // G2
+  ['SHUBHAM'],                  // G2
+  ['SHIVA KANT', 'SHIVAKANT'], // G2
+  ['DIVYANSHU'],                // G3 – index 10
+  ['JITENDRA'],                 // G3
+  ['STENDER'],                  // G3
+  ['AMIT'],                     // G3 – index 13
+];
+
+const G3_START_IDX = 10;
+const MOHIT_IDX    = 0;
+const AMIT_IDX     = PRIORITY_SEQ.length - 1;
+
+function priorityIdx(teacher: string): number {
+  const sn = shortName(teacher).toUpperCase();
+  const idx = PRIORITY_SEQ.findIndex(pats => pats.some(p => sn.includes(p)));
+  return idx === -1 ? PRIORITY_SEQ.length : idx; // unknown → lowest priority
+}
+
 export function autoFillAll(
   df: TimetableRow[],
   absentPeriods: AbsentPeriod[],
@@ -148,13 +184,73 @@ export function autoFillAll(
   const newSubs = { ...currentSubs };
   const subWl: Record<string, number> = {};
 
-  for (const [, v] of Object.entries(newSubs)) {
+  for (const v of Object.values(newSubs)) {
     if (v) subWl[v] = (subWl[v] ?? 0) + 1;
   }
 
   const allTeachers = getAllTeachers(df);
-  const notReq = getNotReqTeachers(df);
 
+  // Original free periods (before any substitutions) per teacher on this day
+  const origFree: Record<string, number> = {};
+  for (const t of allTeachers) {
+    origFree[t] = Math.max(0, ALL_PERIODS.length - masterLoad(df, t, day));
+  }
+
+  // Locate Mohit and Amit by priority index
+  const mohitTeacher = allTeachers.find(t => priorityIdx(t) === MOHIT_IDX) ?? null;
+  const amitTeacher  = allTeachers.find(t => priorityIdx(t) === AMIT_IDX)  ?? null;
+  const mohitOrigFree = mohitTeacher ? origFree[mohitTeacher] : 0;
+  const amitOrigFree  = amitTeacher  ? origFree[amitTeacher]  : 0;
+
+  // Minimum free periods each teacher must retain after all assignments.
+  // For Mohit this is dynamic (re-evaluated every call, so subWl is always current).
+  function retainFloor(t: string): number {
+    const idx = priorityIdx(t);
+    if (idx >= PRIORITY_SEQ.length) return 0; // unrecognised → no constraint
+
+    // ── Mohit exception ──
+    if (t === mohitTeacher) {
+      const mohitSubs = subWl[t] ?? 0;
+      // Retain 2 only when Mohit originally had 4 free, has already been used
+      // for 2 arrangements, AND Amit also has 4 original free periods.
+      if (mohitOrigFree === 4 && mohitSubs >= 2 && amitOrigFree === 4) return 2;
+      return 1; // default: Mohit retains 1
+    }
+
+    const inG3     = idx >= G3_START_IDX;
+    const groupBase = inG3 ? 2 : 1;
+    const isAmitT  = t === amitTeacher;
+    let floor      = isAmitT ? 3 : groupBase; // Amit retains 3, others retain groupBase
+
+    // Rule 4: teacher originally had exactly 3 free → retain 1 more than group baseline
+    if (origFree[t] === 3) floor = Math.max(floor, groupBase + 1);
+
+    return floor;
+  }
+
+  function canTakeMore(t: string): boolean {
+    // After one more sub, remaining free must still meet retain floor
+    return origFree[t] - ((subWl[t] ?? 0) + 1) >= retainFloor(t);
+  }
+
+  // ── Amit force rule ──
+  // When Amit originally has 4 free periods he must receive at least 1 assignment.
+  if (amitTeacher && amitOrigFree === 4 && (subWl[amitTeacher] ?? 0) === 0) {
+    for (const e of absentPeriods) {
+      const key = `${e.teacher}__${e.period}`;
+      if (newSubs[key]) continue;
+      const busy   = busySetExcludingCancelled(df, day, e.period, cancelledClasses, useCancelledTeachers);
+      const absent = absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs));
+      const notReq = getNotReqTeachersForPeriod(df, day, e.period);
+      if (!busy.has(amitTeacher) && !absent.includes(amitTeacher) && !notReq.has(amitTeacher)) {
+        newSubs[key] = amitTeacher;
+        subWl[amitTeacher] = (subWl[amitTeacher] ?? 0) + 1;
+        break;
+      }
+    }
+  }
+
+  // ── Main assignment loop ──
   for (const e of absentPeriods) {
     const key = `${e.teacher}__${e.period}`;
     if (newSubs[key]) continue;
@@ -166,17 +262,43 @@ export function autoFillAll(
         .map(e2 => newSubs[`${e2.teacher}__${e2.period}`] ?? '')
         .filter(Boolean),
     );
-    const absentThisPeriod = absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs));
-    const unavail = new Set([...periodBusy, ...alreadyThis, ...absentThisPeriod]);
-    const free = allTeachers.filter(t => !unavail.has(t) && !notReq.has(t));
-    if (!free.length) continue;
+    const absentInPeriod = absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs));
+    const notReqInPeriod = getNotReqTeachersForPeriod(df, day, e.period);
+    const unavail        = new Set([...periodBusy, ...alreadyThis, ...absentInPeriod]);
+    const candidates     = allTeachers.filter(t => !unavail.has(t) && !notReqInPeriod.has(t));
 
-    const best = free.reduce((a, b) =>
-      masterLoad(df, a, day) + (subWl[a] ?? 0) <= masterLoad(df, b, day) + (subWl[b] ?? 0) ? a : b,
-    );
+    if (!candidates.length) continue;
+
+    // ── Single-available fallback: assign regardless of retain rules ──
+    if (candidates.length === 1) {
+      const t = candidates[0];
+      newSubs[key] = t;
+      subWl[t] = (subWl[t] ?? 0) + 1;
+      continue;
+    }
+
+    // Apply retain rules
+    const eligible = candidates.filter(t => canTakeMore(t));
+
+    let best: string;
+    if (!eligible.length) {
+      // ── Emergency mode: retain rules suspended, pick strictly by priority ──
+      best = candidates.reduce((a, b) => priorityIdx(a) <= priorityIdx(b) ? a : b);
+    } else {
+      // Pick highest-priority eligible teacher; break ties by total workload
+      best = eligible.reduce((a, b) => {
+        const pa = priorityIdx(a), pb = priorityIdx(b);
+        if (pa !== pb) return pa < pb ? a : b;
+        const wa = masterLoad(df, a, day) + (subWl[a] ?? 0);
+        const wb = masterLoad(df, b, day) + (subWl[b] ?? 0);
+        return wa <= wb ? a : b;
+      });
+    }
+
     newSubs[key] = best;
     subWl[best] = (subWl[best] ?? 0) + 1;
   }
+
   return newSubs;
 }
 
