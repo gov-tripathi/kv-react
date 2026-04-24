@@ -130,8 +130,8 @@ export default function App() {
   const allClasses = useMemo(() => getAllClasses(df), [df]);
 
   const absentPeriods = useMemo(
-    () => buildAbsentPeriods(df, absentTeachers, selectedDay, absenceConfigs),
-    [df, absentTeachers, selectedDay, absenceConfigs],
+    () => buildAbsentPeriods(df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses),
+    [df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses],
   );
 
   const cancelledPeriods = useMemo(

@@ -120,11 +120,13 @@ export function isTeacherAbsentInPeriod(
 export function buildAbsentPeriods(
   df: TimetableRow[], teachers: string[], day: string,
   absenceConfigs: Record<string, AbsenceConfig> = {},
+  cancelledClasses: string[] = [],
 ): AbsentPeriod[] {
   const periods: AbsentPeriod[] = [];
   for (const t of teachers) {
     for (const row of getSchedule(df, t, day)) {
       if (row.Subject === 'Not Req') continue;
+      if (cancelledClasses.includes(row.Class)) continue;
       if (!isTeacherAbsentInPeriod(t, row.Period, teachers, absenceConfigs)) continue;
       periods.push({ teacher: t, period: row.Period, cls: row.Class, subj: row.Subject });
     }
