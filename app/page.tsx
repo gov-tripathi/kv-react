@@ -430,6 +430,7 @@ export default function App() {
           <TeacherStatusTab
             df={df} allTeachers={allTeachers}
             absentTeachers={absentTeachers} absentPeriods={absentPeriods}
+            absenceConfigs={absenceConfigs}
             selectedDay={selectedDay} subs={subs}
           />
         )}
@@ -868,11 +869,18 @@ function PeriodRow({
 interface StatusProps {
   df: TimetableRow[]; allTeachers: string[];
   absentTeachers: string[]; absentPeriods: AbsentPeriod[];
+  absenceConfigs: Record<string, AbsenceConfig>;
   selectedDay: string; subs: Record<string, string>;
 }
 
-function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, selectedDay, subs }: StatusProps) {
-  const presentTeachers = allTeachers.filter(t => !absentTeachers.includes(t));
+function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs }: StatusProps) {
+  // Full-day absent teachers are hidden; half-day absent teachers are shown
+  // with their available periods rendered normally and absent periods marked.
+  const halfDayAbsent = absentTeachers.filter(t => absenceConfigs[t]?.halfDay);
+  const presentTeachers = [
+    ...allTeachers.filter(t => !absentTeachers.includes(t)),
+    ...halfDayAbsent,
+  ];
 
   const teacherData: TeacherData[] = useMemo(() => {
     return presentTeachers.map(t => {
@@ -886,10 +894,15 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, sele
           subPs.add(e.period); subFor[e.period] = e.teacher;
         }
       }
-      const periodStatus: Record<number, 'teaching' | 'sub' | 'free' | 'notReq'> = {};
+      const isHalfDayAbsent = absentTeachers.includes(t) && !!absenceConfigs[t]?.halfDay;
+      const periodStatus: Record<number, 'teaching' | 'sub' | 'free' | 'notReq' | 'absent'> = {};
       const periodClass: Record<number, string> = {};
       for (const p of ALL_PERIODS) {
-        if (masterPs.has(p)) {
+        // For half-day absent teachers, mark their absent periods
+        if (isHalfDayAbsent && isTeacherAbsentInPeriod(t, p, absentTeachers, absenceConfigs)) {
+          periodStatus[p] = 'absent';
+          periodClass[p] = 'Absent';
+        } else if (masterPs.has(p)) {
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
           if (row?.Subject === 'Not Req') {
             periodStatus[p] = 'notReq';
@@ -941,7 +954,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, sele
 
       {/* Legend */}
       <div className="flex gap-4 mb-3 flex-wrap">
-        {[['#3B82F6', 'Teaching'], ['#F59E0B', 'Substituting'], ['#E2E8F0', 'Free'], ['#A855F7', 'Upper Class']].map(([c, l]) => (
+        {[['#3B82F6', 'Teaching'], ['#F59E0B', 'Substituting'], ['#E2E8F0', 'Free'], ['#A855F7', 'Upper Class'], ['#FCA5A5', 'Absent']].map(([c, l]) => (
           <span key={l} className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
             <span className="w-3 h-3 rounded-sm inline-block" style={{ background: c }} />
             {l}
@@ -977,8 +990,8 @@ function TeacherStatusCard({ td }: { td: TeacherData }) {
   const loadPct = busyCount / 8;
   const barColor = loadPct >= 0.75 ? '#EF4444' : loadPct >= 0.5 ? '#F59E0B' : '#10B981';
 
-  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', free: '#E2E8F0', notReq: '#A855F7' };
-  const dotText  = { teaching: '#fff',    sub: '#fff',    free: '#94A3B8', notReq: '#fff'    };
+  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', free: '#E2E8F0', notReq: '#A855F7', absent: '#FCA5A5' };
+  const dotText  = { teaching: '#fff',    sub: '#fff',    free: '#94A3B8', notReq: '#fff',    absent: '#EF4444' };
 
   return (
     <div className="bg-white rounded-2xl p-3.5 shadow-sm">
@@ -1003,7 +1016,7 @@ function TeacherStatusCard({ td }: { td: TeacherData }) {
       <div className="flex gap-1 flex-wrap mb-2">
         {ALL_PERIODS.map(p => {
           const s = td.periodStatus[p];
-          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'notReq' ? 'UC' : String(p);
+          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'notReq' ? 'UC' : s === 'absent' ? 'A' : String(p);
           return (
             <div key={p} title={`P${p}: ${td.periodClass[p] || s}`}
               className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-default"

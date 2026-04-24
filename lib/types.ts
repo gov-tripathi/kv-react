@@ -34,7 +34,7 @@ export interface AbsenceConfig {
 
 export interface TeacherData {
   name: string;
-  periodStatus: Record<number, 'teaching' | 'sub' | 'free' | 'notReq'>;
+  periodStatus: Record<number, 'teaching' | 'sub' | 'free' | 'notReq' | 'absent'>;
   periodClass: Record<number, string>;
   masterCount: number;
   subCount: number;
