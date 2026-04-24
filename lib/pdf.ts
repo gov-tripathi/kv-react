@@ -136,7 +136,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  doc.text('Time-Table In-Charge', margin + 5, footerY + 6);
+  doc.text('Time-Table In-Charge (Primary)', margin + 5, footerY + 6);
   doc.text('PRINCIPAL', pageW - margin - 60, footerY + 6);
 
   doc.setFont('helvetica', 'normal');
