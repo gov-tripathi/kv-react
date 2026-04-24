@@ -14,6 +14,8 @@ import {
 } from '@/lib/timetable';
 import type { AbsenceConfig } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
+import { computeLunchDuty, computeRegisterDuties } from '@/lib/duties';
+import type { RegisterDuty } from '@/lib/duties';
 
 // ─── auth ─────────────────────────────────────────────────────────────────────
 const USERS: Record<string, string> = {
@@ -167,6 +169,16 @@ export default function App() {
   const covered = useMemo(
     () => absentPeriods.filter(e => !!subs[subKey(e.teacher, e.period)]).length,
     [absentPeriods, subs],
+  );
+
+  const lunchDuty = useMemo(
+    () => computeLunchDuty(df, absentTeachers, allTeachers, selectedDay),
+    [df, absentTeachers, allTeachers, selectedDay],
+  );
+
+  const registerDuties = useMemo(
+    () => computeRegisterDuties(absentTeachers, subs, absentPeriods),
+    [absentTeachers, subs, absentPeriods],
   );
 
   const handleAutoFill = useCallback(() => {
@@ -470,6 +482,7 @@ export default function App() {
             useCancelledTeachers={useCancelledTeachers}
             selectedDay={selectedDay} dateVal={dateVal}
             subs={subs} clubs={clubs} subWl={subWl} covered={covered}
+            lunchDuty={lunchDuty} registerDuties={registerDuties}
             report={report} pdfLoading={pdfLoading}
             log={log} showLog={showLog} setShowLog={setShowLog}
             onAutoFill={handleAutoFill}
@@ -506,6 +519,7 @@ interface ArrProps {
   selectedDay: string; dateVal: string;
   subs: Record<string, string>; clubs: Record<string, boolean>;
   subWl: Record<string, number>; covered: number;
+  lunchDuty: string | null; registerDuties: RegisterDuty[];
   report: ReportRow[] | null; pdfLoading: boolean;
   log: ReportRow[]; showLog: boolean; setShowLog: (v: boolean) => void;
   onAutoFill: () => void;
@@ -521,7 +535,7 @@ function ArrangementTab({
   df, absentTeachers, absentPeriods,
   absenceConfigs, cancelledClasses, cancelledPeriods, useCancelledTeachers,
   selectedDay, dateVal,
-  subs, clubs, subWl, covered, report, pdfLoading,
+  subs, clubs, subWl, covered, lunchDuty, registerDuties, report, pdfLoading,
   log, showLog, setShowLog,
   onAutoFill, onSetSub, onSetClub, onGenerateReport,
   onDownloadPDF, onDownloadCSV, onDownloadLog,
@@ -637,6 +651,45 @@ function ArrangementTab({
           </div>
         );
       })}
+
+      {/* Duties Card */}
+      {(lunchDuty || registerDuties.length > 0) && (
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Duties</p>
+
+          {lunchDuty && (
+            <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
+              <span className="text-xl flex-shrink-0">🥗</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-slate-700">Lunch Duty</div>
+                <div className="text-xs text-slate-400">Class teacher absent</div>
+              </div>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 flex-shrink-0">
+                {shortName(lunchDuty)}
+              </span>
+            </div>
+          )}
+
+          {registerDuties.map(d => (
+            <div key={d.cls} className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
+              <span className="text-xl flex-shrink-0">📋</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-slate-700">
+                  Register Duty <span className="font-normal text-slate-400 text-xs">· {d.cls}</span>
+                </div>
+                <div className="text-xs text-slate-400">{shortName(d.absentTeacher)} absent</div>
+              </div>
+              <span className={`text-xs font-bold border rounded-lg px-2.5 py-1 flex-shrink-0 ${
+                d.assignedTo
+                  ? 'text-blue-700 bg-blue-50 border-blue-200'
+                  : 'text-red-500 bg-red-50 border-red-200'
+              }`}>
+                {d.assignedTo ? shortName(d.assignedTo) : '— P1 unassigned —'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Generate Report */}
       <button onClick={onGenerateReport}
