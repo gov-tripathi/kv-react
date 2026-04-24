@@ -874,14 +874,8 @@ interface StatusProps {
 function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, selectedDay, subs }: StatusProps) {
   const presentTeachers = allTeachers.filter(t => !absentTeachers.includes(t));
 
-  // Teachers whose un-timetabled (free) periods are Upper Class duty.
-  // Shown as purple UC in the status card; substitute availability is unchanged.
-  const UC_PATTERNS = ['MOHIT', 'RACHN'];
-
   const teacherData: TeacherData[] = useMemo(() => {
     return presentTeachers.map(t => {
-      const sn = shortName(t).toUpperCase();
-      const isUCTeacher = UC_PATTERNS.some(p => sn.includes(p));
       const masterPs = new Set(
         df.filter(r => r.Teacher_Name === t && r.Day === selectedDay).map(r => r.Period),
       );
@@ -907,16 +901,12 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, sele
         } else if (subPs.has(p)) {
           periodStatus[p] = 'sub';
           periodClass[p] = `Sub for ${shortName(subFor[p])}`;
-        } else if (isUCTeacher) {
-          periodStatus[p] = 'notReq';
-          periodClass[p] = 'Upper Class';
         } else {
           periodStatus[p] = 'free';
           periodClass[p] = '';
         }
       }
-      // notReq (Upper Class) periods still count as free for substitution purposes
-      const freeCount = Object.values(periodStatus).filter(s => s === 'free' || s === 'notReq').length;
+      const freeCount = Object.values(periodStatus).filter(s => s === 'free').length;
       return {
         name: t, periodStatus, periodClass,
         masterCount: masterPs.size, subCount: subPs.size, freeCount,
