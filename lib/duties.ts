@@ -1,5 +1,5 @@
-import { TimetableRow, AbsentPeriod } from './types';
-import { shortName, masterLoad, ALL_PERIODS } from './timetable';
+import { AbsentPeriod } from './types';
+import { shortName } from './timetable';
 
 // ─── Class teacher assignments ────────────────────────────────────────────────
 // Key: substring of shortName(teacher).toUpperCase()
@@ -22,9 +22,6 @@ export const CLASS_TEACHER_MAP: Record<string, string> = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const NON_CLASS_TEACHER_PATTERNS = ['RACHN', 'MADHUBALA', 'MOHIT', 'AMIT'];
 
-// Lunch duty priority order (Rachna → Madhubala → Mohit; Amit is excluded)
-const LUNCH_PRIORITY_PATTERNS = ['RACHN', 'MADHUBALA', 'MOHIT'];
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 export function isClassTeacher(teacher: string): boolean {
   const sn = shortName(teacher).toUpperCase();
@@ -39,35 +36,7 @@ export function getTeacherClass(teacher: string): string | null {
   return null;
 }
 
-// ─── Rule 1: Lunch Duty ───────────────────────────────────────────────────────
-// Triggered when any class teacher is absent.
-// Assign to whichever eligible teacher (Rachna/Madhubala/Mohit) has the most
-// free periods; Rachna wins ties first, then Madhubala, then Mohit.
-export function computeLunchDuty(
-  df: TimetableRow[],
-  absentTeachers: string[],
-  allTeachers: string[],
-  day: string,
-): string | null {
-  if (!absentTeachers.some(isClassTeacher)) return null;
-
-  // Build eligible list in priority order, skipping absent teachers
-  const eligible: string[] = [];
-  for (const pattern of LUNCH_PRIORITY_PATTERNS) {
-    const t = allTeachers.find(
-      t => shortName(t).toUpperCase().includes(pattern) && !absentTeachers.includes(t),
-    );
-    if (t) eligible.push(t);
-  }
-  if (!eligible.length) return null;
-
-  const freeCounts = eligible.map(t => ALL_PERIODS.length - masterLoad(df, t, day));
-  const maxFree = Math.max(...freeCounts);
-  // First in priority order with max free periods wins
-  return eligible[freeCounts.indexOf(maxFree)];
-}
-
-// ─── Rule 2: Register Duty ───────────────────────────────────────────────────
+// ─── Register Duty ───────────────────────────────────────────────────────────
 // Triggered when any class teacher is absent.
 // Whoever covers Period 1 of that class teacher's own class gets register duty.
 export interface RegisterDuty {
