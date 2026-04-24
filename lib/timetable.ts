@@ -115,7 +115,7 @@ export function isTeacherAbsentInPeriod(
   if (!absentTeachers.includes(teacher)) return false;
   const cfg = absenceConfigs[teacher];
   if (!cfg?.halfDay) return true;
-  return cfg.halfDayType === 'before' ? period <= cfg.halfDayPeriod : period > cfg.halfDayPeriod;
+  return cfg.absentPeriods?.includes(period) ?? false;
 }
 
 export function buildAbsentPeriods(

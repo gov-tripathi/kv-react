@@ -312,39 +312,51 @@ export default function App() {
               </div>
               <div className="space-y-2 mb-2">
                 {absentTeachers.map(t => {
-                  const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, halfDayType: 'before', halfDayPeriod: 4 };
+                  const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, absentPeriods: [] };
+                  const teachingPeriods = getSchedule(df, t, selectedDay).filter(r => r.Subject !== 'Not Req');
                   return (
                     <div key={t} className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-slate-600 font-semibold flex-1 truncate uppercase tracking-wide">{shortName(t)}</span>
                         <button
-                          onClick={() => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDay: !cfg.halfDay } })); setReport(null); }}
+                          onClick={() => {
+                            setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDay: !cfg.halfDay, absentPeriods: [] } }));
+                            setReport(null);
+                          }}
                           className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors min-h-[32px] ${cfg.halfDay ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
                         >
                           {cfg.halfDay ? 'Half Day' : 'Full Day'}
                         </button>
                       </div>
                       {cfg.halfDay && (
-                        <div className="flex items-center gap-2 flex-wrap pl-1">
-                          <span className="text-xs text-slate-400">not available</span>
-                          <select
-                            value={cfg.halfDayType}
-                            onChange={e2 => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDayType: e2.target.value as 'before' | 'after' } })); setReport(null); }}
-                            className="border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[36px]"
-                          >
-                            <option value="before">before</option>
-                            <option value="after">after</option>
-                          </select>
-                          <span className="text-xs text-slate-400">period</span>
-                          <select
-                            value={cfg.halfDayPeriod}
-                            onChange={e2 => { setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDayPeriod: Number(e2.target.value) } })); setReport(null); }}
-                            className="border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[36px]"
-                          >
-                            {[1,2,3,4,5,6,7,8].map(n => (
-                              <option key={n} value={n}>{n}</option>
-                            ))}
-                          </select>
+                        <div className="pl-1">
+                          <p className="text-xs text-slate-400 mb-1.5">Tap periods teacher is <strong>absent</strong> for:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {teachingPeriods.length === 0 && (
+                              <span className="text-xs text-slate-400 italic">No teaching periods on {selectedDay}</span>
+                            )}
+                            {teachingPeriods.map(r => {
+                              const isAbsent = cfg.absentPeriods?.includes(r.Period) ?? false;
+                              return (
+                                <button
+                                  key={r.Period}
+                                  onClick={() => {
+                                    const current = cfg.absentPeriods ?? [];
+                                    const next = isAbsent ? current.filter(p => p !== r.Period) : [...current, r.Period];
+                                    setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, absentPeriods: next } }));
+                                    setReport(null);
+                                  }}
+                                  className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors min-h-[32px] ${
+                                    isAbsent
+                                      ? 'bg-red-50 text-red-700 border-red-300'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}
+                                >
+                                  P{r.Period} · {r.Class}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>

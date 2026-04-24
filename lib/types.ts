@@ -28,8 +28,7 @@ export interface ReportRow {
 
 export interface AbsenceConfig {
   halfDay: boolean;
-  halfDayType: 'before' | 'after';
-  halfDayPeriod: number;
+  absentPeriods: number[];
 }
 
 export interface TeacherData {
