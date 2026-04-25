@@ -888,8 +888,12 @@ function PeriodRow({
     }
     for (const e2 of absentPeriods) {
       if (e2.period === e.period && e2.teacher !== teacher) {
-        if ((subs[subKey(e2.teacher, e2.period)] ?? '') === t)
-          return `${shortName(t)}  🔀 subbing ${e2.cls}`;
+        if ((subs[subKey(e2.teacher, e2.period)] ?? '') === t) {
+          const isAlreadyClub = clubs[subKey(e2.teacher, e2.period)] ?? false;
+          return isAlreadyClub
+            ? `${shortName(t)}  🔀 clubbing ${e2.cls}`
+            : `${shortName(t)}  🔀 subbing ${e2.cls}`;
+        }
       }
     }
     return shortName(t);
