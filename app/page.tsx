@@ -63,7 +63,7 @@ import {
 import {
   ALL_PERIODS, DAY_MAP,
   avColor, avInitials, shortName, getAllTeachers, getAllClasses,
-  getSchedule, busySetExcludingCancelled, teacherPeriodInfo, masterLoad,
+  getSchedule, busySetExcludingCancelled, teacherPeriodInfo, effectiveLoad,
   buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
   buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod,
   getNotReqTeachersForPeriod, priorityIdx, isNotReq,
@@ -276,7 +276,7 @@ export default function App() {
     setAttendanceTeacher(''); setAttendanceClass('');
   }, [selectedDay]);
 
-  const subWl = useMemo(() => computeSubWorkload(absentPeriods, subs), [absentPeriods, subs]);
+  const subWl = useMemo(() => computeSubWorkload(absentPeriods, subs, clubs), [absentPeriods, subs, clubs]);
   const covered = useMemo(
     () => absentPeriods.filter(e => !!subs[subKey(e.teacher, e.period)]).length,
     [absentPeriods, subs],
@@ -312,10 +312,10 @@ export default function App() {
     try { localStorage.setItem('kv_arrangement_log', JSON.stringify(newLog)); } catch {}
   }, [df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal, log]);
 
-  const handleDownloadPDF = useCallback(async () => {
+  const handleDownloadPDF = useCallback(async (note: string) => {
     if (!report) return;
     setPdfLoading(true);
-    await generatePDF(report, selectedDay, dateVal, lunchDuties, attendanceDuties);
+    await generatePDF(report, selectedDay, dateVal, lunchDuties, attendanceDuties, note);
     setPdfLoading(false);
   }, [report, selectedDay, dateVal, lunchDuties, attendanceDuties]);
 
@@ -700,7 +700,7 @@ interface ArrProps {
   onSetSub: (t: string, p: number, v: string) => void;
   onSetClub: (t: string, p: number, v: boolean) => void;
   onGenerateReport: () => void;
-  onDownloadPDF: () => void;
+  onDownloadPDF: (note: string) => void;
   onDownloadCSV: () => void;
   onDownloadLog: () => void;
 }
@@ -715,6 +715,16 @@ function ArrangementTab({
   onDownloadPDF, onDownloadCSV, onDownloadLog,
 }: ArrProps) {
   const [copied, setCopied] = useState(false);
+  const [reportNote, setReportNote] = useState('');
+
+  function countWords(text: string) {
+    return text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+  }
+
+  function handleNoteChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value;
+    if (countWords(val) <= 75) setReportNote(val);
+  }
 
   function handleCopyWA() {
     if (!report) return;
@@ -981,9 +991,25 @@ function ArrangementTab({
               className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono bg-slate-50 resize-none h-40 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
 
+          {/* Note for PDF */}
+          <div className="mb-4 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Note (included in PDF)</label>
+              <span className={`text-[10px] font-semibold ${countWords(reportNote) >= 70 ? 'text-red-500' : 'text-slate-400'}`}>
+                {countWords(reportNote)}/75 words
+              </span>
+            </div>
+            <textarea
+              value={reportNote}
+              onChange={handleNoteChange}
+              placeholder="Type a note to include at the bottom of the PDF report…"
+              className="w-full border border-slate-200 rounded-xl p-3 text-xs bg-white resize-none h-20 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+            />
+          </div>
+
           {/* Download buttons */}
           <div className="grid grid-cols-3 gap-2">
-            <button onClick={onDownloadPDF} disabled={pdfLoading}
+            <button onClick={() => onDownloadPDF(reportNote)} disabled={pdfLoading}
               className="py-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
               {pdfLoading ? <LoadingSpinner size="sm" /> : '📄'} PDF
             </button>
@@ -1110,8 +1136,8 @@ function PeriodRow({
   );
   const freeTeachers = useMemo(
     () => allTeachers.filter(t => !unavail.has(t) && !notReqTeachers.has(t))
-      .sort((a, b) => (masterLoad(df, a, selectedDay) + (subWl[a] ?? 0)) - (masterLoad(df, b, selectedDay) + (subWl[b] ?? 0))),
-    [allTeachers, unavail, notReqTeachers, df, selectedDay, subWl],
+      .sort((a, b) => (effectiveLoad(df, a, selectedDay, cancelledClasses) + (subWl[a] ?? 0)) - (effectiveLoad(df, b, selectedDay, cancelledClasses) + (subWl[b] ?? 0))),
+    [allTeachers, unavail, notReqTeachers, df, selectedDay, cancelledClasses, subWl],
   );
   const clubTeachers = useMemo(
     () => allTeachers.filter(t => (periodBusy.has(t) || alreadyThis.has(t)) && !absentThisPeriod.includes(t) && !notReqTeachers.has(t)),
@@ -1183,7 +1209,7 @@ function PeriodRow({
               <option value="">— Not Assigned —</option>
               {freeTeachers.map(t => (
                 <option key={t} value={t}>
-                  {shortName(t)}{teacherSubjMap[t] ? `  (${teacherSubjMap[t]})` : ''}  [{masterLoad(df, t, selectedDay) + (subWl[t] ?? 0)} periods]
+                  {shortName(t)}{teacherSubjMap[t] ? `  (${teacherSubjMap[t]})` : ''}  [{effectiveLoad(df, t, selectedDay, cancelledClasses) + (subWl[t] ?? 0)} periods]
                 </option>
               ))}
             </SelectField>

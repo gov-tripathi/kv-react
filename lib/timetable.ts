@@ -112,6 +112,20 @@ export function masterLoad(df: TimetableRow[], teacher: string, day: string): nu
   return df.filter(r => r.Teacher_Name === teacher && r.Day === day).length;
 }
 
+// Count only the periods a teacher is actually teaching today — excludes
+// cancelled-class rows and upper-class (Not Req) rows, so the result matches
+// the "busy" count shown in the teacher detail card.
+export function effectiveLoad(
+  df: TimetableRow[], teacher: string, day: string, cancelledClasses: string[] = [],
+): number {
+  return df.filter(r =>
+    r.Teacher_Name === teacher &&
+    r.Day === day &&
+    !cancelledClasses.includes(r.Class) &&
+    !isNotReq(r.Subject),
+  ).length;
+}
+
 export function isTeacherAbsentInPeriod(
   teacher: string, period: number,
   absentTeachers: string[], absenceConfigs: Record<string, AbsenceConfig>,
@@ -144,10 +158,13 @@ export function buildAbsentPeriods(
 export function computeSubWorkload(
   absentPeriods: AbsentPeriod[],
   subs: Record<string, string>,
+  clubs: Record<string, boolean> = {},
 ): Record<string, number> {
   const wl: Record<string, number> = {};
   for (const e of absentPeriods) {
-    const s = subs[`${e.teacher}__${e.period}`] ?? '';
+    const key = `${e.teacher}__${e.period}`;
+    if (clubs[key]) continue; // clubbing doesn't add to period count — same physical period
+    const s = subs[key] ?? '';
     if (s) wl[s] = (wl[s] ?? 0) + 1;
   }
   return wl;

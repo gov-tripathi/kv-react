@@ -1,7 +1,7 @@
 import { ReportRow, DutyEntry } from './types';
 import { shortName } from './timetable';
 
-export async function generatePDF(rows: ReportRow[], day: string, dateStr: string, lunchDuties: DutyEntry[] = [], attendanceDuties: DutyEntry[] = []): Promise<void> {
+export async function generatePDF(rows: ReportRow[], day: string, dateStr: string, lunchDuties: DutyEntry[] = [], attendanceDuties: DutyEntry[] = [], note = ''): Promise<void> {
   const { default: jsPDF } = await import('jspdf');
   const { default: autoTable } = await import('jspdf-autotable');
 
@@ -171,6 +171,21 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
       doc.text(entryText, margin + (group.label === 'LUNCH DUTY' ? 28 : 40), afterTableY);
       afterTableY += 7;
     }
+  }
+
+  // Note section
+  if (note.trim()) {
+    afterTableY += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text('NOTE:', margin, afterTableY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(51, 65, 85);
+    const wrappedNote = doc.splitTextToSize(note.trim(), pageW - margin * 2 - 18);
+    doc.text(wrappedNote, margin + 18, afterTableY);
+    afterTableY += wrappedNote.length * 4.5;
   }
 
   const finalY = afterTableY + 4;
