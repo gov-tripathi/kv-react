@@ -1210,8 +1210,11 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       );
       const subPs = new Set<number>();
       const subFor: Record<number, string> = {};
+      const subForCls: Record<number, string> = {};
       for (const e of absentPeriods) {
-        if ((subs[subKey(e.teacher, e.period)] ?? '') === t) { subPs.add(e.period); subFor[e.period] = e.teacher; }
+        if ((subs[subKey(e.teacher, e.period)] ?? '') === t) {
+          subPs.add(e.period); subFor[e.period] = e.teacher; subForCls[e.period] = e.cls;
+        }
       }
       const isHalfDayAbsent = absentTeachers.includes(t) && !!absenceConfigs[t]?.halfDay;
       const periodStatus: Record<number, 'teaching' | 'sub' | 'clubbed' | 'free' | 'notReq' | 'absent'> = {};
@@ -1220,7 +1223,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         if (isHalfDayAbsent && isTeacherAbsentInPeriod(t, p, absentTeachers, absenceConfigs)) {
           periodStatus[p] = 'absent'; periodClass[p] = 'Absent';
         } else if (subPs.has(p) && (clubs[`${subFor[p]}__${p}`] ?? false)) {
-          periodStatus[p] = 'clubbed'; periodClass[p] = `Clubbing ${shortName(subFor[p])}`;
+          periodStatus[p] = 'clubbed'; periodClass[p] = `${subForCls[p]} · Clubbing ${shortName(subFor[p])}`;
         } else if (masterPs.has(p)) {
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
           if (row?.Subject === 'Not Req') {
@@ -1231,7 +1234,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
             periodStatus[p] = 'teaching'; periodClass[p] = row ? `${row.Class} · ${row.Subject}` : '';
           }
         } else if (subPs.has(p)) {
-          periodStatus[p] = 'sub'; periodClass[p] = `Sub for ${shortName(subFor[p])}`;
+          periodStatus[p] = 'sub'; periodClass[p] = `${subForCls[p]} · Sub for ${shortName(subFor[p])}`;
         } else {
           periodStatus[p] = 'free'; periodClass[p] = '';
         }
