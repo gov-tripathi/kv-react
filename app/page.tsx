@@ -58,7 +58,7 @@ function KvProgressBar({ value, color = 'default' }: { value: number; color?: 'd
   );
 }
 import {
-  TimetableRow, AbsentPeriod, ReportRow, TeacherData,
+  TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry,
 } from '@/lib/types';
 import {
   ALL_PERIODS, DAY_MAP,
@@ -225,6 +225,12 @@ export default function App() {
   const [useCancelledTeachers, setUseCancelledTeachers] = useState(false);
   const [schoolHalfDay, setSchoolHalfDay] = useState(false);
   const [schoolHalfDayPeriod, setSchoolHalfDayPeriod] = useState(4);
+  const [lunchDuties, setLunchDuties] = useState<DutyEntry[]>([]);
+  const [attendanceDuties, setAttendanceDuties] = useState<DutyEntry[]>([]);
+  const [lunchTeacher, setLunchTeacher] = useState('');
+  const [lunchClass, setLunchClass] = useState('');
+  const [attendanceTeacher, setAttendanceTeacher] = useState('');
+  const [attendanceClass, setAttendanceClass] = useState('');
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [clubs, setClubs] = useState<Record<string, boolean>>({});
   const [report, setReport] = useState<ReportRow[] | null>(null);
@@ -265,6 +271,9 @@ export default function App() {
   useEffect(() => {
     setCancelledClasses([]); setUseCancelledTeachers(false);
     setAbsenceConfigs({}); setSchoolHalfDay(false); setSchoolHalfDayPeriod(4);
+    setLunchDuties([]); setAttendanceDuties([]);
+    setLunchTeacher(''); setLunchClass('');
+    setAttendanceTeacher(''); setAttendanceClass('');
   }, [selectedDay]);
 
   const subWl = useMemo(() => computeSubWorkload(absentPeriods, subs), [absentPeriods, subs]);
@@ -302,9 +311,9 @@ export default function App() {
   const handleDownloadPDF = useCallback(async () => {
     if (!report) return;
     setPdfLoading(true);
-    await generatePDF(report, selectedDay, dateVal);
+    await generatePDF(report, selectedDay, dateVal, lunchDuties, attendanceDuties);
     setPdfLoading(false);
-  }, [report, selectedDay, dateVal]);
+  }, [report, selectedDay, dateVal, lunchDuties, attendanceDuties]);
 
   const handleDownloadCSV = useCallback(() => {
     if (!report) return;
@@ -540,6 +549,78 @@ export default function App() {
               </>
             )}
           </div>
+
+          {/* Lunch Duty */}
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <label className="block text-sm font-semibold text-slate-600 mb-2">🍱 Lunch Duty</label>
+            <div className="flex gap-2">
+              <SelectField value={lunchTeacher} onChange={e => setLunchTeacher(e.target.value)} className="flex-1">
+                <option value="">Teacher…</option>
+                {allTeachers.filter(t => !lunchDuties.some(d => d.teacher === t)).map(t => (
+                  <option key={t} value={t}>{shortName(t)}</option>
+                ))}
+              </SelectField>
+              <SelectField value={lunchClass} onChange={e => setLunchClass(e.target.value)} className="flex-1">
+                <option value="">Class…</option>
+                {allClasses.filter(c => !lunchDuties.some(d => d.cls === c)).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </SelectField>
+              <Btn size="sm" disabled={!lunchTeacher || !lunchClass} onClick={() => {
+                if (lunchTeacher && lunchClass) {
+                  setLunchDuties(prev => [...prev, { teacher: lunchTeacher, cls: lunchClass }]);
+                  setLunchTeacher(''); setLunchClass('');
+                }
+              }}>Add</Btn>
+            </div>
+            {lunchDuties.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {lunchDuties.map((d, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full px-2 pr-1 py-0.5 text-xs font-semibold">
+                    {shortName(d.teacher)} · {d.cls}
+                    <button onClick={() => setLunchDuties(prev => prev.filter((_, j) => j !== i))}
+                      className="ml-0.5 w-4 h-4 rounded-full text-amber-500 hover:text-white hover:bg-amber-500 flex items-center justify-center transition-colors text-xs leading-none flex-shrink-0">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Attendance Duty */}
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <label className="block text-sm font-semibold text-slate-600 mb-2">📝 Attendance Duty</label>
+            <div className="flex gap-2">
+              <SelectField value={attendanceTeacher} onChange={e => setAttendanceTeacher(e.target.value)} className="flex-1">
+                <option value="">Teacher…</option>
+                {allTeachers.filter(t => !attendanceDuties.some(d => d.teacher === t)).map(t => (
+                  <option key={t} value={t}>{shortName(t)}</option>
+                ))}
+              </SelectField>
+              <SelectField value={attendanceClass} onChange={e => setAttendanceClass(e.target.value)} className="flex-1">
+                <option value="">Class…</option>
+                {allClasses.filter(c => !attendanceDuties.some(d => d.cls === c)).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </SelectField>
+              <Btn size="sm" disabled={!attendanceTeacher || !attendanceClass} onClick={() => {
+                if (attendanceTeacher && attendanceClass) {
+                  setAttendanceDuties(prev => [...prev, { teacher: attendanceTeacher, cls: attendanceClass }]);
+                  setAttendanceTeacher(''); setAttendanceClass('');
+                }
+              }}>Add</Btn>
+            </div>
+            {attendanceDuties.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {attendanceDuties.map((d, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 bg-purple-50 text-purple-800 border border-purple-200 rounded-full px-2 pr-1 py-0.5 text-xs font-semibold">
+                    {shortName(d.teacher)} · {d.cls}
+                    <button onClick={() => setAttendanceDuties(prev => prev.filter((_, j) => j !== i))}
+                      className="ml-0.5 w-4 h-4 rounded-full text-purple-500 hover:text-white hover:bg-purple-500 flex items-center justify-center transition-colors text-xs leading-none flex-shrink-0">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Tab bar ── */}
@@ -566,6 +647,7 @@ export default function App() {
             selectedDay={selectedDay} dateVal={dateVal}
             subs={subs} clubs={clubs} subWl={subWl} covered={covered}
             registerDuties={registerDuties}
+            lunchDuties={lunchDuties} attendanceDuties={attendanceDuties}
             report={report} pdfLoading={pdfLoading}
             log={log} showLog={showLog} setShowLog={setShowLog}
             onAutoFill={handleAutoFill}
@@ -605,6 +687,7 @@ interface ArrProps {
   subs: Record<string, string>; clubs: Record<string, boolean>;
   subWl: Record<string, number>; covered: number;
   registerDuties: RegisterDuty[];
+  lunchDuties: DutyEntry[]; attendanceDuties: DutyEntry[];
   report: ReportRow[] | null; pdfLoading: boolean;
   log: ReportRow[]; showLog: boolean; setShowLog: (v: boolean) => void;
   onAutoFill: () => void;
@@ -620,6 +703,7 @@ function ArrangementTab({
   df, absentTeachers, absentPeriods,
   absenceConfigs, cancelledClasses, cancelledPeriods, useCancelledTeachers,
   selectedDay, dateVal, subs, clubs, subWl, covered, registerDuties,
+  lunchDuties, attendanceDuties,
   report, pdfLoading, log, showLog, setShowLog,
   onAutoFill, onSetSub, onSetClub, onGenerateReport,
   onDownloadPDF, onDownloadCSV, onDownloadLog,
@@ -628,7 +712,7 @@ function ArrangementTab({
 
   function handleCopyWA() {
     if (!report) return;
-    navigator.clipboard.writeText(whatsappText(report, selectedDay, dateVal)).then(() => {
+    navigator.clipboard.writeText(whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties)).then(() => {
       setCopied(true); setTimeout(() => setCopied(false), 2000);
     });
   }
@@ -811,6 +895,32 @@ function ArrangementTab({
             </table>
           </div>
 
+          {/* Lunch & Attendance Duty sections */}
+          {lunchDuties.length > 0 && (
+            <div className="mt-2 mb-4 pt-3 border-t border-slate-100">
+              <SectionLabel>🍱 Lunch Duty</SectionLabel>
+              {lunchDuties.map((d, i) => (
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                  <span className="text-sm font-bold text-amber-700 w-16 flex-shrink-0">{d.cls}</span>
+                  <span className="text-xs text-slate-400">→</span>
+                  <span className="text-sm font-semibold text-slate-700">{shortName(d.teacher)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {attendanceDuties.length > 0 && (
+            <div className="mt-2 mb-4 pt-3 border-t border-slate-100">
+              <SectionLabel>📝 Attendance Duty</SectionLabel>
+              {attendanceDuties.map((d, i) => (
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                  <span className="text-sm font-bold text-purple-700 w-16 flex-shrink-0">{d.cls}</span>
+                  <span className="text-xs text-slate-400">→</span>
+                  <span className="text-sm font-semibold text-slate-700">{shortName(d.teacher)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* WhatsApp text */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
@@ -822,7 +932,7 @@ function ArrangementTab({
                 {copied ? '✓ Copied!' : '📋 Copy'}
               </button>
             </div>
-            <textarea readOnly value={whatsappText(report, selectedDay, dateVal)}
+            <textarea readOnly value={whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties)}
               className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono bg-slate-50 resize-none h-40 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
 
@@ -837,7 +947,7 @@ function ArrangementTab({
               ⬇ CSV
             </button>
             <button onClick={() => {
-              const wa = whatsappText(report, selectedDay, dateVal);
+              const wa = whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties);
               const blob = new Blob([wa], { type: 'text/plain' });
               const url = URL.createObjectURL(blob); const a = document.createElement('a');
               a.href = url; a.download = `arrangement_${dateVal}.txt`; a.click(); URL.revokeObjectURL(url);

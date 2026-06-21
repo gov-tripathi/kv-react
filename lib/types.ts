@@ -31,6 +31,11 @@ export interface AbsenceConfig {
   absentPeriods: number[];
 }
 
+export interface DutyEntry {
+  teacher: string;
+  cls: string;
+}
+
 export interface TeacherData {
   name: string;
   periodStatus: Record<number, 'teaching' | 'sub' | 'clubbed' | 'free' | 'notReq' | 'absent'>;

@@ -1,7 +1,7 @@
-import { ReportRow } from './types';
+import { ReportRow, DutyEntry } from './types';
 import { shortName } from './timetable';
 
-export async function generatePDF(rows: ReportRow[], day: string, dateStr: string): Promise<void> {
+export async function generatePDF(rows: ReportRow[], day: string, dateStr: string, lunchDuties: DutyEntry[] = [], attendanceDuties: DutyEntry[] = []): Promise<void> {
   const { default: jsPDF } = await import('jspdf');
   const { default: autoTable } = await import('jspdf-autotable');
 
@@ -153,7 +153,27 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     afterTableY = cancelY + 4;
   }
 
-  const finalY = afterTableY + 10;
+  // Lunch Duty & Attendance Duty sections
+  if (lunchDuties.length > 0 || attendanceDuties.length > 0) {
+    afterTableY += 6;
+    const dutyGroups = [
+      { label: 'LUNCH DUTY', entries: lunchDuties, color: [180, 83, 9] as [number, number, number] },
+      { label: 'ATTENDANCE DUTY', entries: attendanceDuties, color: [109, 40, 217] as [number, number, number] },
+    ].filter(g => g.entries.length > 0);
+
+    for (const group of dutyGroups) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...group.color);
+      doc.text(`${group.label}:`, margin, afterTableY);
+      const entryText = group.entries.map(d => `${d.cls} → ${shortName(d.teacher)}`).join('     ');
+      doc.setFont('helvetica', 'normal');
+      doc.text(entryText, margin + (group.label === 'LUNCH DUTY' ? 28 : 40), afterTableY);
+      afterTableY += 7;
+    }
+  }
+
+  const finalY = afterTableY + 4;
 
   // Footer
   doc.setDrawColor(203, 213, 225);
