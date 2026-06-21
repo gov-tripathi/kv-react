@@ -857,43 +857,68 @@ function ArrangementTab({
       {report && (
         <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
           <SectionLabel>Arrangement Sheet · {selectedDay} {dateVal}</SectionLabel>
-          <div className="overflow-x-auto mb-5 rounded-xl overflow-hidden border border-slate-100">
-            <table className="w-full text-xs">
-              <thead>
-                <tr style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
-                  {['Per.', 'Absent Teacher', 'Class', 'Substitute', 'Mode'].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-left font-bold text-white text-xs">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {report.map((r, i) => (
-                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                    <td className="px-3 py-2.5 font-bold text-blue-700">{r.Period}</td>
-                    <td className="px-3 py-2.5 text-slate-600">{shortName(r.Absent_Teacher)}</td>
-                    <td className="px-3 py-2.5 font-medium text-slate-700">{r.Class}</td>
-                    <td className="px-3 py-2.5">
-                      {r.Type === 'CANCELLED'
-                        ? <span className="text-orange-600 font-semibold">🚫 Cancelled</span>
-                        : r.Type === 'CLUBBED'
-                        ? <span className="text-amber-700 font-semibold">🔀 {shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
-                        : <span className="font-semibold text-slate-800">{shortName(r.Substitute)}</span>
-                      }
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        r.Type === 'CANCELLED' ? 'bg-orange-100 text-orange-700' :
-                        r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' :
-                        'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {r.Type === 'CANCELLED' ? 'CANCEL' : r.Type === 'CLUBBED' ? 'CLUB' : 'SUB'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {(() => {
+            const subReport = report.filter(r => r.Type !== 'CANCELLED');
+            const cancelReport = report.filter(r => r.Type === 'CANCELLED');
+            const cancelledByClass = new Map<string, number[]>();
+            for (const r of cancelReport) {
+              if (!cancelledByClass.has(r.Class)) cancelledByClass.set(r.Class, []);
+              cancelledByClass.get(r.Class)!.push(r.Period);
+            }
+            return (
+              <>
+                <div className="overflow-x-auto mb-4 rounded-xl overflow-hidden border border-slate-100">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
+                        {['Per.', 'Absent Teacher', 'Class', 'Substitute', 'Mode'].map(h => (
+                          <th key={h} className="px-3 py-2.5 text-left font-bold text-white text-xs">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subReport.map((r, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                          <td className="px-3 py-2.5 font-bold text-blue-700">{r.Period}</td>
+                          <td className="px-3 py-2.5 text-slate-600">{shortName(r.Absent_Teacher)}</td>
+                          <td className="px-3 py-2.5 font-medium text-slate-700">{r.Class}</td>
+                          <td className="px-3 py-2.5">
+                            {r.Type === 'CLUBBED'
+                              ? <span className="text-amber-700 font-semibold">🔀 {shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
+                              : <span className="font-semibold text-slate-800">{shortName(r.Substitute)}</span>
+                            }
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {r.Type === 'CLUBBED' ? 'CLUB' : 'SUB'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {subReport.length === 0 && (
+                        <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-400 text-xs">No substitutions today</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {cancelledByClass.size > 0 && (
+                  <div className="mb-4 bg-orange-50 border border-orange-200 rounded-xl p-3">
+                    <SectionLabel><span className="text-orange-600">🚫 Cancelled Classes — All Periods Free</span></SectionLabel>
+                    {[...cancelledByClass.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([cls, periods]) => (
+                      <div key={cls} className="flex items-center gap-2.5 py-1.5 border-b border-orange-100 last:border-0">
+                        <span className="text-xs font-bold text-orange-700 w-16 flex-shrink-0">{cls}</span>
+                        <span className="text-xs text-orange-500">Per. {[...periods].sort((a, b) => a - b).join(', ')}</span>
+                        <span className="ml-auto text-[10px] font-bold text-orange-400 bg-orange-100 rounded-full px-2 py-0.5">FREE</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
 
           {/* Lunch & Attendance Duty sections */}
           {lunchDuties.length > 0 && (
@@ -1200,6 +1225,8 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
           if (row?.Subject === 'Not Req') {
             periodStatus[p] = 'notReq'; periodClass[p] = 'Upper Class';
+          } else if (row && cancelledClasses.includes(row.Class)) {
+            periodStatus[p] = 'free'; periodClass[p] = `${row.Class} cancelled`;
           } else {
             periodStatus[p] = 'teaching'; periodClass[p] = row ? `${row.Class} · ${row.Subject}` : '';
           }
@@ -1218,7 +1245,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       if (sa !== sb) return sb - sa;
       return a.name.localeCompare(b.name);
     });
-  }, [df, presentTeachers, selectedDay, absentPeriods, subs, clubs, absenceConfigs]);
+  }, [df, presentTeachers, selectedDay, absentPeriods, subs, clubs, absenceConfigs, cancelledClasses]);
 
   const classData = useMemo(() => {
     const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
@@ -1426,37 +1453,41 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
         )}
       </div>
 
-      {!cd.isCancelled && (
-        <div className="space-y-1">
-          {cd.periods.map(p => (
-            <div key={p.period} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs ${
-              p.isAbsent && !p.substitute ? 'bg-red-50 border border-red-100' :
-              p.isClub ? 'bg-orange-50 border border-orange-100' :
-              p.isAbsent ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'
-            }`}>
-              <span className="font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
-              <span className="text-slate-400 w-14 flex-shrink-0 truncate">{p.subject}</span>
-              <div className="flex-1 min-w-0 flex items-center gap-1">
-                {p.isAbsent ? (
-                  <>
-                    <span className="text-red-400 line-through truncate">{shortName(p.teacher)}</span>
-                    {p.substitute
-                      ? <><span className="text-slate-400 flex-shrink-0">→</span>
-                          <span className={`font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>
-                            {shortName(p.substitute)}
-                          </span>
-                          {p.isClub && <span className="font-bold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
-                      : <span className="font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
-                    }
-                  </>
-                ) : (
-                  <span className="font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
-                )}
-              </div>
+      <div className="space-y-1">
+        {cd.periods.map(p => (
+          <div key={p.period} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs ${
+            cd.isCancelled ? 'bg-orange-50/60 border border-orange-100' :
+            p.isAbsent && !p.substitute ? 'bg-red-50 border border-red-100' :
+            p.isClub ? 'bg-orange-50 border border-orange-100' :
+            p.isAbsent ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'
+          }`}>
+            <span className="font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
+            <span className="text-slate-400 w-14 flex-shrink-0 truncate">{p.subject}</span>
+            <div className="flex-1 min-w-0 flex items-center gap-1">
+              {cd.isCancelled ? (
+                <>
+                  <span className="text-orange-300 line-through truncate">{shortName(p.teacher)}</span>
+                  <span className="text-orange-500 font-semibold flex-shrink-0 ml-1 text-[10px]">FREE</span>
+                </>
+              ) : p.isAbsent ? (
+                <>
+                  <span className="text-red-400 line-through truncate">{shortName(p.teacher)}</span>
+                  {p.substitute
+                    ? <><span className="text-slate-400 flex-shrink-0">→</span>
+                        <span className={`font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>
+                          {shortName(p.substitute)}
+                        </span>
+                        {p.isClub && <span className="font-bold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
+                    : <span className="font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
+                  }
+                </>
+              ) : (
+                <span className="font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
