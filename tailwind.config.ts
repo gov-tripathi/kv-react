@@ -6,7 +6,13 @@ const config: Config = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  theme: { extend: {} },
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['var(--font-jakarta)', 'Plus Jakarta Sans', 'sans-serif'],
+      },
+    },
+  },
   plugins: [],
 };
 export default config;

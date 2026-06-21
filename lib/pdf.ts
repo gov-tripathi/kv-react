@@ -62,8 +62,19 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
   doc.line(margin, y, pageW - margin, y);
   y += 4;
 
-  // Sort rows by absent teacher, then period
-  const sorted = [...rows].sort((a, b) =>
+  // Separate cancelled rows from substitution rows
+  const subRows = rows.filter(r => r.Type !== 'CANCELLED');
+  const cancelledRows = rows.filter(r => r.Type === 'CANCELLED');
+
+  // Group cancelled periods by class → one line per class
+  const cancelledByClass = new Map<string, number[]>();
+  for (const r of cancelledRows) {
+    if (!cancelledByClass.has(r.Class)) cancelledByClass.set(r.Class, []);
+    cancelledByClass.get(r.Class)!.push(r.Period);
+  }
+
+  // Sort sub rows by absent teacher, then period
+  const sorted = [...subRows].sort((a, b) =>
     a.Absent_Teacher.localeCompare(b.Absent_Teacher) || a.Period - b.Period,
   );
 
@@ -119,7 +130,30 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     margin: { left: margin, right: margin },
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  // Cancelled classes section — one line per class
+  let afterTableY = (doc as any).lastAutoTable.finalY;
+  if (cancelledByClass.size > 0) {
+    const cancelY = afterTableY + 6;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(194, 65, 12); // orange-700
+    doc.text('CANCELLED CLASSES:', margin, cancelY);
+
+    const cancelLines = [...cancelledByClass.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cls, periods]) => {
+        const sortedPeriods = [...periods].sort((a, b) => a - b);
+        return `${cls}  (Per. ${sortedPeriods.join(', ')})`;
+      });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(154, 52, 18); // orange-800
+    doc.text(cancelLines.join('     '), margin + 38, cancelY);
+    afterTableY = cancelY + 4;
+  }
+
+  const finalY = afterTableY + 10;
 
   // Footer
   doc.setDrawColor(203, 213, 225);

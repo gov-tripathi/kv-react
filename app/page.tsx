@@ -2,6 +2,61 @@
 
 import { useState, useEffect, useMemo, useCallback, FormEvent } from 'react';
 import Papa from 'papaparse';
+// ── Lightweight design primitives (no external lib, avoids React Aria compat issues)
+function Btn({ children, variant = 'primary', size = 'md', disabled = false, type = 'button', onPress, onClick, className = '', style }: {
+  children: React.ReactNode; variant?: 'primary'|'secondary'|'ghost'|'outline'|'danger-soft';
+  size?: 'sm'|'md'|'lg'; disabled?: boolean; type?: 'button'|'submit'; onPress?: () => void; onClick?: () => void; className?: string; style?: React.CSSProperties;
+}) {
+  const base = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
+  const sizes = { sm: 'px-3 py-1.5 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-5 py-3 text-base' };
+  const variants = {
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-400 shadow-sm',
+    secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700 focus:ring-slate-300',
+    ghost: 'hover:bg-white/10 text-inherit focus:ring-white/20',
+    outline: 'border border-slate-200 hover:bg-slate-50 text-slate-700 focus:ring-blue-400',
+    'danger-soft': 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 focus:ring-red-400',
+  };
+  return (
+    <button type={type} disabled={disabled} onClick={onPress ?? onClick} style={style}
+      className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}>
+      {children}
+    </button>
+  );
+}
+
+function StatusChip({ children, color = 'default', size = 'md' }: {
+  children: React.ReactNode; color?: 'default'|'danger'|'success'|'warning'|'accent'; size?: 'sm'|'md';
+}) {
+  const colors = {
+    default: 'bg-slate-100 text-slate-700 border-slate-200',
+    danger: 'bg-red-50 text-red-700 border-red-200',
+    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    warning: 'bg-amber-50 text-amber-700 border-amber-200',
+    accent: 'bg-blue-50 text-blue-700 border-blue-200',
+  };
+  const sizes = { sm: 'text-[11px] px-2 py-0.5', md: 'text-xs px-2.5 py-0.5' };
+  return (
+    <span className={`inline-flex items-center font-semibold border rounded-full ${sizes[size]} ${colors[color]}`}>
+      {children}
+    </span>
+  );
+}
+
+function LoadingSpinner({ size = 'md', className = '' }: { size?: 'sm'|'md'|'lg'; className?: string }) {
+  const sizes = { sm: 'w-4 h-4 border-2', md: 'w-7 h-7 border-[3px]', lg: 'w-10 h-10 border-4' };
+  return (
+    <span className={`inline-block ${sizes[size]} border-blue-500 border-t-transparent rounded-full animate-spin ${className}`} />
+  );
+}
+
+function KvProgressBar({ value, color = 'default' }: { value: number; color?: 'default'|'success'|'warning'|'danger' }) {
+  const colors = { default: 'bg-blue-500', success: 'bg-emerald-500', warning: 'bg-amber-500', danger: 'bg-red-500' };
+  return (
+    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all duration-500 ${colors[color]}`} style={{ width: `${Math.min(100, value)}%` }} />
+    </div>
+  );
+}
 import {
   TimetableRow, AbsentPeriod, ReportRow, TeacherData,
 } from '@/lib/types';
@@ -10,70 +65,132 @@ import {
   avColor, avInitials, shortName, getAllTeachers, getAllClasses,
   getSchedule, busySetExcludingCancelled, teacherPeriodInfo, masterLoad,
   buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
-  buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod, getNotReqTeachersForPeriod, priorityIdx,
+  buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod,
+  getNotReqTeachersForPeriod, priorityIdx,
 } from '@/lib/timetable';
 import type { AbsenceConfig } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
 import { computeRegisterDuties } from '@/lib/duties';
 import type { RegisterDuty } from '@/lib/duties';
 
-// ─── auth ─────────────────────────────────────────────────────────────────────
 const USERS: Record<string, string> = {
   'iamgovind560@gmail.com': 'govind@kv2025',
   'nt4472@gmail.com': 'nt4472@6065',
 };
 
+// ── Reusable toggle switch ────────────────────────────────────────────────────
+function Toggle({ on, onToggle, accent = 'blue' }: { on: boolean; onToggle: () => void; accent?: 'blue' | 'green' | 'amber' }) {
+  const colors = { blue: 'bg-blue-500', green: 'bg-emerald-500', amber: 'bg-amber-500' };
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onToggle}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${on ? colors[accent] : 'bg-slate-200'}`}>
+      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+    </button>
+  );
+}
+
+// ── Styled select wrapper ─────────────────────────────────────────────────────
+function SelectField({ className = '', children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { className?: string }) {
+  return (
+    <div className={`relative ${className}`}>
+      <select {...props}
+        className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-2.5 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer hover:border-slate-300">
+        {children}
+      </select>
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5">
+        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (USERS[email.trim()] === password) {
-      try { localStorage.setItem('kv_auth', email.trim()); } catch {}
-      onLogin();
+      setLoading(true);
+      setTimeout(() => {
+        try { localStorage.setItem('kv_auth', email.trim()); } catch {}
+        onLogin();
+      }, 400);
     } else {
       setError('Invalid email or password.');
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
-        <h1 className="text-xl font-bold text-slate-800 mb-1 text-center">KV Burhanpur</h1>
-        <p className="text-sm text-slate-500 text-center mb-6">Arrangement System</p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
-            <input
-              type="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="you@example.com" autoComplete="email"
-            />
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 60%, #1D4ED8 100%)' }}>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+
+      <div className="w-full max-w-sm relative z-10">
+        <div className="flex flex-col items-center mb-7">
+          <div className="flex items-center gap-4 mb-4">
+            <img src="/2023042075.png" alt="KV Logo"
+              className="h-14 w-auto drop-shadow-2xl"
+              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,.5)) brightness(1.15)' }} />
+            <img src="/2025021137.png" alt="PM SHRI Logo"
+              className="h-11 w-auto drop-shadow-2xl"
+              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,.5)) brightness(1.15)' }} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Password</label>
-            <input
-              type="password" value={password} onChange={e => { setPassword(e.target.value); setError(''); }}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••••" autoComplete="current-password"
-            />
-          </div>
-          {error && <p className="text-red-500 text-xs">{error}</p>}
-          <button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors"
-          >
-            Sign In
-          </button>
-        </form>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">KV Burhanpur</h1>
+          <p className="text-blue-300/80 text-sm mt-1 font-medium">Teacher Arrangement System</p>
+          <p className="text-blue-400/50 text-xs mt-0.5">2026–27</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 shadow-2xl p-6"
+          style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(24px)' }}>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Email address</label>
+              <input type="email" value={email} placeholder="you@example.com" autoComplete="email"
+                onChange={e => { setEmail(e.target.value); setError(''); }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-white/15 bg-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:border-transparent transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Password</label>
+              <div className="relative">
+                <input type={showPw ? 'text' : 'password'} value={password} placeholder="••••••••" autoComplete="current-password"
+                  onChange={e => { setPassword(e.target.value); setError(''); }}
+                  className="w-full px-3.5 py-2.5 pr-16 rounded-xl border border-white/15 bg-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:border-transparent transition-all" />
+                <button type="button" onClick={() => setShowPw(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-300/70 hover:text-blue-200 transition-colors">
+                  {showPw ? 'hide' : 'show'}
+                </button>
+              </div>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-500/15 border border-red-400/30 rounded-lg">
+                <span className="text-red-400 text-xs">●</span>
+                <span className="text-red-300 text-xs font-medium">{error}</span>
+              </div>
+            )}
+            <Btn type="submit" variant="primary" className="w-full mt-1 h-11" disabled={loading}>
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <LoadingSpinner size="sm" className="border-white/70 border-t-transparent" />
+                  Signing in…
+                </span>
+              ) : 'Sign In'}
+            </Btn>
+          </form>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── tiny helpers ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const subKey = (teacher: string, period: number) => `${teacher}__${period}`;
 
 function todayDate(): string {
@@ -81,11 +198,17 @@ function todayDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ─── component ───────────────────────────────────────────────────────────────
+// ── Section label ─────────────────────────────────────────────────────────────
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">{children}</p>;
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [authed, setAuthed] = useState(() => {
-    try { return !!localStorage.getItem('kv_auth'); } catch { return false; }
-  });
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  useEffect(() => {
+    try { setAuthed(!!localStorage.getItem('kv_auth')); } catch { setAuthed(false); }
+  }, []);
   const [df, setDf] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status'>('arrangement');
@@ -109,20 +232,14 @@ export default function App() {
   const [log, setLog] = useState<ReportRow[]>([]);
   const [showLog, setShowLog] = useState(false);
 
-  // Load timetable CSV
   useEffect(() => {
-    fetch('/timetable_master.csv')
-      .then(r => r.text())
-      .then(csv => {
-        const result = Papa.parse<TimetableRow>(csv, {
-          header: true, dynamicTyping: true, skipEmptyLines: true,
-        });
-        setDf(result.data);
-        setLoading(false);
-      });
+    fetch('/timetable_master.csv').then(r => r.text()).then(csv => {
+      const result = Papa.parse<TimetableRow>(csv, { header: true, dynamicTyping: true, skipEmptyLines: true });
+      setDf(result.data);
+      setLoading(false);
+    });
   }, []);
 
-  // Load log from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem('kv_arrangement_log');
@@ -132,7 +249,6 @@ export default function App() {
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
   const allClasses = useMemo(() => getAllClasses(df), [df]);
-
   const schoolMaxPeriod = schoolHalfDay ? schoolHalfDayPeriod : 8;
 
   const absentPeriods = useMemo(
@@ -145,32 +261,17 @@ export default function App() {
     [df, cancelledClasses, selectedDay, schoolMaxPeriod],
   );
 
-  // Reset subs/clubs when absent teachers or day changes
+  useEffect(() => { setSubs({}); setClubs({}); setReport(null); }, [selectedDay, absentTeachers]);
   useEffect(() => {
-    setSubs({});
-    setClubs({});
-    setReport(null);
-  }, [selectedDay, absentTeachers]);
-
-  // Reset cancelled classes, absence configs and school half-day when day changes
-  useEffect(() => {
-    setCancelledClasses([]);
-    setUseCancelledTeachers(false);
-    setAbsenceConfigs({});
-    setSchoolHalfDay(false);
-    setSchoolHalfDayPeriod(4);
+    setCancelledClasses([]); setUseCancelledTeachers(false);
+    setAbsenceConfigs({}); setSchoolHalfDay(false); setSchoolHalfDayPeriod(4);
   }, [selectedDay]);
 
-  const subWl = useMemo(
-    () => computeSubWorkload(absentPeriods, subs),
-    [absentPeriods, subs],
-  );
-
+  const subWl = useMemo(() => computeSubWorkload(absentPeriods, subs), [absentPeriods, subs]);
   const covered = useMemo(
     () => absentPeriods.filter(e => !!subs[subKey(e.teacher, e.period)]).length,
     [absentPeriods, subs],
   );
-
   const registerDuties = useMemo(
     () => computeRegisterDuties(absentTeachers, subs, absentPeriods),
     [absentTeachers, subs, absentPeriods],
@@ -178,25 +279,21 @@ export default function App() {
 
   const handleAutoFill = useCallback(() => {
     const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs);
-    setSubs(newSubs);
-    setReport(null);
+    setSubs(newSubs); setReport(null);
   }, [df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs]);
 
   const handleSetSub = useCallback((teacher: string, period: number, val: string) => {
-    setSubs(prev => ({ ...prev, [subKey(teacher, period)]: val }));
-    setReport(null);
+    setSubs(prev => ({ ...prev, [subKey(teacher, period)]: val })); setReport(null);
   }, []);
 
   const handleSetClub = useCallback((teacher: string, period: number, val: boolean) => {
     setClubs(prev => ({ ...prev, [subKey(teacher, period)]: val }));
-    setSubs(prev => ({ ...prev, [subKey(teacher, period)]: '' }));
-    setReport(null);
+    setSubs(prev => ({ ...prev, [subKey(teacher, period)]: '' })); setReport(null);
   }, []);
 
   const handleGenerateReport = useCallback(() => {
     const rows = buildReportRowsWithCancelled(df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal);
     setReport(rows);
-    // Persist to log
     const newLog = [...log, ...rows];
     setLog(newLog);
     try { localStorage.setItem('kv_arrangement_log', JSON.stringify(newLog)); } catch {}
@@ -214,10 +311,8 @@ export default function App() {
     const headers = Object.keys(report[0]).join(',');
     const body = report.map(r => Object.values(r).map(v => `"${v}"`).join(',')).join('\n');
     const blob = new Blob([headers + '\n' + body], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `arrangement_${dateVal}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
+    a.download = `arrangement_${dateVal}.csv`; a.click(); URL.revokeObjectURL(url);
   }, [report, dateVal]);
 
   const handleDownloadLog = useCallback(() => {
@@ -225,244 +320,235 @@ export default function App() {
     const headers = Object.keys(log[0]).join(',');
     const body = log.map(r => Object.values(r).map(v => `"${v}"`).join(',')).join('\n');
     const blob = new Blob([headers + '\n' + body], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = 'arrangements_log.csv'; a.click();
-    URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
+    a.download = 'arrangements_log.csv'; a.click(); URL.revokeObjectURL(url);
   }, [log]);
 
+  if (authed === null) return null;
   if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
   if (loading) return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center">
       <div className="text-center">
-        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-slate-500 text-sm">Loading timetable…</p>
+        <LoadingSpinner size="lg" />
+        <p className="text-slate-500 text-sm mt-4 font-medium">Loading timetable…</p>
       </div>
     </div>
   );
 
+  const filteredTeachers = allTeachers.filter(
+    t => !absentTeachers.includes(t) && t.toLowerCase().includes(teacherSearch.toLowerCase()),
+  );
+
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="max-w-3xl mx-auto px-3 py-4 pb-20">
+    <div className="min-h-screen" style={{ background: '#F1F5F9' }}>
+      <div className="max-w-3xl mx-auto px-3 py-4 pb-24">
 
-        {/* Header */}
-        <div className="relative rounded-2xl px-4 pt-4 pb-4 mb-4 text-white overflow-hidden"
-          style={{ background: 'linear-gradient(135deg,#1E3A8A 0%,#2563EB 60%,#3B82F6 100%)', boxShadow: '0 4px 24px rgba(37,99,235,.3)' }}>
-          {/* Sign-out — absolute top-right corner */}
-          <button
-            onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
-            className="absolute top-2.5 right-2.5 text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-full transition-colors leading-tight"
-            title="Sign out"
-          >⎋ Out</button>
-
-          {/* Logos + title centred together */}
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="flex items-center gap-3">
-              <img src="/2023042075.png" alt="KV Logo" className="h-10 w-auto object-contain"
-                style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.3))' }} />
+        {/* ── Header ── */}
+        <div className="relative rounded-3xl px-5 pt-5 pb-5 mb-5 overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #2563EB 100%)', boxShadow: '0 8px 32px rgba(37,99,235,.3)' }}>
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-8 -right-8 w-40 h-40 bg-blue-400/10 rounded-full blur-2xl" />
+            <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl" />
+          </div>
+          <button onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
+            className="absolute top-3 right-3 text-white/60 hover:text-white hover:bg-white/10 text-xs font-semibold border border-white/15 h-7 px-3 rounded-full transition-all">
+            Sign out
+          </button>
+          <div className="flex flex-col items-center gap-2 relative z-10">
+            <div className="flex items-center gap-4">
+              <img src="/2023042075.png" alt="KV Logo" className="h-11 w-auto"
+                style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
               <div className="text-center">
-                <h1 className="text-base font-extrabold tracking-tight leading-tight">KV Burhanpur</h1>
-                <p className="text-[10px] opacity-60 leading-tight">PM SHRI KENDRIYA VIDYALAYA</p>
+                <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">KV Burhanpur</h1>
+                <p className="text-blue-300/50 text-[10px] font-medium tracking-widest uppercase">PM SHRI Kendriya Vidyalaya</p>
               </div>
-              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-8 w-auto object-contain"
-                style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.3))' }} />
+              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto"
+                style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
             </div>
-            <p className="text-[11px] opacity-70 tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
+            <p className="text-blue-300/50 text-xs tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
           </div>
         </div>
 
-        {/* Morning Setup */}
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Morning Setup</p>
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-slate-500">Date</label>
-              <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">{selectedDay}</span>
+        {/* ── Morning Setup ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-4">
+          <SectionLabel>Morning Setup</SectionLabel>
+
+          {/* Date */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-semibold text-slate-600">Date</label>
+              <StatusChip color="accent" size="sm">{selectedDay}</StatusChip>
             </div>
-            <input
-              type="date" value={dateVal}
+            <input type="date" value={dateVal}
               onChange={e => { setDateVal(e.target.value); setAbsentTeachers([]); }}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
           </div>
-          {/* Absent teacher multi-select */}
-          <label className="block text-xs text-slate-500 mb-1">Mark Teachers as Absent</label>
-          <div className="relative">
-            <input
-              type="text" placeholder="Search or tap to see all teachers…"
-              value={teacherSearch}
-              onChange={e => setTeacherSearch(e.target.value)}
-              onFocus={() => setShowTeacherDropdown(true)}
-              onBlur={() => setTimeout(() => setShowTeacherDropdown(false), 150)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            {showTeacherDropdown && (
-              <div className="absolute z-20 left-0 right-0 top-full -mt-1 border border-slate-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto shadow-lg bg-white">
-                {allTeachers
-                  .filter(t => !absentTeachers.includes(t) && t.toLowerCase().includes(teacherSearch.toLowerCase()))
-                  .map(t => (
-                    <button key={t}
-                      onMouseDown={e => e.preventDefault()}
+
+          {/* Absent Teachers */}
+          <div className="mb-1">
+            <label className="block text-sm font-semibold text-slate-600 mb-1.5">Mark Teachers Absent</label>
+            <div className="relative">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="text" placeholder="Search or tap to see all teachers…"
+                  value={teacherSearch}
+                  onChange={e => setTeacherSearch(e.target.value)}
+                  onFocus={() => setShowTeacherDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowTeacherDropdown(false), 150)}
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
+              </div>
+              {showTeacherDropdown && (
+                <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                  {filteredTeachers.map(t => (
+                    <button key={t} onMouseDown={e => e.preventDefault()}
                       onClick={() => { setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 border-b border-slate-100 last:border-0">
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-slate-50 last:border-0 flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0"
+                        style={{ background: avColor(t) }}>
+                        {avInitials(t)}
+                      </span>
                       {shortName(t)}
                     </button>
-                  ))
-                }
-                {allTeachers.filter(t => !absentTeachers.includes(t) && t.toLowerCase().includes(teacherSearch.toLowerCase())).length === 0 && (
-                  <div className="px-3 py-2.5 text-sm text-slate-400">No teachers found</div>
-                )}
-              </div>
-            )}
+                  ))}
+                  {filteredTeachers.length === 0 && (
+                    <div className="px-3 py-3 text-sm text-slate-400 text-center">No teachers found</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          {/* Selected absent pills + half-day config */}
+
+          {/* Absent teacher chips */}
           {absentTeachers.length > 0 && (
-            <>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {absentTeachers.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 rounded-full px-2 py-0.5 text-xs font-semibold">
-                    {shortName(t)}
-                    <button onClick={() => setAbsentTeachers(prev => prev.filter(x => x !== t))} className="ml-0.5 text-red-400 hover:text-red-700">×</button>
-                  </span>
-                ))}
-              </div>
-              <div className="space-y-2 mb-2">
-                {absentTeachers.map(t => {
-                  const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, absentPeriods: [] };
-                  const teachingPeriods = getSchedule(df, t, selectedDay).filter(r => r.Subject !== 'Not Req');
-                  return (
-                    <div key={t} className="flex flex-col gap-1.5">
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {absentTeachers.map(t => (
+                <span key={t} className="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 rounded-full pl-2 pr-1 py-0.5 text-xs font-semibold">
+                  <span className="w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0"
+                    style={{ background: avColor(t) }}>{avInitials(t)}</span>
+                  {shortName(t)}
+                  <button onClick={() => setAbsentTeachers(prev => prev.filter(x => x !== t))}
+                    className="ml-0.5 w-4 h-4 rounded-full text-red-400 hover:text-white hover:bg-red-500 flex items-center justify-center transition-colors text-xs leading-none flex-shrink-0">×</button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Per-teacher half-day config */}
+          {absentTeachers.length > 0 && (
+            <div className="mt-3 space-y-2.5">
+              {absentTeachers.map(t => {
+                const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, absentPeriods: [] };
+                const teachingPeriods = getSchedule(df, t, selectedDay).filter(r => r.Subject !== 'Not Req');
+                return (
+                  <div key={t} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">{shortName(t)}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-600 font-semibold flex-1 truncate uppercase tracking-wide">{shortName(t)}</span>
-                        <button
-                          onClick={() => {
+                        <span className={`text-xs font-medium ${cfg.halfDay ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {cfg.halfDay ? 'Half Day' : 'Full Day'}
+                        </span>
+                        <Toggle on={cfg.halfDay} accent="amber"
+                          onToggle={() => {
                             setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, halfDay: !cfg.halfDay, absentPeriods: [] } }));
                             setReport(null);
-                          }}
-                          className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors min-h-[32px] ${cfg.halfDay ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
-                        >
-                          {cfg.halfDay ? 'Half Day' : 'Full Day'}
-                        </button>
+                          }} />
                       </div>
-                      {cfg.halfDay && (
-                        <div className="pl-1">
-                          <p className="text-xs text-slate-400 mb-1.5">Tap periods teacher is <strong>absent</strong> for:</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {teachingPeriods.length === 0 && (
-                              <span className="text-xs text-slate-400 italic">No teaching periods on {selectedDay}</span>
-                            )}
-                            {teachingPeriods.map(r => {
-                              const isAbsent = cfg.absentPeriods?.includes(r.Period) ?? false;
-                              return (
-                                <button
-                                  key={r.Period}
-                                  onClick={() => {
-                                    const current = cfg.absentPeriods ?? [];
-                                    const next = isAbsent ? current.filter(p => p !== r.Period) : [...current, r.Period];
-                                    setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, absentPeriods: next } }));
-                                    setReport(null);
-                                  }}
-                                  className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors min-h-[32px] ${
-                                    isAbsent
-                                      ? 'bg-red-50 text-red-700 border-red-300'
-                                      : 'bg-slate-100 text-slate-500 border-slate-200'
-                                  }`}
-                                >
-                                  P{r.Period} · {r.Class}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-            </>
+                    {cfg.halfDay && (
+                      <div>
+                        <p className="text-xs text-slate-400 mb-2">Tap periods teacher is <strong>absent</strong> for:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {teachingPeriods.length === 0 && (
+                            <span className="text-xs text-slate-400 italic">No teaching periods on {selectedDay}</span>
+                          )}
+                          {teachingPeriods.map(r => {
+                            const isAbsent = cfg.absentPeriods?.includes(r.Period) ?? false;
+                            return (
+                              <button key={r.Period}
+                                onClick={() => {
+                                  const current = cfg.absentPeriods ?? [];
+                                  const next = isAbsent ? current.filter(p => p !== r.Period) : [...current, r.Period];
+                                  setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, absentPeriods: next } }));
+                                  setReport(null);
+                                }}
+                                className={`text-xs px-2.5 py-1.5 rounded-lg border font-semibold transition-all min-h-[32px] ${
+                                  isAbsent ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-600'
+                                }`}>
+                                P{r.Period} · {r.Class}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {/* School Half Day */}
-          <div className="mt-3 pt-3 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-slate-500 font-medium">School Half Day</label>
-              <button
-                onClick={() => { setSchoolHalfDay(v => !v); setReport(null); }}
-                className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${schoolHalfDay ? 'bg-blue-500' : 'bg-slate-300'}`}
-              >
-                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${schoolHalfDay ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </button>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">School Half Day</p>
+                {schoolHalfDay && (
+                  <p className="text-xs text-blue-600 mt-0.5">Periods {schoolHalfDayPeriod + 1}–8 skipped</p>
+                )}
+              </div>
+              <Toggle on={schoolHalfDay} onToggle={() => { setSchoolHalfDay(v => !v); setReport(null); }} />
             </div>
             {schoolHalfDay && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-slate-400">School runs up to period</span>
-                <select
-                  value={schoolHalfDayPeriod}
-                  onChange={e => { setSchoolHalfDayPeriod(Number(e.target.value)); setReport(null); }}
-                  className="border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[36px]"
-                >
-                  {[1,2,3,4,5,6,7,8].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
-                  Periods {schoolHalfDayPeriod + 1}–8 skipped
-                </span>
+              <div className="flex items-center gap-3 mt-3">
+                <span className="text-sm text-slate-500">School runs up to period</span>
+                <SelectField value={schoolHalfDayPeriod} onChange={e => { setSchoolHalfDayPeriod(Number(e.target.value)); setReport(null); }}
+                  className="w-20">
+                  {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}</option>)}
+                </SelectField>
               </div>
             )}
           </div>
 
           {/* Cancel Classes */}
-          <div className="mt-3 pt-3 border-t border-slate-100">
-            <label className="block text-xs text-slate-500 mb-1">Cancel Classes</label>
-            <select
-              value=""
-              onChange={e => {
-                const cls = e.target.value;
-                if (cls && !cancelledClasses.includes(cls)) {
-                  setCancelledClasses(prev => [...prev, cls]);
-                  setReport(null);
-                }
-              }}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-400"
-            >
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <label className="block text-sm font-semibold text-slate-600 mb-2">Cancel Classes</label>
+            <SelectField value="" onChange={e => {
+              const cls = e.target.value;
+              if (cls && !cancelledClasses.includes(cls)) { setCancelledClasses(prev => [...prev, cls]); setReport(null); }
+            }}>
               <option value="">Select a class to cancel…</option>
-              {allClasses.filter(c => !cancelledClasses.includes(c)).map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+              {allClasses.filter(c => !cancelledClasses.includes(c)).map(c => <option key={c} value={c}>{c}</option>)}
+            </SelectField>
             {cancelledClasses.length > 0 && (
               <>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {cancelledClasses.map(c => (
-                    <span key={c} className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5 text-xs font-semibold">
+                    <span key={c} className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 pr-1 py-0.5 text-xs font-semibold">
                       {c}
-                      <button onClick={() => { setCancelledClasses(prev => prev.filter(x => x !== c)); setReport(null); }} className="ml-0.5 text-orange-400 hover:text-orange-700">×</button>
+                      <button onClick={() => { setCancelledClasses(prev => prev.filter(x => x !== c)); setReport(null); }}
+                        className="ml-0.5 w-4 h-4 rounded-full text-orange-400 hover:text-white hover:bg-orange-500 flex items-center justify-center transition-colors text-xs leading-none flex-shrink-0">×</button>
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    onClick={() => setUseCancelledTeachers(v => !v)}
-                    className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${useCancelledTeachers ? 'bg-green-500' : 'bg-slate-300'}`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${useCancelledTeachers ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                  </button>
-                  <span className="text-xs text-slate-600">Use freed teachers in arrangement</span>
+                <div className="flex items-center gap-2.5 mt-3">
+                  <Toggle on={useCancelledTeachers} accent="green" onToggle={() => setUseCancelledTeachers(v => !v)} />
+                  <span className="text-xs font-medium text-slate-600">Use freed teachers in arrangement</span>
                 </div>
               </>
             )}
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
+        {/* ── Tab bar ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-1 mb-4 flex gap-1">
           {(['arrangement', 'status'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === tab
-                  ? 'text-blue-700 bg-blue-50 border-b-2 border-blue-600'
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}>
               {tab === 'arrangement' ? '📋  Arrangement' : '👥  Teacher Status'}
@@ -533,9 +619,8 @@ interface ArrProps {
 function ArrangementTab({
   df, absentTeachers, absentPeriods,
   absenceConfigs, cancelledClasses, cancelledPeriods, useCancelledTeachers,
-  selectedDay, dateVal,
-  subs, clubs, subWl, covered, registerDuties, report, pdfLoading,
-  log, showLog, setShowLog,
+  selectedDay, dateVal, subs, clubs, subWl, covered, registerDuties,
+  report, pdfLoading, log, showLog, setShowLog,
   onAutoFill, onSetSub, onSetClub, onGenerateReport,
   onDownloadPDF, onDownloadCSV, onDownloadLog,
 }: ArrProps) {
@@ -544,16 +629,15 @@ function ArrangementTab({
   function handleCopyWA() {
     if (!report) return;
     navigator.clipboard.writeText(whatsappText(report, selectedDay, dateVal)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
     });
   }
 
   if (!absentTeachers.length && !cancelledClasses.length) return (
-    <div className="text-center py-16 text-slate-400">
+    <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-slate-100">
       <div className="text-5xl mb-3">☀️</div>
-      <div className="font-semibold text-slate-600">Good morning!</div>
-      <div className="text-sm mt-1">Mark absent teachers or cancel classes above to begin.</div>
+      <div className="font-bold text-slate-700">Good morning!</div>
+      <div className="text-sm text-slate-400 mt-1">Mark absent teachers or cancel classes above to begin.</div>
     </div>
   );
 
@@ -568,19 +652,19 @@ function ArrangementTab({
 
   return (
     <>
-      {/* Cancelled Classes Card */}
+      {/* Cancelled classes card */}
       {cancelledPeriods.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-orange-400 mb-2">
-            Cancelled · {cancelledClasses.join(', ')}
-            {useCancelledTeachers && <span className="ml-2 text-green-600 normal-case font-semibold">· freed teachers available for arrangement</span>}
-          </p>
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4">
+          <SectionLabel>
+            <span className="text-orange-500">Cancelled · {cancelledClasses.join(', ')}</span>
+            {useCancelledTeachers && <span className="ml-2 normal-case font-semibold text-emerald-600"> · freed teachers available</span>}
+          </SectionLabel>
           {[...new Set(cancelledPeriods.map(e => e.period))].sort((a, b) => a - b).map(p => (
-            <div key={p} className="flex flex-wrap items-center gap-2 mb-1.5">
-              <span className="text-xs font-bold text-orange-700 w-14">Period {p}</span>
+            <div key={p} className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              <span className="text-xs font-bold text-orange-700 w-14 flex-shrink-0">Period {p}</span>
               {cancelledPeriods.filter(e => e.period === p).map(e => (
                 <span key={e.teacher + e.period} className="text-xs bg-orange-100 text-orange-800 border border-orange-200 rounded-full px-2 py-0.5">
-                  {e.cls} · {e.subj} <span className="text-orange-500">({shortName(e.teacher)})</span>
+                  {e.cls} · {e.subj} <span className="text-orange-400">({shortName(e.teacher)})</span>
                 </span>
               ))}
             </div>
@@ -588,55 +672,59 @@ function ArrangementTab({
         </div>
       )}
 
-      {/* Progress */}
-      {absentPeriods.length > 0 && <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
-        <div className="flex items-center gap-4 mb-3">
-          <div className="flex-1">
-            <div className="text-2xl font-extrabold text-slate-800">
-              {covered}<span className="text-lg font-medium text-slate-400"> / {total}</span>
+      {/* Progress card */}
+      {absentPeriods.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
+          <div className="flex items-center gap-4 mb-3">
+            <div className="flex-1">
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-extrabold text-slate-800">{covered}</span>
+                <span className="text-lg font-semibold text-slate-300">/ {total}</span>
+              </div>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Periods covered</p>
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">Periods covered</div>
-            <div className="h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-500"
-                style={{ width: `${pct * 100}%` }} />
+            <div className="flex gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-extrabold text-red-500">{total - covered}</div>
+                <div className="text-xs text-slate-400 font-medium">Pending</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-extrabold text-emerald-500">{absentTeachers.length}</div>
+                <div className="text-xs text-slate-400 font-medium">Absent</div>
+              </div>
             </div>
+            <Btn variant="secondary" size="sm" onClick={onAutoFill} className="whitespace-nowrap">
+              ⚡ Auto-Fill
+            </Btn>
           </div>
-          <div className="text-center px-3">
-            <div className="text-xl font-extrabold text-red-500">{total - covered}</div>
-            <div className="text-xs text-slate-500">Pending</div>
-          </div>
-          <div className="text-center px-3">
-            <div className="text-xl font-extrabold text-emerald-500">{absentTeachers.length}</div>
-            <div className="text-xs text-slate-500">Absent</div>
-          </div>
-          <button onClick={onAutoFill}
-            className="bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-xs font-semibold px-3 py-2 rounded-xl transition-colors whitespace-nowrap">
-            ⚡ Auto-Fill
-          </button>
+          <KvProgressBar value={Math.round(pct * 100)}
+            color={pct >= 1 ? 'success' : pct >= 0.5 ? 'warning' : 'danger'} />
+          <p className="text-xs text-slate-400 mt-1 text-right">{Math.round(pct * 100)}% complete</p>
         </div>
-      </div>}
+      )}
 
       {/* Per-teacher cards */}
       {absentTeachers.map(teacher => {
         const tPeriods = absentPeriods.filter(e => e.teacher === teacher);
         if (!tPeriods.length) return null;
         const tCov = tPeriods.filter(e => !!subs[subKey(e.teacher, e.period)]).length;
+        const allDone = tCov === tPeriods.length;
 
         return (
-          <div key={teacher} className="bg-white rounded-2xl mb-4 shadow-sm overflow-hidden">
-            {/* Teacher header */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-50">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+          <div key={teacher} className={`bg-white rounded-2xl mb-4 shadow-sm border overflow-hidden ${allDone ? 'border-emerald-200' : 'border-slate-100'}`}>
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-50">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm"
                 style={{ background: avColor(teacher) }}>
                 {avInitials(teacher)}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="font-bold text-slate-800 text-sm">{shortName(teacher)}</div>
-                <div className="text-xs text-slate-400">{tPeriods.length} periods · {tCov}/{tPeriods.length} assigned</div>
+                <div className="text-xs text-slate-400 mt-0.5">{tPeriods.length} periods · {tCov}/{tPeriods.length} assigned</div>
               </div>
+              {allDone && (
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0">✓ Done</span>
+              )}
             </div>
-
-            {/* Period rows */}
             {tPeriods.map(e => (
               <PeriodRow key={e.period}
                 df={df} e={e} teacher={teacher} selectedDay={selectedDay}
@@ -651,11 +739,10 @@ function ArrangementTab({
         );
       })}
 
-      {/* Duties Card */}
+      {/* Duties card */}
       {registerDuties.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Duties</p>
-
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
+          <SectionLabel>Duties</SectionLabel>
           {registerDuties.map(d => (
             <div key={d.cls} className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
               <span className="text-xl flex-shrink-0">📋</span>
@@ -666,9 +753,7 @@ function ArrangementTab({
                 <div className="text-xs text-slate-400">{shortName(d.absentTeacher)} absent</div>
               </div>
               <span className={`text-xs font-bold border rounded-lg px-2.5 py-1 flex-shrink-0 ${
-                d.assignedTo
-                  ? 'text-blue-700 bg-blue-50 border-blue-200'
-                  : 'text-red-500 bg-red-50 border-red-200'
+                d.assignedTo ? 'text-blue-700 bg-blue-50 border-blue-200' : 'text-red-500 bg-red-50 border-red-200'
               }`}>
                 {d.assignedTo ? shortName(d.assignedTo) : '— P1 unassigned —'}
               </span>
@@ -677,47 +762,45 @@ function ArrangementTab({
         </div>
       )}
 
-      {/* Generate Report */}
+      {/* Generate report CTA */}
       <button onClick={onGenerateReport}
-        className="w-full py-3.5 rounded-2xl font-bold text-white text-sm mb-4 transition-all hover:opacity-90 active:scale-95"
-        style={{ background: 'linear-gradient(135deg,#1E40AF,#3B82F6)', boxShadow: '0 4px 14px rgba(59,130,246,.4)' }}>
+        className="w-full py-4 rounded-2xl font-extrabold text-white text-sm mb-4 transition-all hover:opacity-95 active:scale-[0.99] tracking-wide"
+        style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB, #3B82F6)', boxShadow: '0 6px 20px rgba(37,99,235,.35)' }}>
         📋 Finalise &amp; Generate Report
       </button>
 
       {/* Report */}
       {report && (
-        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
-            Arrangement Sheet · {selectedDay} {dateVal}
-          </p>
-          <div className="overflow-x-auto mb-4">
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
+          <SectionLabel>Arrangement Sheet · {selectedDay} {dateVal}</SectionLabel>
+          <div className="overflow-x-auto mb-5 rounded-xl overflow-hidden border border-slate-100">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-blue-700 text-white">
+                <tr style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
                   {['Per.', 'Absent Teacher', 'Class', 'Substitute', 'Mode'].map(h => (
-                    <th key={h} className="px-2 py-2 text-left font-semibold">{h}</th>
+                    <th key={h} className="px-3 py-2.5 text-left font-bold text-white text-xs">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {report.map((r, i) => (
-                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="px-2 py-2 font-medium text-blue-700">{r.Period}</td>
-                    <td className="px-2 py-2">{shortName(r.Absent_Teacher)}</td>
-                    <td className="px-2 py-2">{r.Class}</td>
-                    <td className="px-2 py-2">
+                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                    <td className="px-3 py-2.5 font-bold text-blue-700">{r.Period}</td>
+                    <td className="px-3 py-2.5 text-slate-600">{shortName(r.Absent_Teacher)}</td>
+                    <td className="px-3 py-2.5 font-medium text-slate-700">{r.Class}</td>
+                    <td className="px-3 py-2.5">
                       {r.Type === 'CANCELLED'
-                        ? <span className="text-orange-700 font-semibold">🚫 Class Cancelled</span>
+                        ? <span className="text-orange-600 font-semibold">🚫 Cancelled</span>
                         : r.Type === 'CLUBBED'
                         ? <span className="text-amber-700 font-semibold">🔀 {shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
                         : <span className="font-semibold text-slate-800">{shortName(r.Substitute)}</span>
                       }
                     </td>
-                    <td className="px-2 py-2">
-                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                    <td className="px-3 py-2.5">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         r.Type === 'CANCELLED' ? 'bg-orange-100 text-orange-700' :
                         r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' :
-                        'bg-green-100 text-green-700'
+                        'bg-emerald-100 text-emerald-700'
                       }`}>
                         {r.Type === 'CANCELLED' ? 'CANCEL' : r.Type === 'CLUBBED' ? 'CLUB' : 'SUB'}
                       </span>
@@ -729,89 +812,94 @@ function ArrangementTab({
           </div>
 
           {/* WhatsApp text */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-slate-500">Time-Table In-Charge(Primary)</p>
-              <button
-                onClick={handleCopyWA}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors ${copied ? 'bg-green-50 text-green-700 border-green-300' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'}`}
-              >
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Time-Table In-Charge</p>
+              <button onClick={handleCopyWA}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                  copied ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'
+                }`}>
                 {copied ? '✓ Copied!' : '📋 Copy'}
               </button>
             </div>
-            <textarea
-              readOnly
-              value={whatsappText(report, selectedDay, dateVal)}
-              className="w-full border border-slate-200 rounded-xl p-2.5 text-xs font-mono bg-slate-50 resize-none h-40 text-slate-700"
-            />
+            <textarea readOnly value={whatsappText(report, selectedDay, dateVal)}
+              className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono bg-slate-50 resize-none h-40 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
 
           {/* Download buttons */}
           <div className="grid grid-cols-3 gap-2">
             <button onClick={onDownloadPDF} disabled={pdfLoading}
-              className="py-2.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-60">
-              {pdfLoading ? '…' : '📄 PDF'}
+              className="py-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
+              {pdfLoading ? <LoadingSpinner size="sm" /> : '📄'} PDF
             </button>
             <button onClick={onDownloadCSV}
-              className="py-2.5 rounded-xl text-xs font-bold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors">
+              className="py-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5">
               ⬇ CSV
             </button>
             <button onClick={() => {
               const wa = whatsappText(report, selectedDay, dateVal);
               const blob = new Blob([wa], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = `arrangement_${dateVal}.txt`; a.click();
-              URL.revokeObjectURL(url);
-            }}
-              className="py-2.5 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-colors">
+              const url = URL.createObjectURL(blob); const a = document.createElement('a');
+              a.href = url; a.download = `arrangement_${dateVal}.txt`; a.click(); URL.revokeObjectURL(url);
+            }} className="py-3 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5">
               📱 Text
             </button>
           </div>
         </div>
       )}
 
-      {/* Past Log */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+      {/* Past log */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
         <button onClick={() => setShowLog(!showLog)}
-          className="w-full flex items-center justify-between px-4 py-3 text-sm text-slate-600 font-medium hover:bg-slate-50">
-          <span>📂 Past Arrangements Log ({log.length} records)</span>
-          <span>{showLog ? '▲' : '▼'}</span>
+          className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+          <span className="flex items-center gap-2">
+            <span>📂</span>
+            Past Arrangements Log
+            <span className="text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">{log.length}</span>
+          </span>
+          <span className="text-slate-400 text-xs">{showLog ? '▲' : '▼'}</span>
         </button>
         {showLog && (
           <div className="border-t border-slate-100 p-4">
-            {log.length === 0
-              ? <p className="text-xs text-slate-400">No arrangements saved yet.</p>
-              : (
-                <>
-                  <button onClick={onDownloadLog}
-                    className="mb-3 px-3 py-1.5 text-xs font-semibold bg-green-50 text-green-700 border border-green-200 rounded-xl hover:bg-green-100 transition-colors">
-                    ⬇ Download Full Log
-                  </button>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-slate-100 text-slate-600">
-                          {['Date', 'Day', 'Period', 'Absent', 'Sub', 'Type'].map(h => (
-                            <th key={h} className="px-2 py-1.5 text-left font-semibold">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {log.slice(-30).reverse().map((r, i) => (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                            <td className="px-2 py-1.5">{r.Date}</td>
-                            <td className="px-2 py-1.5">{r.Day}</td>
-                            <td className="px-2 py-1.5">{r.Period}</td>
-                            <td className="px-2 py-1.5">{shortName(r.Absent_Teacher)}</td>
-                            <td className="px-2 py-1.5">{shortName(r.Substitute)}</td>
-                            <td className="px-2 py-1.5">{r.Type}</td>
-                          </tr>
+            {log.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-4">No arrangements saved yet.</p>
+            ) : (
+              <>
+                <button onClick={onDownloadLog}
+                  className="mb-3 px-3 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors">
+                  ⬇ Download Full Log
+                </button>
+                <div className="overflow-x-auto rounded-xl border border-slate-100">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500">
+                        {['Date', 'Day', 'Period', 'Absent', 'Sub', 'Type'].map(h => (
+                          <th key={h} className="px-2.5 py-2 text-left font-bold">{h}</th>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {log.slice(-30).reverse().map((r, i) => (
+                        <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'} border-t border-slate-50`}>
+                          <td className="px-2.5 py-2 font-medium text-slate-600">{r.Date}</td>
+                          <td className="px-2.5 py-2 text-slate-500">{r.Day}</td>
+                          <td className="px-2.5 py-2 font-bold text-blue-600">{r.Period}</td>
+                          <td className="px-2.5 py-2 text-slate-600">{shortName(r.Absent_Teacher)}</td>
+                          <td className="px-2.5 py-2 font-medium text-slate-700">{shortName(r.Substitute)}</td>
+                          <td className="px-2.5 py-2">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                              r.Type === 'CANCELLED' ? 'bg-orange-100 text-orange-700' :
+                              r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' :
+                              'bg-emerald-100 text-emerald-700'
+                            }`}>{r.Type}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -848,10 +936,8 @@ function PeriodRow({
     [df, selectedDay, e.period, cancelledClasses, useCancelledTeachers],
   );
   const alreadyThis = useMemo(() => new Set(
-    absentPeriods
-      .filter(e2 => e2.period === e.period && e2.teacher !== teacher)
-      .map(e2 => subs[subKey(e2.teacher, e2.period)] ?? '')
-      .filter(Boolean),
+    absentPeriods.filter(e2 => e2.period === e.period && e2.teacher !== teacher)
+      .map(e2 => subs[subKey(e2.teacher, e2.period)] ?? '').filter(Boolean),
   ), [absentPeriods, e.period, teacher, subs]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
@@ -859,23 +945,19 @@ function PeriodRow({
     () => getNotReqTeachersForPeriod(df, selectedDay, e.period),
     [df, selectedDay, e.period],
   );
-
   const absentThisPeriod = useMemo(
     () => absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs)),
     [absentTeachers, e.period, absenceConfigs],
   );
-
   const unavail = useMemo(
     () => new Set([...periodBusy, ...alreadyThis, ...absentThisPeriod]),
     [periodBusy, alreadyThis, absentThisPeriod],
   );
-
   const freeTeachers = useMemo(
     () => allTeachers.filter(t => !unavail.has(t) && !notReqTeachers.has(t))
       .sort((a, b) => (masterLoad(df, a, selectedDay) + (subWl[a] ?? 0)) - (masterLoad(df, b, selectedDay) + (subWl[b] ?? 0))),
     [allTeachers, unavail, notReqTeachers, df, selectedDay, subWl],
   );
-
   const clubTeachers = useMemo(
     () => allTeachers.filter(t => (periodBusy.has(t) || alreadyThis.has(t)) && !absentThisPeriod.includes(t) && !notReqTeachers.has(t)),
     [allTeachers, periodBusy, alreadyThis, absentThisPeriod, notReqTeachers],
@@ -890,86 +972,72 @@ function PeriodRow({
       if (e2.period === e.period && e2.teacher !== teacher) {
         if ((subs[subKey(e2.teacher, e2.period)] ?? '') === t) {
           const isAlreadyClub = clubs[subKey(e2.teacher, e2.period)] ?? false;
-          return isAlreadyClub
-            ? `${shortName(t)}  🔀 clubbing ${e2.cls}`
-            : `${shortName(t)}  🔀 subbing ${e2.cls}`;
+          return isAlreadyClub ? `${shortName(t)}  🔀 clubbing ${e2.cls}` : `${shortName(t)}  🔀 subbing ${e2.cls}`;
         }
       }
     }
     return shortName(t);
   }
 
-  let statusEl: React.ReactNode;
+  // Status badge
+  let statusBadge: React.ReactNode;
   if (clubMode && !isAssigned) {
-    statusEl = <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">🔀 Club — select teacher</span>;
+    statusBadge = <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 Select to club</span>;
   } else if (!isAssigned) {
-    statusEl = <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">● Unassigned</span>;
+    statusBadge = <span className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 flex-shrink-0">Unassigned</span>;
   } else if (clubMode) {
     const [tc] = teacherPeriodInfo(df, currentSub, selectedDay, e.period);
-    statusEl = <span className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">🔀 Clubbed · {shortName(currentSub)}{tc ? ` (${tc})` : ''}</span>;
+    statusBadge = <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 {shortName(currentSub)}{tc ? ` (${tc})` : ''}</span>;
   } else {
-    statusEl = (
-      <span className="text-xs font-semibold text-emerald-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 flex items-center gap-1">
-        <span className="w-4 h-4 rounded-full text-white flex items-center justify-center text-xs leading-none flex-shrink-0 font-bold"
-          style={{ background: avColor(currentSub), fontSize: '0.5rem' }}>
-          {avInitials(currentSub)}
-        </span>
+    statusBadge = (
+      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full pl-1 pr-2 py-0.5 flex-shrink-0 flex items-center gap-1">
+        <span className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[9px] leading-none font-bold flex-shrink-0"
+          style={{ background: avColor(currentSub) }}>{avInitials(currentSub)}</span>
         {shortName(currentSub)}
       </span>
     );
   }
 
   return (
-    <div className="border-b border-slate-50 last:border-0">
-      <div className="flex items-center gap-2 px-4 py-2.5">
-        <div className={`min-w-[28px] h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-          clubMode ? 'bg-orange-50 text-orange-700' : 'bg-blue-50 text-blue-700'
-        }`}>
-          P{e.period}
-        </div>
+    <div className={`border-b border-slate-50 last:border-0 ${clubMode ? 'bg-amber-50/30' : ''}`}>
+      <div className="flex items-center gap-2.5 px-4 py-2.5">
+        <div className={`min-w-[32px] h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+          clubMode ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-blue-700'
+        }`}>P{e.period}</div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-semibold text-slate-800 truncate">{e.cls} · {e.subj}</div>
+          <div className="text-xs font-bold text-slate-800 truncate">{e.cls}</div>
+          <div className="text-[10px] text-slate-400">{e.subj}</div>
         </div>
-        {statusEl}
+        {statusBadge}
       </div>
 
-      {/* Selectbox row */}
       <div className="px-4 pb-3 flex gap-2">
         {!clubMode ? (
           <>
-            <select
-              value={currentSub}
-              onChange={e2 => onSetSub(teacher, e.period, e2.target.value)}
-              className="flex-1 border border-slate-200 rounded-xl px-2 py-1.5 text-xs bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
+            <SelectField className="flex-1" value={currentSub}
+              onChange={e2 => onSetSub(teacher, e.period, e2.target.value)}>
               <option value="">— Not Assigned —</option>
               {freeTeachers.map(t => (
                 <option key={t} value={t}>
                   {shortName(t)}  [{masterLoad(df, t, selectedDay) + (subWl[t] ?? 0)} periods]
                 </option>
               ))}
-            </select>
-            <button
-              onClick={() => onSetClub(teacher, e.period, true)}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 transition-colors whitespace-nowrap">
+            </SelectField>
+            <button onClick={() => onSetClub(teacher, e.period, true)}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all whitespace-nowrap flex-shrink-0">
               🔀 Club
             </button>
           </>
         ) : (
           <>
-            <select
-              value={currentSub}
+            <SelectField className="flex-1" value={currentSub}
               onChange={e2 => onSetSub(teacher, e.period, e2.target.value)}
-              className="flex-1 border border-amber-200 rounded-xl px-2 py-1.5 text-xs bg-amber-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
-            >
+              style={{ borderColor: '#FCD34D', background: '#FFFBEB' }}>
               <option value="">— Not Assigned —</option>
-              {clubTeachers.map(t => (
-                <option key={t} value={t}>{clubLabel(t)}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => { onSetClub(teacher, e.period, false); }}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-colors whitespace-nowrap">
+              {clubTeachers.map(t => <option key={t} value={t}>{clubLabel(t)}</option>)}
+            </SelectField>
+            <button onClick={() => onSetClub(teacher, e.period, false)}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-all whitespace-nowrap flex-shrink-0">
               ↩ Back
             </button>
           </>
@@ -995,11 +1063,10 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
   const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher');
   const activePeriods = ALL_PERIODS.filter(p => p <= schoolMaxPeriod);
 
-  const halfDayAbsent = absentTeachers.filter(t => absenceConfigs[t]?.halfDay);
-  const presentTeachers = [
+  const presentTeachers = useMemo(() => [
     ...allTeachers.filter(t => !absentTeachers.includes(t)),
-    ...halfDayAbsent,
-  ];
+    ...absentTeachers.filter(t => absenceConfigs[t]?.halfDay),
+  ], [allTeachers, absentTeachers, absenceConfigs]);
 
   const teacherData: TeacherData[] = useMemo(() => {
     return presentTeachers.map(t => {
@@ -1009,55 +1076,39 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       const subPs = new Set<number>();
       const subFor: Record<number, string> = {};
       for (const e of absentPeriods) {
-        if ((subs[subKey(e.teacher, e.period)] ?? '') === t) {
-          subPs.add(e.period); subFor[e.period] = e.teacher;
-        }
+        if ((subs[subKey(e.teacher, e.period)] ?? '') === t) { subPs.add(e.period); subFor[e.period] = e.teacher; }
       }
       const isHalfDayAbsent = absentTeachers.includes(t) && !!absenceConfigs[t]?.halfDay;
       const periodStatus: Record<number, 'teaching' | 'sub' | 'clubbed' | 'free' | 'notReq' | 'absent'> = {};
       const periodClass: Record<number, string> = {};
       for (const p of activePeriods) {
-        // For half-day absent teachers, mark their absent periods
         if (isHalfDayAbsent && isTeacherAbsentInPeriod(t, p, absentTeachers, absenceConfigs)) {
-          periodStatus[p] = 'absent';
-          periodClass[p] = 'Absent';
+          periodStatus[p] = 'absent'; periodClass[p] = 'Absent';
         } else if (subPs.has(p) && (clubs[`${subFor[p]}__${p}`] ?? false)) {
-          // Clubbing: teacher covers absent class while staying in their own
-          periodStatus[p] = 'clubbed';
-          periodClass[p] = `Clubbing ${shortName(subFor[p])}`;
+          periodStatus[p] = 'clubbed'; periodClass[p] = `Clubbing ${shortName(subFor[p])}`;
         } else if (masterPs.has(p)) {
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
           if (row?.Subject === 'Not Req') {
-            periodStatus[p] = 'notReq';
-            periodClass[p] = 'Upper Class';
+            periodStatus[p] = 'notReq'; periodClass[p] = 'Upper Class';
           } else {
-            periodStatus[p] = 'teaching';
-            periodClass[p] = row ? `${row.Class} · ${row.Subject}` : '';
+            periodStatus[p] = 'teaching'; periodClass[p] = row ? `${row.Class} · ${row.Subject}` : '';
           }
         } else if (subPs.has(p)) {
-          periodStatus[p] = 'sub';
-          periodClass[p] = `Sub for ${shortName(subFor[p])}`;
+          periodStatus[p] = 'sub'; periodClass[p] = `Sub for ${shortName(subFor[p])}`;
         } else {
-          periodStatus[p] = 'free';
-          periodClass[p] = '';
+          periodStatus[p] = 'free'; periodClass[p] = '';
         }
       }
       const freeCount = Object.values(periodStatus).filter(s => s === 'free').length;
-      return {
-        name: t, periodStatus, periodClass,
-        masterCount: masterPs.size, subCount: subPs.size, freeCount,
-      };
+      return { name: t, periodStatus, periodClass, masterCount: masterPs.size, subCount: subPs.size, freeCount };
     }).sort((a, b) => {
-      // G3 first → G2 → G1; within each group last-to-first (descending priority index)
-      // Unknown teachers (not in any group) go at the very end
-      const TOTAL = 14; // PRIORITY_SEQ.length
+      const TOTAL = 14;
       const pa = priorityIdx(a.name), pb = priorityIdx(b.name);
-      const sa = pa >= TOTAL ? -1 : pa; // unknown → -1 (sort last)
-      const sb = pb >= TOTAL ? -1 : pb;
-      if (sa !== sb) return sb - sa; // descending: higher index first
+      const sa = pa >= TOTAL ? -1 : pa; const sb = pb >= TOTAL ? -1 : pb;
+      if (sa !== sb) return sb - sa;
       return a.name.localeCompare(b.name);
     });
-  }, [df, presentTeachers, selectedDay, absentPeriods, subs]);
+  }, [df, presentTeachers, selectedDay, absentPeriods, subs, clubs, absenceConfigs]);
 
   const classData = useMemo(() => {
     const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
@@ -1065,11 +1116,9 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       df.filter(r => r.Day === selectedDay && r.Subject !== 'Not Req' && order.includes(r.Class.split(' ')[0]))
         .map(r => r.Class),
     )].sort((a, b) => {
-      const [aNum, aSec = ''] = a.split(' ');
-      const [bNum, bSec = ''] = b.split(' ');
+      const [aNum, aSec = ''] = a.split(' '); const [bNum, bSec = ''] = b.split(' ');
       const ai = order.indexOf(aNum), bi = order.indexOf(bNum);
-      if (ai !== bi) return ai - bi;
-      return aSec.localeCompare(bSec);
+      if (ai !== bi) return ai - bi; return aSec.localeCompare(bSec);
     });
     return classes.map(cls => {
       const isCancelled = cancelledClasses.includes(cls);
@@ -1087,35 +1136,43 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
 
   const nPresent = presentTeachers.length;
   const nAbsent = absentTeachers.length;
-  const nFreeAll = teacherData.filter(td => td.freeCount === 8).length;
+  const nFreeAll = teacherData.filter(td => td.freeCount === activePeriods.length).length;
   const nOnSub = teacherData.filter(td => td.subCount > 0).length;
 
-  const tiles = [
-    { val: nPresent, lbl: 'Present', desc: 'In school today', col: '#10B981' },
-    { val: nAbsent, lbl: 'Absent', desc: 'On leave', col: '#EF4444' },
-    { val: nFreeAll, lbl: 'Fully Free', desc: 'No classes', col: '#3B82F6' },
-    { val: nOnSub, lbl: 'On Sub', desc: 'Covering absent', col: '#F59E0B' },
+  const statTiles = [
+    { val: nPresent, lbl: 'Present', color: '#10B981' },
+    { val: nAbsent,  lbl: 'Absent',  color: '#EF4444' },
+    { val: nFreeAll, lbl: 'Free',    color: '#3B82F6' },
+    { val: nOnSub,   lbl: 'On Sub',  color: '#F59E0B' },
+  ];
+
+  const legend = [
+    { color: '#3B82F6', label: 'Teaching' },
+    { color: '#F59E0B', label: 'Substituting' },
+    { color: '#F97316', label: 'Clubbing' },
+    { color: '#E2E8F0', label: 'Free' },
+    { color: '#A855F7', label: 'Upper Class' },
+    { color: '#FCA5A5', label: 'Absent (part)' },
   ];
 
   return (
     <>
       {/* Stat tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        {tiles.map(({ val, lbl, desc, col }) => (
-          <div key={lbl} className="bg-white rounded-2xl p-3 text-center shadow-sm">
-            <div className="text-2xl font-extrabold" style={{ color: col }}>{val}</div>
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400 mt-0.5">{lbl}</div>
-            <div className="text-xs text-slate-300 mt-0.5">{desc}</div>
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {statTiles.map(({ val, lbl, color }) => (
+          <div key={lbl} className="bg-white rounded-2xl p-3 text-center shadow-sm border border-slate-100">
+            <div className="text-2xl font-extrabold" style={{ color }}>{val}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">{lbl}</div>
           </div>
         ))}
       </div>
 
       {/* Legend */}
-      <div className="flex gap-4 mb-3 flex-wrap">
-        {[['#3B82F6', 'Teaching'], ['#F59E0B', 'Substituting'], ['#F97316', 'Clubbing'], ['#E2E8F0', 'Free'], ['#A855F7', 'Upper Class'], ['#FCA5A5', 'Absent']].map(([c, l]) => (
-          <span key={l} className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ background: c }} />
-            {l}
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-3 px-1">
+        {legend.map(({ color, label }) => (
+          <span key={label} className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: color }} />
+            {label}
           </span>
         ))}
       </div>
@@ -1123,7 +1180,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       {/* Absent pills */}
       {absentTeachers.length > 0 && (
         <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 text-xs text-red-700">
-          🔴 <strong>Absent:</strong>{' '}
+          <span className="font-bold">Absent today: </span>
           {absentTeachers.map(t => (
             <span key={t} className="inline-block bg-red-100 border border-red-200 rounded-full px-2 py-0.5 mr-1 mb-1 font-semibold">
               {shortName(t)}
@@ -1133,11 +1190,11 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       )}
 
       {/* View toggle */}
-      <div className="flex bg-white rounded-xl shadow-sm border border-slate-100 mb-4 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-1 mb-4 flex gap-1">
         {(['teacher', 'class'] as const).map(v => (
           <button key={v} onClick={() => setViewMode(v)}
-            className={`flex-1 py-2 text-xs font-semibold transition-colors ${
-              viewMode === v ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+              viewMode === v ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'
             }`}>
             {v === 'teacher' ? '👥 Teacher View' : '🏫 Class View'}
           </button>
@@ -1149,7 +1206,6 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
           {teacherData.map(td => <TeacherStatusCard key={td.name} td={td} activePeriods={activePeriods} />)}
         </div>
       )}
-
       {viewMode === 'class' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {classData.map(cd => <ClassStatusCard key={cd.cls} cd={cd} />)}
@@ -1159,19 +1215,21 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Teacher Status Card
+// ─────────────────────────────────────────────────────────────────────────────
 function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePeriods: number[] }) {
   const [expanded, setExpanded] = useState(false);
   const busyCount = activePeriods.length - td.freeCount;
   const loadPct = activePeriods.length ? busyCount / activePeriods.length : 0;
-  const barColor = loadPct >= 0.75 ? '#EF4444' : loadPct >= 0.5 ? '#F59E0B' : '#10B981';
 
   const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', clubbed: '#F97316', free: '#E2E8F0', notReq: '#A855F7', absent: '#FCA5A5' };
-  const dotText  = { teaching: '#fff',    sub: '#fff',    clubbed: '#fff',    free: '#94A3B8', notReq: '#fff',    absent: '#EF4444' };
+  const dotText  = { teaching: '#fff', sub: '#fff', clubbed: '#fff', free: '#94A3B8', notReq: '#fff', absent: '#EF4444' };
 
   return (
-    <div className="bg-white rounded-2xl p-3.5 shadow-sm">
-      <div className="flex items-center gap-2.5 mb-2.5">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+    <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm"
           style={{ background: avColor(td.name) }}>
           {avInitials(td.name)}
         </div>
@@ -1179,39 +1237,42 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
           <div className="text-sm font-bold text-slate-800 truncate">{shortName(td.name)}</div>
           <div className="text-xs text-slate-400">
             <span className="text-emerald-500 font-semibold">{td.freeCount} free</span>
-            {' · '}{busyCount} busy
+            <span className="mx-1 text-slate-200">·</span>
+            <span>{busyCount} busy</span>
           </div>
         </div>
       </div>
+
       {/* Load bar */}
-      <div className="h-1 bg-slate-100 rounded-full mb-2.5 overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${loadPct * 100}%`, background: barColor }} />
-      </div>
+      <KvProgressBar value={Math.round(loadPct * 100)}
+        color={loadPct >= 0.75 ? 'danger' : loadPct >= 0.5 ? 'warning' : 'success'} />
+
       {/* Period dots */}
-      <div className="flex gap-1 flex-wrap mb-2">
+      <div className="flex gap-1 flex-wrap mt-2.5 mb-2">
         {activePeriods.map(p => {
           const s = td.periodStatus[p];
           const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'clubbed' ? 'C' : s === 'notReq' ? 'UC' : s === 'absent' ? 'A' : String(p);
           return (
             <div key={p} title={`P${p}: ${td.periodClass[p] || s}`}
-              className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-default"
+              className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-default select-none"
               style={{ background: dotColor[s], color: dotText[s] }}>
               {lbl}
             </div>
           );
         })}
       </div>
-      {/* Details toggle */}
+
       <button onClick={() => setExpanded(!expanded)}
-        className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
-        {expanded ? '▲ Hide details' : '▼ Show details'}
+        className="text-xs text-slate-400 hover:text-slate-600 transition-colors font-medium">
+        {expanded ? '▲ Hide' : '▼ Details'}
       </button>
+
       {expanded && (
-        <div className="mt-2 border-t border-slate-50 pt-2">
+        <div className="mt-2 border-t border-slate-50 pt-2 space-y-0.5">
           {activePeriods.map(p => (
             <div key={p} className="flex items-center gap-2 py-0.5">
-              <span className="w-5 text-xs text-slate-400 font-medium">P{p}</span>
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dotColor[td.periodStatus[p]] }} />
+              <span className="w-6 text-[11px] text-slate-400 font-bold">P{p}</span>
+              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: dotColor[td.periodStatus[p]] }} />
               <span className="text-xs text-slate-600">{td.periodClass[p] || td.periodStatus[p]}</span>
             </div>
           ))}
@@ -1233,53 +1294,58 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
   const hasIssue = !cd.isCancelled && cd.periods.some(p => p.isAbsent);
 
   return (
-    <div className={`rounded-2xl p-3.5 shadow-sm ${
-      cd.isCancelled ? 'bg-orange-50 ring-1 ring-orange-200' :
-      hasIssue ? 'bg-white ring-1 ring-amber-200' : 'bg-white'
+    <div className={`rounded-2xl p-3.5 shadow-sm border hover:shadow-md transition-shadow ${
+      cd.isCancelled ? 'bg-orange-50 border-orange-200' :
+      hasIssue ? 'bg-white border-amber-200' : 'bg-white border-slate-100'
     }`}>
-      {/* Header */}
       <div className="flex items-center gap-2.5 mb-3">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${cd.isCancelled ? 'bg-orange-400' : 'bg-blue-700'}`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm ${
+          cd.isCancelled ? 'bg-orange-400' : 'bg-blue-600'
+        }`}>
           {cd.cls.replace(' ', '')}
         </div>
         <div className="flex-1">
           <div className="text-sm font-bold text-slate-800">Class {cd.cls}</div>
           {cd.isCancelled
-            ? <div className="text-xs font-semibold text-orange-600">🚫 Class Cancelled</div>
-            : <div className="text-xs text-slate-400">{cd.periods.length} periods today</div>
+            ? <div className="text-xs font-semibold text-orange-600">🚫 Cancelled</div>
+            : <div className="text-xs text-slate-400">{cd.periods.length} periods</div>
           }
         </div>
+        {hasIssue && !cd.isCancelled && (
+          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">⚠ Issues</span>
+        )}
       </div>
 
-      {/* Period rows — hidden when cancelled */}
       {!cd.isCancelled && (
-      <div className="space-y-1">
-        {cd.periods.map(p => (
-          <div key={p.period} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
-            p.isAbsent && !p.substitute ? 'bg-red-50' :
-            p.isClub ? 'bg-orange-50' :
-            p.isAbsent ? 'bg-amber-50' : 'bg-slate-50'
-          }`}>
-            <span className="text-xs font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
-            <span className="text-xs text-slate-500 w-16 flex-shrink-0 truncate">{p.subject}</span>
-            <div className="flex-1 min-w-0 flex items-center gap-1">
-              {p.isAbsent ? (
-                <>
-                  <span className="text-xs text-red-400 line-through truncate">{shortName(p.teacher)}</span>
-                  {p.substitute
-                    ? <><span className="text-xs text-slate-400 flex-shrink-0">→</span>
-                        <span className={`text-xs font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>{shortName(p.substitute)}</span>
-                        {p.isClub && <span className="text-xs font-bold text-orange-500 flex-shrink-0">CLUB</span>}</>
-                    : <span className="text-xs font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
-                  }
-                </>
-              ) : (
-                <span className="text-xs font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
-              )}
+        <div className="space-y-1">
+          {cd.periods.map(p => (
+            <div key={p.period} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs ${
+              p.isAbsent && !p.substitute ? 'bg-red-50 border border-red-100' :
+              p.isClub ? 'bg-orange-50 border border-orange-100' :
+              p.isAbsent ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'
+            }`}>
+              <span className="font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
+              <span className="text-slate-400 w-14 flex-shrink-0 truncate">{p.subject}</span>
+              <div className="flex-1 min-w-0 flex items-center gap-1">
+                {p.isAbsent ? (
+                  <>
+                    <span className="text-red-400 line-through truncate">{shortName(p.teacher)}</span>
+                    {p.substitute
+                      ? <><span className="text-slate-400 flex-shrink-0">→</span>
+                          <span className={`font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>
+                            {shortName(p.substitute)}
+                          </span>
+                          {p.isClub && <span className="font-bold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
+                      : <span className="font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
+                    }
+                  </>
+                ) : (
+                  <span className="font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       )}
     </div>
   );
