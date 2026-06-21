@@ -291,6 +291,10 @@ export default function App() {
     setSubs(newSubs); setReport(null);
   }, [df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs]);
 
+  const handleReset = useCallback(() => {
+    setSubs({}); setClubs({}); setReport(null);
+  }, []);
+
   const handleSetSub = useCallback((teacher: string, period: number, val: string) => {
     setSubs(prev => ({ ...prev, [subKey(teacher, period)]: val })); setReport(null);
   }, []);
@@ -651,6 +655,7 @@ export default function App() {
             report={report} pdfLoading={pdfLoading}
             log={log} showLog={showLog} setShowLog={setShowLog}
             onAutoFill={handleAutoFill}
+            onReset={handleReset}
             onSetSub={handleSetSub} onSetClub={handleSetClub}
             onGenerateReport={handleGenerateReport}
             onDownloadPDF={handleDownloadPDF}
@@ -691,6 +696,7 @@ interface ArrProps {
   report: ReportRow[] | null; pdfLoading: boolean;
   log: ReportRow[]; showLog: boolean; setShowLog: (v: boolean) => void;
   onAutoFill: () => void;
+  onReset: () => void;
   onSetSub: (t: string, p: number, v: string) => void;
   onSetClub: (t: string, p: number, v: boolean) => void;
   onGenerateReport: () => void;
@@ -705,7 +711,7 @@ function ArrangementTab({
   selectedDay, dateVal, subs, clubs, subWl, covered, registerDuties,
   lunchDuties, attendanceDuties,
   report, pdfLoading, log, showLog, setShowLog,
-  onAutoFill, onSetSub, onSetClub, onGenerateReport,
+  onAutoFill, onReset, onSetSub, onSetClub, onGenerateReport,
   onDownloadPDF, onDownloadCSV, onDownloadLog,
 }: ArrProps) {
   const [copied, setCopied] = useState(false);
@@ -759,7 +765,8 @@ function ArrangementTab({
       {/* Progress card */}
       {absentPeriods.length > 0 && (
         <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
-          <div className="flex items-center gap-4 mb-3">
+          {/* Stats row */}
+          <div className="flex items-center gap-3 mb-3">
             <div className="flex-1">
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl font-extrabold text-slate-800">{covered}</span>
@@ -777,13 +784,26 @@ function ArrangementTab({
                 <div className="text-xs text-slate-400 font-medium">Absent</div>
               </div>
             </div>
-            <Btn variant="secondary" size="sm" onClick={onAutoFill} className="whitespace-nowrap">
-              ⚡ Auto-Fill
-            </Btn>
           </div>
+
+          {/* Progress bar */}
           <KvProgressBar value={Math.round(pct * 100)}
             color={pct >= 1 ? 'success' : pct >= 0.5 ? 'warning' : 'danger'} />
-          <p className="text-xs text-slate-400 mt-1 text-right">{Math.round(pct * 100)}% complete</p>
+          <p className="text-xs text-slate-400 mt-1 mb-4 text-right">{Math.round(pct * 100)}% complete</p>
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <button onClick={onAutoFill}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)', boxShadow: '0 4px 14px rgba(37,99,235,.35)' }}>
+              <span className="text-base">⚡</span>
+              Auto-Fill All Periods
+            </button>
+            <button onClick={onReset} disabled={covered === 0}
+              className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-bold text-sm border transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-red-50 text-red-600 border-red-200 hover:bg-red-100 active:scale-[0.98]">
+              <span>↺</span> Reset
+            </button>
+          </div>
         </div>
       )}
 
