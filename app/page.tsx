@@ -1209,7 +1209,7 @@ function PeriodRow({
               <option value="">— Not Assigned —</option>
               {freeTeachers.map(t => (
                 <option key={t} value={t}>
-                  {shortName(t)}{teacherSubjMap[t] ? `  (${teacherSubjMap[t]})` : ''}  [{effectiveLoad(df, t, selectedDay, cancelledClasses) + (subWl[t] ?? 0)} periods]
+                  {shortName(t)}  [{effectiveLoad(df, t, selectedDay, cancelledClasses) + (subWl[t] ?? 0)} periods]
                 </option>
               ))}
             </SelectField>
