@@ -1118,6 +1118,15 @@ function PeriodRow({
     [allTeachers, periodBusy, alreadyThis, absentThisPeriod, notReqTeachers],
   );
 
+  const teacherSubjMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const t of freeTeachers) {
+      const subjs = [...new Set(df.filter(r => r.Teacher_Name === t && !isNotReq(r.Subject)).map(r => r.Subject))];
+      map[t] = subjs.slice(0, 2).join('/');
+    }
+    return map;
+  }, [df, freeTeachers]);
+
   function clubLabel(t: string): string {
     if (periodBusy.has(t)) {
       const [cls] = teacherPeriodInfo(df, t, selectedDay, e.period);
@@ -1174,7 +1183,7 @@ function PeriodRow({
               <option value="">— Not Assigned —</option>
               {freeTeachers.map(t => (
                 <option key={t} value={t}>
-                  {shortName(t)}  [{masterLoad(df, t, selectedDay) + (subWl[t] ?? 0)} periods]
+                  {shortName(t)}{teacherSubjMap[t] ? `  (${teacherSubjMap[t]})` : ''}  [{masterLoad(df, t, selectedDay) + (subWl[t] ?? 0)} periods]
                 </option>
               ))}
             </SelectField>
