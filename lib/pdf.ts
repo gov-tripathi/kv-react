@@ -1,6 +1,12 @@
 import { ReportRow, DutyEntry } from './types';
 import { shortName } from './timetable';
 
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
 export async function generatePDF(rows: ReportRow[], day: string, dateStr: string, lunchDuties: DutyEntry[] = [], attendanceDuties: DutyEntry[] = [], note = ''): Promise<void> {
   const { default: jsPDF } = await import('jspdf');
   const { default: autoTable } = await import('jspdf-autotable');
@@ -87,7 +93,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     return [
       String(i + 1),
       shortName(r.Absent_Teacher),
-      String(r.Period),
+      ordinal(r.Period),
       r.Class,
       r.Subject,
       subDisplay,
@@ -143,7 +149,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([cls, periods]) => {
         const sortedPeriods = [...periods].sort((a, b) => a - b);
-        return `${cls}  (Per. ${sortedPeriods.join(', ')})`;
+        return `${cls}  (Per. ${sortedPeriods.map(ordinal).join(', ')})`;
       });
 
     doc.setFont('helvetica', 'normal');
@@ -173,19 +179,28 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     }
   }
 
-  // Note section
+  // Note section — always present; blank lines for offline annotation if empty
+  afterTableY += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('NOTES:', margin, afterTableY);
+
   if (note.trim()) {
-    afterTableY += 6;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text('NOTE:', margin, afterTableY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(51, 65, 85);
-    const wrappedNote = doc.splitTextToSize(note.trim(), pageW - margin * 2 - 18);
-    doc.text(wrappedNote, margin + 18, afterTableY);
+    const wrappedNote = doc.splitTextToSize(note.trim(), pageW - margin * 2 - 22);
+    doc.text(wrappedNote, margin + 22, afterTableY);
     afterTableY += wrappedNote.length * 4.5;
+  } else {
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.25);
+    const lineW = pageW - margin * 2 - 22;
+    for (let l = 0; l < 3; l++) {
+      doc.line(margin + 22, afterTableY + l * 6, margin + 22 + lineW, afterTableY + l * 6);
+    }
+    afterTableY += 18;
   }
 
   const finalY = afterTableY + 4;
