@@ -32,23 +32,27 @@ export function shortName(name: string): string {
   return name.trim();
 }
 
+// Subject field can have corrupt values like "Not ReqMR. MOHIT" — treat any
+// value starting with "Not Req" as an upper-class free period.
+export const isNotReq = (subject: string) => subject.startsWith('Not Req');
+
 export function getAllTeachers(df: TimetableRow[]): string[] {
   return [...new Set(df.map(r => r.Teacher_Name))].sort();
 }
 
 export function getNotReqTeachers(df: TimetableRow[]): Set<string> {
-  return new Set(df.filter(r => r.Subject === 'Not Req').map(r => r.Teacher_Name));
+  return new Set(df.filter(r => isNotReq(r.Subject)).map(r => r.Teacher_Name));
 }
 
 export function getNotReqTeachersForPeriod(df: TimetableRow[], day: string, period: number): Set<string> {
-  return new Set(df.filter(r => r.Day === day && r.Period === period && r.Subject === 'Not Req').map(r => r.Teacher_Name));
+  return new Set(df.filter(r => r.Day === day && r.Period === period && isNotReq(r.Subject)).map(r => r.Teacher_Name));
 }
 
 export function getAllClasses(df: TimetableRow[]): string[] {
   const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
   return [...new Set(
     df
-      .filter(r => r.Subject !== 'Not Req')
+      .filter(r => !isNotReq(r.Subject))
       .map(r => r.Class)
       .filter(cls => order.includes(cls.split(' ')[0])), // only valid Roman-numeral classes
   )].sort((a, b) => {
@@ -127,7 +131,7 @@ export function buildAbsentPeriods(
   const periods: AbsentPeriod[] = [];
   for (const t of teachers) {
     for (const row of getSchedule(df, t, day)) {
-      if (row.Subject === 'Not Req') continue;
+      if (isNotReq(row.Subject)) continue;
       if (cancelledClasses.includes(row.Class)) continue;
       if (row.Period > maxPeriod) continue;
       if (!isTeacherAbsentInPeriod(t, row.Period, teachers, absenceConfigs)) continue;

@@ -66,7 +66,7 @@ import {
   getSchedule, busySetExcludingCancelled, teacherPeriodInfo, masterLoad,
   buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
   buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod,
-  getNotReqTeachersForPeriod, priorityIdx,
+  getNotReqTeachersForPeriod, priorityIdx, isNotReq,
 } from '@/lib/timetable';
 import type { AbsenceConfig } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
@@ -450,7 +450,7 @@ export default function App() {
             <div className="mt-3 space-y-2.5">
               {absentTeachers.map(t => {
                 const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, absentPeriods: [] };
-                const teachingPeriods = getSchedule(df, t, selectedDay).filter(r => r.Subject !== 'Not Req');
+                const teachingPeriods = getSchedule(df, t, selectedDay).filter(r => !isNotReq(r.Subject));
                 return (
                   <div key={t} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
@@ -1226,7 +1226,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
           periodStatus[p] = 'clubbed'; periodClass[p] = `${subForCls[p]} · Clubbing ${shortName(subFor[p])}`;
         } else if (masterPs.has(p)) {
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
-          if (row?.Subject === 'Not Req') {
+          if (row && isNotReq(row.Subject)) {
             periodStatus[p] = 'notReq'; periodClass[p] = 'Upper Class';
           } else if (row && cancelledClasses.includes(row.Class)) {
             periodStatus[p] = 'free'; periodClass[p] = `${row.Class} cancelled`;
@@ -1253,7 +1253,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
   const classData = useMemo(() => {
     const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
     const classes = [...new Set(
-      df.filter(r => r.Day === selectedDay && r.Subject !== 'Not Req' && order.includes(r.Class.split(' ')[0]))
+      df.filter(r => r.Day === selectedDay && !isNotReq(r.Subject) && order.includes(r.Class.split(' ')[0]))
         .map(r => r.Class),
     )].sort((a, b) => {
       const [aNum, aSec = ''] = a.split(' '); const [bNum, bSec = ''] = b.split(' ');
@@ -1263,7 +1263,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
     return classes.map(cls => {
       const isCancelled = cancelledClasses.includes(cls);
       const periods = activePeriods.flatMap(p => {
-        const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && r.Subject !== 'Not Req');
+        const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && !isNotReq(r.Subject));
         if (!row) return [];
         const isAbsent = isTeacherAbsentInPeriod(row.Teacher_Name, p, absentTeachers, absenceConfigs);
         const sub = isAbsent ? (subs[`${row.Teacher_Name}__${p}`] || null) : null;
