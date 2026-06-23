@@ -212,27 +212,34 @@ export default function App() {
   const [df, setDf] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status'>('arrangement');
-  const [dateVal, setDateVal] = useState(todayDate);
+
+  // Restore session from localStorage (persists across page refreshes)
+  const ss = (() => {
+    try { return JSON.parse(localStorage.getItem('kv_form_state') || 'null') ?? {}; }
+    catch { return {}; }
+  })();
+
+  const [dateVal, setDateVal] = useState<string>(ss.dateVal ?? todayDate);
   const selectedDay = useMemo(() => {
     const d = new Date(dateVal + 'T00:00:00');
     return DAY_MAP[d.getDay()] ?? 'MON';
   }, [dateVal]);
-  const [absentTeachers, setAbsentTeachers] = useState<string[]>([]);
+  const [absentTeachers, setAbsentTeachers] = useState<string[]>(ss.absentTeachers ?? []);
   const [teacherSearch, setTeacherSearch] = useState('');
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
-  const [absenceConfigs, setAbsenceConfigs] = useState<Record<string, AbsenceConfig>>({});
-  const [cancelledClasses, setCancelledClasses] = useState<string[]>([]);
-  const [useCancelledTeachers, setUseCancelledTeachers] = useState(false);
-  const [schoolHalfDay, setSchoolHalfDay] = useState(false);
-  const [schoolHalfDayPeriod, setSchoolHalfDayPeriod] = useState(4);
-  const [lunchDuties, setLunchDuties] = useState<DutyEntry[]>([]);
-  const [attendanceDuties, setAttendanceDuties] = useState<DutyEntry[]>([]);
+  const [absenceConfigs, setAbsenceConfigs] = useState<Record<string, AbsenceConfig>>(ss.absenceConfigs ?? {});
+  const [cancelledClasses, setCancelledClasses] = useState<string[]>(ss.cancelledClasses ?? []);
+  const [useCancelledTeachers, setUseCancelledTeachers] = useState<boolean>(ss.useCancelledTeachers ?? false);
+  const [schoolHalfDay, setSchoolHalfDay] = useState<boolean>(ss.schoolHalfDay ?? false);
+  const [schoolHalfDayPeriod, setSchoolHalfDayPeriod] = useState<number>(ss.schoolHalfDayPeriod ?? 4);
+  const [lunchDuties, setLunchDuties] = useState<DutyEntry[]>(ss.lunchDuties ?? []);
+  const [attendanceDuties, setAttendanceDuties] = useState<DutyEntry[]>(ss.attendanceDuties ?? []);
   const [lunchTeacher, setLunchTeacher] = useState('');
   const [lunchClass, setLunchClass] = useState('');
   const [attendanceTeacher, setAttendanceTeacher] = useState('');
   const [attendanceClass, setAttendanceClass] = useState('');
-  const [subs, setSubs] = useState<Record<string, string>>({});
-  const [clubs, setClubs] = useState<Record<string, boolean>>({});
+  const [subs, setSubs] = useState<Record<string, string>>(ss.subs ?? {});
+  const [clubs, setClubs] = useState<Record<string, boolean>>(ss.clubs ?? {});
   const [report, setReport] = useState<ReportRow[] | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [log, setLog] = useState<ReportRow[]>([]);
@@ -252,6 +259,17 @@ export default function App() {
       if (saved) setLog(JSON.parse(saved));
     } catch {}
   }, []);
+
+  // Save form state on every change so it survives a page refresh
+  useEffect(() => {
+    try {
+      localStorage.setItem('kv_form_state', JSON.stringify({
+        dateVal, absentTeachers, absenceConfigs, cancelledClasses,
+        useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
+        lunchDuties, attendanceDuties, subs, clubs,
+      }));
+    } catch {}
+  }, [dateVal, absentTeachers, absenceConfigs, cancelledClasses, useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod, lunchDuties, attendanceDuties, subs, clubs]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
   const allClasses = useMemo(() => getAllClasses(df), [df]);
