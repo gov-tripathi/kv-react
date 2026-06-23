@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, FormEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, FormEvent } from 'react';
 import Papa from 'papaparse';
 // ── Lightweight design primitives (no external lib, avoids React Aria compat issues)
 function Btn({ children, variant = 'primary', size = 'md', disabled = false, type = 'button', onPress, onClick, className = '', style }: {
@@ -285,8 +285,16 @@ export default function App() {
     [df, cancelledClasses, selectedDay, schoolMaxPeriod],
   );
 
-  useEffect(() => { setSubs({}); setClubs({}); setReport(null); }, [selectedDay, absentTeachers]);
+  // These refs prevent the reset effects from wiping restored localStorage state on mount
+  const skipSubsReset = useRef(true);
+  const skipDayReset = useRef(true);
+
   useEffect(() => {
+    if (skipSubsReset.current) { skipSubsReset.current = false; return; }
+    setSubs({}); setClubs({}); setReport(null);
+  }, [selectedDay, absentTeachers]);
+  useEffect(() => {
+    if (skipDayReset.current) { skipDayReset.current = false; return; }
     setCancelledClasses([]); setUseCancelledTeachers(false);
     setAbsenceConfigs({}); setSchoolHalfDay(false); setSchoolHalfDayPeriod(4);
     setLunchDuties([]); setAttendanceDuties([]);
