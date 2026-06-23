@@ -112,17 +112,14 @@ export function masterLoad(df: TimetableRow[], teacher: string, day: string): nu
   return df.filter(r => r.Teacher_Name === teacher && r.Day === day).length;
 }
 
-// Count only the periods a teacher is actually teaching today — excludes
-// cancelled-class rows and upper-class (Not Req) rows, so the result matches
-// the "busy" count shown in the teacher detail card.
+// Busy periods today: primary teaching + upper-class (Not Req), minus cancelled classes.
 export function effectiveLoad(
   df: TimetableRow[], teacher: string, day: string, cancelledClasses: string[] = [],
 ): number {
   return df.filter(r =>
     r.Teacher_Name === teacher &&
     r.Day === day &&
-    !cancelledClasses.includes(r.Class) &&
-    !isNotReq(r.Subject),
+    !cancelledClasses.includes(r.Class),
   ).length;
 }
 
