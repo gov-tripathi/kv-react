@@ -312,10 +312,10 @@ export default function App() {
     try { localStorage.setItem('kv_arrangement_log', JSON.stringify(newLog)); } catch {}
   }, [df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal, log]);
 
-  const handleDownloadPDF = useCallback(async (note: string) => {
+  const handleDownloadPDF = useCallback(async (note: string | null) => {
     if (!report) return;
     setPdfLoading(true);
-    await generatePDF(report, selectedDay, dateVal, lunchDuties, attendanceDuties, note);
+    await generatePDF(report, selectedDay, dateVal, lunchDuties, attendanceDuties, note ?? undefined);
     setPdfLoading(false);
   }, [report, selectedDay, dateVal, lunchDuties, attendanceDuties]);
 
@@ -700,7 +700,7 @@ interface ArrProps {
   onSetSub: (t: string, p: number, v: string) => void;
   onSetClub: (t: string, p: number, v: boolean) => void;
   onGenerateReport: () => void;
-  onDownloadPDF: (note: string) => void;
+  onDownloadPDF: (note: string | null) => void;
   onDownloadCSV: () => void;
   onDownloadLog: () => void;
 }
@@ -716,6 +716,7 @@ function ArrangementTab({
 }: ArrProps) {
   const [copied, setCopied] = useState(false);
   const [reportNote, setReportNote] = useState('');
+  const [includeNotes, setIncludeNotes] = useState(true);
 
   function countWords(text: string) {
     return text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
@@ -994,22 +995,34 @@ function ArrangementTab({
           {/* Note for PDF */}
           <div className="mb-4 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Note (included in PDF)</label>
-              <span className={`text-[10px] font-semibold ${countWords(reportNote) >= 70 ? 'text-red-500' : 'text-slate-400'}`}>
-                {countWords(reportNote)}/75 words
-              </span>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Note in PDF</label>
+              <div className="flex items-center gap-2">
+                {includeNotes && (
+                  <span className={`text-[10px] font-semibold ${countWords(reportNote) >= 70 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {countWords(reportNote)}/75 words
+                  </span>
+                )}
+                <button
+                  onClick={() => setIncludeNotes(v => !v)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${includeNotes ? 'bg-blue-500' : 'bg-slate-300'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${includeNotes ? 'translate-x-4' : 'translate-x-1'}`} />
+                </button>
+              </div>
             </div>
-            <textarea
-              value={reportNote}
-              onChange={handleNoteChange}
-              placeholder="Type a note to include at the bottom of the PDF report…"
-              className="w-full border border-slate-200 rounded-xl p-3 text-xs bg-white resize-none h-20 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-            />
+            {includeNotes && (
+              <textarea
+                value={reportNote}
+                onChange={handleNoteChange}
+                placeholder="Type a note to include at the bottom of the PDF report…"
+                className="w-full border border-slate-200 rounded-xl p-3 text-xs bg-white resize-none h-20 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+              />
+            )}
           </div>
 
           {/* Download buttons */}
           <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => onDownloadPDF(reportNote)} disabled={pdfLoading}
+            <button onClick={() => onDownloadPDF(includeNotes ? reportNote : null)} disabled={pdfLoading}
               className="py-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
               {pdfLoading ? <LoadingSpinner size="sm" /> : '📄'} PDF
             </button>
