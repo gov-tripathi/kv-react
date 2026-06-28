@@ -484,7 +484,8 @@ export default function App() {
             <div className="mt-3 space-y-2.5">
               {absentTeachers.map(t => {
                 const cfg: AbsenceConfig = absenceConfigs[t] ?? { halfDay: false, absentPeriods: [] };
-                const teachingPeriods = getSchedule(df, t, selectedDay).filter(r => !isNotReq(r.Subject));
+                const schedule = getSchedule(df, t, selectedDay);
+                const allPeriods = Array.from({ length: schoolMaxPeriod }, (_, i) => i + 1);
                 return (
                   <div key={t} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
@@ -504,23 +505,27 @@ export default function App() {
                       <div>
                         <p className="text-xs text-slate-400 mb-2">Tap periods teacher is <strong>absent</strong> for:</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {teachingPeriods.length === 0 && (
-                            <span className="text-xs text-slate-400 italic">No teaching periods on {selectedDay}</span>
-                          )}
-                          {teachingPeriods.map(r => {
-                            const isAbsent = cfg.absentPeriods?.includes(r.Period) ?? false;
+                          {allPeriods.map(p => {
+                            const row = schedule.find(r => r.Period === p);
+                            const isTeaching = row && !isNotReq(row.Subject);
+                            const label = isTeaching ? row.Class : 'Free';
+                            const isAbsent = cfg.absentPeriods?.includes(p) ?? false;
                             return (
-                              <button key={r.Period}
+                              <button key={p}
                                 onClick={() => {
                                   const current = cfg.absentPeriods ?? [];
-                                  const next = isAbsent ? current.filter(p => p !== r.Period) : [...current, r.Period];
+                                  const next = isAbsent ? current.filter(pp => pp !== p) : [...current, p];
                                   setAbsenceConfigs(prev => ({ ...prev, [t]: { ...cfg, absentPeriods: next } }));
                                   setReport(null);
                                 }}
                                 className={`text-xs px-2.5 py-1.5 rounded-lg border font-semibold transition-all min-h-[32px] ${
-                                  isAbsent ? 'bg-red-500 text-white border-red-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-600'
+                                  isAbsent
+                                    ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                    : isTeaching
+                                      ? 'bg-white text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-600'
+                                      : 'bg-white text-slate-300 border-slate-150 hover:border-red-200 hover:text-red-400'
                                 }`}>
-                                P{r.Period} · {r.Class}
+                                P{p} · {label}
                               </button>
                             );
                           })}
