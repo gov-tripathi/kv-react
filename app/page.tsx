@@ -58,7 +58,7 @@ function KvProgressBar({ value, color = 'default' }: { value: number; color?: 'd
   );
 }
 import {
-  TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry,
+  TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry, CancelledClassConfig,
 } from '@/lib/types';
 import {
   ALL_PERIODS, DAY_MAP,
@@ -229,6 +229,7 @@ export default function App() {
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
   const [absenceConfigs, setAbsenceConfigs] = useState<Record<string, AbsenceConfig>>(ss.absenceConfigs ?? {});
   const [cancelledClasses, setCancelledClasses] = useState<string[]>(ss.cancelledClasses ?? []);
+  const [cancelledClassConfigs, setCancelledClassConfigs] = useState<Record<string, CancelledClassConfig>>(ss.cancelledClassConfigs ?? {});
   const [useCancelledTeachers, setUseCancelledTeachers] = useState<boolean>(ss.useCancelledTeachers ?? false);
   const [schoolHalfDay, setSchoolHalfDay] = useState<boolean>(ss.schoolHalfDay ?? false);
   const [schoolHalfDayPeriod, setSchoolHalfDayPeriod] = useState<number>(ss.schoolHalfDayPeriod ?? 4);
@@ -264,25 +265,25 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem('kv_form_state', JSON.stringify({
-        dateVal, absentTeachers, absenceConfigs, cancelledClasses,
+        dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
         useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
         lunchDuties, attendanceDuties, subs, clubs,
       }));
     } catch {}
-  }, [dateVal, absentTeachers, absenceConfigs, cancelledClasses, useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod, lunchDuties, attendanceDuties, subs, clubs]);
+  }, [dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs, useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod, lunchDuties, attendanceDuties, subs, clubs]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
   const allClasses = useMemo(() => getAllClasses(df), [df]);
   const schoolMaxPeriod = schoolHalfDay ? schoolHalfDayPeriod : 8;
 
   const absentPeriods = useMemo(
-    () => buildAbsentPeriods(df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses, schoolMaxPeriod),
-    [df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses, schoolMaxPeriod],
+    () => buildAbsentPeriods(df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses, schoolMaxPeriod, cancelledClassConfigs),
+    [df, absentTeachers, selectedDay, absenceConfigs, cancelledClasses, schoolMaxPeriod, cancelledClassConfigs],
   );
 
   const cancelledPeriods = useMemo(
-    () => getCancelledPeriods(df, cancelledClasses, selectedDay, schoolMaxPeriod),
-    [df, cancelledClasses, selectedDay, schoolMaxPeriod],
+    () => getCancelledPeriods(df, cancelledClasses, selectedDay, schoolMaxPeriod, cancelledClassConfigs),
+    [df, cancelledClasses, selectedDay, schoolMaxPeriod, cancelledClassConfigs],
   );
 
   // These refs prevent the reset effects from wiping restored localStorage state on mount
@@ -295,7 +296,7 @@ export default function App() {
   }, [selectedDay, absentTeachers]);
   useEffect(() => {
     if (skipDayReset.current) { skipDayReset.current = false; return; }
-    setCancelledClasses([]); setUseCancelledTeachers(false);
+    setCancelledClasses([]); setCancelledClassConfigs({}); setUseCancelledTeachers(false);
     setAbsenceConfigs({}); setSchoolHalfDay(false); setSchoolHalfDayPeriod(4);
     setLunchDuties([]); setAttendanceDuties([]);
     setLunchTeacher(''); setLunchClass('');
@@ -313,7 +314,7 @@ export default function App() {
   );
 
   const handleAutoFill = useCallback(() => {
-    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs);
+    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs, cancelledClassConfigs);
     setSubs(newSubs); setReport(null);
   }, [df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs]);
 
@@ -576,11 +577,72 @@ export default function App() {
                   {cancelledClasses.map(c => (
                     <span key={c} className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 pr-1 py-0.5 text-xs font-semibold">
                       {c}
-                      <button onClick={() => { setCancelledClasses(prev => prev.filter(x => x !== c)); setReport(null); }}
-                        className="ml-0.5 w-4 h-4 rounded-full text-orange-400 hover:text-white hover:bg-orange-500 flex items-center justify-center transition-colors text-xs leading-none flex-shrink-0">×</button>
+                      <button onClick={() => {
+                        setCancelledClasses(prev => prev.filter(x => x !== c));
+                        setCancelledClassConfigs(prev => { const n = { ...prev }; delete n[c]; return n; });
+                        setReport(null);
+                      }} className="ml-0.5 w-4 h-4 rounded-full text-orange-400 hover:text-white hover:bg-orange-500 flex items-center justify-center transition-colors text-xs leading-none flex-shrink-0">×</button>
                     </span>
                   ))}
                 </div>
+
+                {/* Per-class half-day config */}
+                <div className="mt-3 space-y-2.5">
+                  {cancelledClasses.map(c => {
+                    const cfg: CancelledClassConfig = cancelledClassConfigs[c] ?? { halfDay: false, cancelledPeriods: [] };
+                    const classPeriods = new Set(
+                      df.filter(r => r.Class === c && r.Day === selectedDay && !isNotReq(r.Subject) && r.Period <= schoolMaxPeriod).map(r => r.Period)
+                    );
+                    const allPeriods = Array.from({ length: schoolMaxPeriod }, (_, i) => i + 1);
+                    return (
+                      <div key={c} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">{c}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-medium ${cfg.halfDay ? 'text-orange-600' : 'text-slate-400'}`}>
+                              {cfg.halfDay ? 'Select Periods' : 'Full Day'}
+                            </span>
+                            <Toggle on={cfg.halfDay} accent="amber"
+                              onToggle={() => {
+                                setCancelledClassConfigs(prev => ({ ...prev, [c]: { ...cfg, halfDay: !cfg.halfDay, cancelledPeriods: [] } }));
+                                setReport(null);
+                              }} />
+                          </div>
+                        </div>
+                        {cfg.halfDay && (
+                          <div>
+                            <p className="text-xs text-slate-400 mb-2">Tap periods to <strong>cancel</strong>:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {allPeriods.map(p => {
+                                const hasClass = classPeriods.has(p);
+                                const isCancelled = cfg.cancelledPeriods?.includes(p) ?? false;
+                                return (
+                                  <button key={p}
+                                    onClick={() => {
+                                      const current = cfg.cancelledPeriods ?? [];
+                                      const next = isCancelled ? current.filter(pp => pp !== p) : [...current, p];
+                                      setCancelledClassConfigs(prev => ({ ...prev, [c]: { ...cfg, cancelledPeriods: next } }));
+                                      setReport(null);
+                                    }}
+                                    className={`text-xs px-2.5 py-1.5 rounded-lg border font-semibold transition-all min-h-[32px] ${
+                                      isCancelled
+                                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                                        : hasClass
+                                          ? 'bg-white text-slate-500 border-slate-200 hover:border-orange-300 hover:text-orange-600'
+                                          : 'bg-white text-slate-300 border-slate-150 hover:border-orange-200 hover:text-orange-400'
+                                    }`}>
+                                    P{p}{!hasClass ? ' · Free' : ''}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <div className="flex items-center gap-2.5 mt-3">
                   <Toggle on={useCancelledTeachers} accent="green" onToggle={() => setUseCancelledTeachers(v => !v)} />
                   <span className="text-xs font-medium text-slate-600">Use freed teachers in arrangement</span>
@@ -677,7 +739,7 @@ export default function App() {
           <ArrangementTab
             df={df} absentTeachers={absentTeachers} absentPeriods={absentPeriods}
             absenceConfigs={absenceConfigs}
-            cancelledClasses={cancelledClasses} cancelledPeriods={cancelledPeriods}
+            cancelledClasses={cancelledClasses} cancelledClassConfigs={cancelledClassConfigs} cancelledPeriods={cancelledPeriods}
             useCancelledTeachers={useCancelledTeachers}
             selectedDay={selectedDay} dateVal={dateVal}
             subs={subs} clubs={clubs} subWl={subWl} covered={covered}
@@ -717,7 +779,7 @@ export default function App() {
 interface ArrProps {
   df: TimetableRow[]; absentTeachers: string[]; absentPeriods: AbsentPeriod[];
   absenceConfigs: Record<string, AbsenceConfig>;
-  cancelledClasses: string[]; cancelledPeriods: AbsentPeriod[];
+  cancelledClasses: string[]; cancelledClassConfigs: Record<string, CancelledClassConfig>; cancelledPeriods: AbsentPeriod[];
   useCancelledTeachers: boolean;
   selectedDay: string; dateVal: string;
   subs: Record<string, string>; clubs: Record<string, boolean>;
@@ -738,7 +800,7 @@ interface ArrProps {
 
 function ArrangementTab({
   df, absentTeachers, absentPeriods,
-  absenceConfigs, cancelledClasses, cancelledPeriods, useCancelledTeachers,
+  absenceConfigs, cancelledClasses, cancelledClassConfigs, cancelledPeriods, useCancelledTeachers,
   selectedDay, dateVal, subs, clubs, subWl, covered, registerDuties,
   lunchDuties, attendanceDuties,
   report, pdfLoading, log, showLog, setShowLog,
@@ -876,7 +938,7 @@ function ArrangementTab({
                 df={df} e={e} teacher={teacher} selectedDay={selectedDay}
                 absentTeachers={absentTeachers} absentPeriods={absentPeriods}
                 absenceConfigs={absenceConfigs}
-                cancelledClasses={cancelledClasses} useCancelledTeachers={useCancelledTeachers}
+                cancelledClasses={cancelledClasses} cancelledClassConfigs={cancelledClassConfigs} useCancelledTeachers={useCancelledTeachers}
                 subs={subs} clubs={clubs} subWl={subWl}
                 onSetSub={onSetSub} onSetClub={onSetClub}
               />
@@ -1139,7 +1201,7 @@ interface PeriodRowProps {
   df: TimetableRow[]; e: AbsentPeriod; teacher: string; selectedDay: string;
   absentTeachers: string[]; absentPeriods: AbsentPeriod[];
   absenceConfigs: Record<string, AbsenceConfig>;
-  cancelledClasses: string[]; useCancelledTeachers: boolean;
+  cancelledClasses: string[]; cancelledClassConfigs: Record<string, CancelledClassConfig>; useCancelledTeachers: boolean;
   subs: Record<string, string>; clubs: Record<string, boolean>;
   subWl: Record<string, number>;
   onSetSub: (t: string, p: number, v: string) => void;
@@ -1148,7 +1210,7 @@ interface PeriodRowProps {
 
 function PeriodRow({
   df, e, teacher, selectedDay, absentTeachers, absentPeriods,
-  absenceConfigs, cancelledClasses, useCancelledTeachers,
+  absenceConfigs, cancelledClasses, cancelledClassConfigs, useCancelledTeachers,
   subs, clubs, subWl, onSetSub, onSetClub,
 }: PeriodRowProps) {
   const k = subKey(e.teacher, e.period);
@@ -1157,8 +1219,8 @@ function PeriodRow({
   const isAssigned = !!currentSub;
 
   const periodBusy = useMemo(
-    () => busySetExcludingCancelled(df, selectedDay, e.period, cancelledClasses, useCancelledTeachers),
-    [df, selectedDay, e.period, cancelledClasses, useCancelledTeachers],
+    () => busySetExcludingCancelled(df, selectedDay, e.period, cancelledClasses, useCancelledTeachers, cancelledClassConfigs),
+    [df, selectedDay, e.period, cancelledClasses, useCancelledTeachers, cancelledClassConfigs],
   );
   const alreadyThis = useMemo(() => new Set(
     absentPeriods.filter(e2 => e2.period === e.period && e2.teacher !== teacher)
@@ -1277,7 +1339,7 @@ function PeriodRow({
                   <option value="">— Not Assigned —</option>
                   {freeTeachers.map(t => (
                     <option key={t} value={t}>
-                      {shortName(t)}  [{effectiveLoad(df, t, selectedDay, cancelledClasses) + (subWl[t] ?? 0)} periods]
+                      {shortName(t)}  [{effectiveLoad(df, t, selectedDay, cancelledClasses, cancelledClassConfigs) + (subWl[t] ?? 0)} periods]
                     </option>
                   ))}
                 </SelectField>

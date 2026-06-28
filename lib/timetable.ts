@@ -1,4 +1,4 @@
-import { TimetableRow, AbsentPeriod, ReportRow, AbsenceConfig, DutyEntry } from './types';
+import { TimetableRow, AbsentPeriod, ReportRow, AbsenceConfig, DutyEntry, CancelledClassConfig } from './types';
 
 export const DAYS_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 export const ALL_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -67,10 +67,16 @@ export function getAllClasses(df: TimetableRow[]): string[] {
 export function getCancelledPeriods(
   df: TimetableRow[], cancelledClasses: string[], day: string,
   maxPeriod: number = 8,
+  cancelledClassConfigs: Record<string, CancelledClassConfig> = {},
 ): AbsentPeriod[] {
   if (!cancelledClasses.length) return [];
   return df
-    .filter(r => r.Day === day && cancelledClasses.includes(r.Class) && r.Period <= maxPeriod)
+    .filter(r => {
+      if (r.Day !== day || !cancelledClasses.includes(r.Class) || r.Period > maxPeriod) return false;
+      const cfg = cancelledClassConfigs[r.Class];
+      if (cfg?.halfDay) return cfg.cancelledPeriods.includes(r.Period);
+      return true;
+    })
     .map(r => ({ teacher: r.Teacher_Name, period: r.Period, cls: r.Class, subj: r.Subject }))
     .sort((a, b) => a.period - b.period || a.cls.localeCompare(b.cls));
 }
@@ -78,6 +84,7 @@ export function getCancelledPeriods(
 export function busySetExcludingCancelled(
   df: TimetableRow[], day: string, period: number,
   cancelledClasses: string[], useCancelledTeachers: boolean,
+  cancelledClassConfigs: Record<string, CancelledClassConfig> = {},
 ): Set<string> {
   const rows = df.filter(r => r.Day === day && r.Period === period);
   if (!useCancelledTeachers || !cancelledClasses.length) {
@@ -85,7 +92,13 @@ export function busySetExcludingCancelled(
   }
   const result = new Set<string>();
   for (const t of new Set(rows.map(r => r.Teacher_Name))) {
-    const hasNonCancelled = rows.some(r => r.Teacher_Name === t && !cancelledClasses.includes(r.Class));
+    const hasNonCancelled = rows.some(r => {
+      if (r.Teacher_Name !== t) return false;
+      if (!cancelledClasses.includes(r.Class)) return true;
+      const cfg = cancelledClassConfigs[r.Class];
+      if (cfg?.halfDay) return !cfg.cancelledPeriods.includes(period);
+      return false;
+    });
     if (hasNonCancelled) result.add(t);
   }
   return result;
@@ -114,13 +127,17 @@ export function masterLoad(df: TimetableRow[], teacher: string, day: string): nu
 
 // Busy periods today: primary teaching + upper-class (Not Req), minus cancelled classes.
 export function effectiveLoad(
-  df: TimetableRow[], teacher: string, day: string, cancelledClasses: string[] = [],
+  df: TimetableRow[], teacher: string, day: string,
+  cancelledClasses: string[] = [],
+  cancelledClassConfigs: Record<string, CancelledClassConfig> = {},
 ): number {
-  return df.filter(r =>
-    r.Teacher_Name === teacher &&
-    r.Day === day &&
-    !cancelledClasses.includes(r.Class),
-  ).length;
+  return df.filter(r => {
+    if (r.Teacher_Name !== teacher || r.Day !== day) return false;
+    if (!cancelledClasses.includes(r.Class)) return true;
+    const cfg = cancelledClassConfigs[r.Class];
+    if (cfg?.halfDay) return !cfg.cancelledPeriods.includes(r.Period);
+    return false;
+  }).length;
 }
 
 export function isTeacherAbsentInPeriod(
@@ -138,13 +155,18 @@ export function buildAbsentPeriods(
   absenceConfigs: Record<string, AbsenceConfig> = {},
   cancelledClasses: string[] = [],
   maxPeriod: number = 8,
+  cancelledClassConfigs: Record<string, CancelledClassConfig> = {},
 ): AbsentPeriod[] {
   const periods: AbsentPeriod[] = [];
   for (const t of teachers) {
     for (const row of getSchedule(df, t, day)) {
       if (isNotReq(row.Subject)) continue;
-      if (cancelledClasses.includes(row.Class)) continue;
       if (row.Period > maxPeriod) continue;
+      if (cancelledClasses.includes(row.Class)) {
+        const cfg = cancelledClassConfigs[row.Class];
+        if (!cfg?.halfDay) continue;
+        if (cfg.cancelledPeriods.includes(row.Period)) continue;
+      }
       if (!isTeacherAbsentInPeriod(t, row.Period, teachers, absenceConfigs)) continue;
       periods.push({ teacher: t, period: row.Period, cls: row.Class, subj: row.Subject });
     }
@@ -208,6 +230,7 @@ export function autoFillAll(
   cancelledClasses: string[] = [],
   useCancelledTeachers: boolean = false,
   absenceConfigs: Record<string, AbsenceConfig> = {},
+  cancelledClassConfigs: Record<string, CancelledClassConfig> = {},
 ): Record<string, string> {
   const newSubs = { ...currentSubs };
   const subWl: Record<string, number> = {};
@@ -267,7 +290,7 @@ export function autoFillAll(
     for (const e of absentPeriods) {
       const key = `${e.teacher}__${e.period}`;
       if (newSubs[key]) continue;
-      const busy   = busySetExcludingCancelled(df, day, e.period, cancelledClasses, useCancelledTeachers);
+      const busy   = busySetExcludingCancelled(df, day, e.period, cancelledClasses, useCancelledTeachers, cancelledClassConfigs);
       const absent = absentTeachers.filter(t => isTeacherAbsentInPeriod(t, e.period, absentTeachers, absenceConfigs));
       const notReq = getNotReqTeachersForPeriod(df, day, e.period);
       if (!busy.has(amitTeacher) && !absent.includes(amitTeacher) && !notReq.has(amitTeacher)) {
@@ -283,7 +306,7 @@ export function autoFillAll(
     const key = `${e.teacher}__${e.period}`;
     if (newSubs[key]) continue;
 
-    const periodBusy = busySetExcludingCancelled(df, day, e.period, cancelledClasses, useCancelledTeachers);
+    const periodBusy = busySetExcludingCancelled(df, day, e.period, cancelledClasses, useCancelledTeachers, cancelledClassConfigs);
     const alreadyThis = new Set(
       absentPeriods
         .filter(e2 => e2.period === e.period && e2.teacher !== e.teacher)

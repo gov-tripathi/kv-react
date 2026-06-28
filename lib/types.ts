@@ -31,6 +31,11 @@ export interface AbsenceConfig {
   absentPeriods: number[];
 }
 
+export interface CancelledClassConfig {
+  halfDay: boolean;
+  cancelledPeriods: number[];
+}
+
 export interface DutyEntry {
   teacher: string;
   cls: string;
