@@ -166,14 +166,12 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
   ];
   afterTableY += 6;
   for (const group of dutyGroups) {
-    const bodyRows = group.entries.length > 0
-      ? group.entries.map(d => [d.cls, shortName(d.teacher), ''])
-      : [['', '', '']];
+    if (!group.entries.length) continue;
 
     autoTable(doc, {
       startY: afterTableY,
       head: [[group.label, 'TEACHER IN CHARGE', 'SIGN']],
-      body: bodyRows,
+      body: group.entries.map(d => [d.cls, shortName(d.teacher), '']),
       theme: 'grid',
       tableWidth: pageW - 2 * margin,
       headStyles: { fillColor: group.headColor, fontSize: 7.5, halign: 'center', fontStyle: 'bold', cellPadding: 1.5 },
