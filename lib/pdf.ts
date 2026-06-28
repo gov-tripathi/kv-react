@@ -180,7 +180,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
       bodyStyles: { fontSize: 7.5, valign: 'middle', cellPadding: 1.5 },
       columnStyles: {
         0: { halign: 'center', cellWidth: 30, fontStyle: 'bold' },
-        1: { cellWidth: 'auto' },
+        1: { cellWidth: 100 },
         2: { cellWidth: 50 },
       },
       margin: { left: margin, right: margin },
