@@ -175,12 +175,13 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
       head: [[group.label, 'TEACHER IN CHARGE', 'SIGN']],
       body: bodyRows,
       theme: 'grid',
+      tableWidth: pageW - 2 * margin,
       headStyles: { fillColor: group.headColor, fontSize: 7.5, halign: 'center', fontStyle: 'bold', cellPadding: 1.5 },
       bodyStyles: { fontSize: 7.5, valign: 'middle', cellPadding: 1.5 },
       columnStyles: {
         0: { halign: 'center', cellWidth: 30, fontStyle: 'bold' },
-        1: { cellWidth: 80 },
-        2: { cellWidth: 70 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 50 },
       },
       margin: { left: margin, right: margin },
     });
