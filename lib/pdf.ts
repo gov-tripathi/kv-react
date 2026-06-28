@@ -159,29 +159,32 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     afterTableY = cancelY + 4;
   }
 
-  // Lunch Duty & Attendance Duty sections — always present
+  // Lunch Duty & Attendance Duty sections — rendered as tables
   const dutyGroups = [
-    { label: 'LUNCH DUTY', entries: lunchDuties, color: [180, 83, 9] as [number, number, number], indent: 28 },
-    { label: 'ATTENDANCE DUTY', entries: attendanceDuties, color: [109, 40, 217] as [number, number, number], indent: 42 },
+    { label: 'LUNCH DUTY', entries: lunchDuties, headColor: [180, 83, 9] as [number, number, number] },
+    { label: 'ATTENDANCE DUTY', entries: attendanceDuties, headColor: [109, 40, 217] as [number, number, number] },
   ];
   afterTableY += 6;
   for (const group of dutyGroups) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...group.color);
-    doc.text(`${group.label}:`, margin, afterTableY);
-    if (group.entries.length > 0) {
-      const entryText = group.entries.map(d => `${d.cls} → ${shortName(d.teacher)}`).join('     ');
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text(entryText, margin + group.indent, afterTableY);
-    } else {
-      doc.setDrawColor(180, 180, 180);
-      doc.setLineWidth(0.25);
-      const lineW = pageW - margin * 2 - group.indent;
-      doc.line(margin + group.indent, afterTableY, margin + group.indent + lineW, afterTableY);
-    }
-    afterTableY += 7;
+    const bodyRows = group.entries.length > 0
+      ? group.entries.map(d => [d.cls, shortName(d.teacher), ''])
+      : [['', '', '']];
+
+    autoTable(doc, {
+      startY: afterTableY,
+      head: [[group.label, 'TEACHER IN CHARGE', 'SIGN']],
+      body: bodyRows,
+      theme: 'grid',
+      headStyles: { fillColor: group.headColor, fontSize: 7.5, halign: 'center', fontStyle: 'bold', cellPadding: 1.5 },
+      bodyStyles: { fontSize: 7.5, valign: 'middle', cellPadding: 1.5 },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 30, fontStyle: 'bold' },
+        1: { cellWidth: 80 },
+        2: { cellWidth: 70 },
+      },
+      margin: { left: margin, right: margin },
+    });
+    afterTableY = (doc as any).lastAutoTable.finalY + 4;
   }
 
   // Note section — only when note is not disabled (undefined = excluded by user)

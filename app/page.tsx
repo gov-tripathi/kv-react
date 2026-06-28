@@ -381,6 +381,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen" style={{ background: '#F1F5F9' }}>
+      {/* Global datalist for teacher name autocomplete (used by duty + custom sub inputs) */}
+      <datalist id="kv-teacher-names">
+        {allTeachers.map(t => <option key={t} value={shortName(t)} />)}
+      </datalist>
       <div className="max-w-3xl mx-auto px-3 py-4 pb-24">
 
         {/* ── Header ── */}
@@ -584,12 +588,10 @@ export default function App() {
           <div className="mt-4 pt-4 border-t border-slate-100">
             <label className="block text-sm font-semibold text-slate-600 mb-2">🍱 Lunch Duty</label>
             <div className="flex gap-2">
-              <SelectField value={lunchTeacher} onChange={e => setLunchTeacher(e.target.value)} className="flex-1">
-                <option value="">Teacher…</option>
-                {allTeachers.filter(t => !lunchDuties.some(d => d.teacher === t)).map(t => (
-                  <option key={t} value={t}>{shortName(t)}</option>
-                ))}
-              </SelectField>
+              <input type="text" list="kv-teacher-names" value={lunchTeacher}
+                onChange={e => setLunchTeacher(e.target.value)}
+                placeholder="Teacher name…"
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
               <SelectField value={lunchClass} onChange={e => setLunchClass(e.target.value)} className="flex-1">
                 <option value="">Class…</option>
                 {allClasses.filter(c => !lunchDuties.some(d => d.cls === c)).map(c => (
@@ -620,12 +622,10 @@ export default function App() {
           <div className="mt-4 pt-4 border-t border-slate-100">
             <label className="block text-sm font-semibold text-slate-600 mb-2">📝 Attendance Duty</label>
             <div className="flex gap-2">
-              <SelectField value={attendanceTeacher} onChange={e => setAttendanceTeacher(e.target.value)} className="flex-1">
-                <option value="">Teacher…</option>
-                {allTeachers.filter(t => !attendanceDuties.some(d => d.teacher === t)).map(t => (
-                  <option key={t} value={t}>{shortName(t)}</option>
-                ))}
-              </SelectField>
+              <input type="text" list="kv-teacher-names" value={attendanceTeacher}
+                onChange={e => setAttendanceTeacher(e.target.value)}
+                placeholder="Teacher name…"
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
               <SelectField value={attendanceClass} onChange={e => setAttendanceClass(e.target.value)} className="flex-1">
                 <option value="">Class…</option>
                 {allClasses.filter(c => !attendanceDuties.some(d => d.cls === c)).map(c => (
@@ -1161,6 +1161,13 @@ function PeriodRow({
   ), [absentPeriods, e.period, teacher, subs]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
+
+  // Custom substitute mode — allows typing any name not in the master list
+  const isCustomSub = !!currentSub && !allTeachers.includes(currentSub);
+  const [customMode, setCustomMode] = useState(false);
+  const inCustom = customMode || isCustomSub;
+  useEffect(() => { if (!currentSub) setCustomMode(false); }, [currentSub]);
+
   const notReqTeachers = useMemo(
     () => getNotReqTeachersForPeriod(df, selectedDay, e.period),
     [df, selectedDay, e.period],
@@ -1243,19 +1250,42 @@ function PeriodRow({
       <div className="px-4 pb-3 flex gap-2">
         {!clubMode ? (
           <>
-            <SelectField className="flex-1" value={currentSub}
-              onChange={e2 => onSetSub(teacher, e.period, e2.target.value)}>
-              <option value="">— Not Assigned —</option>
-              {freeTeachers.map(t => (
-                <option key={t} value={t}>
-                  {shortName(t)}  [{effectiveLoad(df, t, selectedDay, cancelledClasses) + (subWl[t] ?? 0)} periods]
-                </option>
-              ))}
-            </SelectField>
-            <button onClick={() => onSetClub(teacher, e.period, true)}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all whitespace-nowrap flex-shrink-0">
-              🔀 Club
-            </button>
+            {inCustom ? (
+              <>
+                <input
+                  type="text" list="kv-teacher-names"
+                  value={currentSub}
+                  onChange={e2 => onSetSub(teacher, e.period, e2.target.value)}
+                  placeholder="Enter teacher name…"
+                  autoFocus
+                  className="flex-1 bg-white border border-blue-300 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                />
+                <button onClick={() => { setCustomMode(false); onSetSub(teacher, e.period, ''); }}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-all whitespace-nowrap flex-shrink-0">
+                  ↩ List
+                </button>
+              </>
+            ) : (
+              <>
+                <SelectField className="flex-1" value={currentSub}
+                  onChange={e2 => onSetSub(teacher, e.period, e2.target.value)}>
+                  <option value="">— Not Assigned —</option>
+                  {freeTeachers.map(t => (
+                    <option key={t} value={t}>
+                      {shortName(t)}  [{effectiveLoad(df, t, selectedDay, cancelledClasses) + (subWl[t] ?? 0)} periods]
+                    </option>
+                  ))}
+                </SelectField>
+                <button onClick={() => setCustomMode(true)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 transition-all whitespace-nowrap flex-shrink-0">
+                  ✏
+                </button>
+                <button onClick={() => onSetClub(teacher, e.period, true)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all whitespace-nowrap flex-shrink-0">
+                  🔀 Club
+                </button>
+              </>
+            )}
           </>
         ) : (
           <>
