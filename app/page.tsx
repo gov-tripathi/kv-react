@@ -765,6 +765,7 @@ export default function App() {
             absenceConfigs={absenceConfigs}
             selectedDay={selectedDay} subs={subs} clubs={clubs}
             cancelledClasses={cancelledClasses}
+            cancelledClassConfigs={cancelledClassConfigs}
             schoolMaxPeriod={schoolMaxPeriod}
           />
         )}
@@ -1381,11 +1382,11 @@ interface StatusProps {
   absentTeachers: string[]; absentPeriods: AbsentPeriod[];
   absenceConfigs: Record<string, AbsenceConfig>;
   selectedDay: string; subs: Record<string, string>; clubs: Record<string, boolean>;
-  cancelledClasses: string[];
+  cancelledClasses: string[]; cancelledClassConfigs: Record<string, CancelledClassConfig>;
   schoolMaxPeriod: number;
 }
 
-function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, clubs, cancelledClasses, schoolMaxPeriod }: StatusProps) {
+function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, clubs, cancelledClasses, cancelledClassConfigs, schoolMaxPeriod }: StatusProps) {
   const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher');
   const activePeriods = ALL_PERIODS.filter(p => p <= schoolMaxPeriod);
 
@@ -1456,7 +1457,10 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       if (ai !== bi) return ai - bi; return aSec.localeCompare(bSec);
     });
     return classes.map(cls => {
-      const isCancelled = cancelledClasses.includes(cls);
+      const inCancelList = cancelledClasses.includes(cls);
+      const cfg = inCancelList ? (cancelledClassConfigs[cls] ?? { halfDay: false, cancelledPeriods: [] }) : null;
+      const cancelledPeriodNums: number[] = (inCancelList && cfg!.cancelledPeriods.length > 0) ? cfg!.cancelledPeriods : [];
+      const isCancelled = inCancelList && cancelledPeriodNums.length === 0;
       const periods = activePeriods.flatMap(p => {
         const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && !isNotReq(r.Subject));
         if (!row) return [];
@@ -1465,9 +1469,9 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         const isClub = isAbsent && !!(sub) && !!(clubs[`${row.Teacher_Name}__${p}`]);
         return [{ period: p, teacher: row.Teacher_Name, subject: row.Subject, isAbsent, substitute: sub, isClub }];
       });
-      return { cls, periods, isCancelled };
+      return { cls, periods, isCancelled, cancelledPeriodNums };
     }).filter(c => c.periods.length > 0);
-  }, [df, selectedDay, absentTeachers, absenceConfigs, subs, clubs]);
+  }, [df, selectedDay, absentTeachers, absenceConfigs, subs, clubs, cancelledClasses, cancelledClassConfigs]);
 
   const nPresent = presentTeachers.length;
   const nAbsent = absentTeachers.length;
@@ -1625,17 +1629,19 @@ type ClassPeriodInfo = {
   isAbsent: boolean; substitute: string | null; isClub: boolean;
 };
 
-function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]; isCancelled: boolean } }) {
-  const hasIssue = !cd.isCancelled && cd.periods.some(p => p.isAbsent);
+function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]; isCancelled: boolean; cancelledPeriodNums: number[] } }) {
+  const isPartialCancel = cd.cancelledPeriodNums.length > 0;
+  const hasIssue = !cd.isCancelled && cd.periods.some(p => p.isAbsent && !p.substitute && !cd.cancelledPeriodNums.includes(p.period));
 
   return (
     <div className={`rounded-2xl p-3.5 shadow-sm border hover:shadow-md transition-shadow ${
       cd.isCancelled ? 'bg-orange-50 border-orange-200' :
+      isPartialCancel ? 'bg-orange-50/40 border-orange-100' :
       hasIssue ? 'bg-white border-amber-200' : 'bg-white border-slate-100'
     }`}>
       <div className="flex items-center gap-2.5 mb-3">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm ${
-          cd.isCancelled ? 'bg-orange-400' : 'bg-blue-600'
+          cd.isCancelled ? 'bg-orange-400' : isPartialCancel ? 'bg-orange-300' : 'bg-blue-600'
         }`}>
           {cd.cls.replace(' ', '')}
         </div>
@@ -1643,48 +1649,53 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
           <div className="text-sm font-bold text-slate-800">Class {cd.cls}</div>
           {cd.isCancelled
             ? <div className="text-xs font-semibold text-orange-600">🚫 Cancelled</div>
+            : isPartialCancel
+            ? <div className="text-xs font-semibold text-orange-500">🚫 P{cd.cancelledPeriodNums.join(', P')} cancelled</div>
             : <div className="text-xs text-slate-400">{cd.periods.length} periods</div>
           }
         </div>
-        {hasIssue && !cd.isCancelled && (
+        {hasIssue && (
           <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">⚠ Issues</span>
         )}
       </div>
 
       <div className="space-y-1">
-        {cd.periods.map(p => (
-          <div key={p.period} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs ${
-            cd.isCancelled ? 'bg-orange-50/60 border border-orange-100' :
-            p.isAbsent && !p.substitute ? 'bg-red-50 border border-red-100' :
-            p.isClub ? 'bg-orange-50 border border-orange-100' :
-            p.isAbsent ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'
-          }`}>
-            <span className="font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
-            <span className="text-slate-400 w-14 flex-shrink-0 truncate">{p.subject}</span>
-            <div className="flex-1 min-w-0 flex items-center gap-1">
-              {cd.isCancelled ? (
-                <>
-                  <span className="text-orange-300 line-through truncate">{shortName(p.teacher)}</span>
-                  <span className="text-orange-500 font-semibold flex-shrink-0 ml-1 text-[10px]">FREE</span>
-                </>
-              ) : p.isAbsent ? (
-                <>
-                  <span className="text-red-400 line-through truncate">{shortName(p.teacher)}</span>
-                  {p.substitute
-                    ? <><span className="text-slate-400 flex-shrink-0">→</span>
-                        <span className={`font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>
-                          {shortName(p.substitute)}
-                        </span>
-                        {p.isClub && <span className="font-bold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
-                    : <span className="font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
-                  }
-                </>
-              ) : (
-                <span className="font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
-              )}
+        {cd.periods.map(p => {
+          const isPeriodCancelled = cd.isCancelled || cd.cancelledPeriodNums.includes(p.period);
+          return (
+            <div key={p.period} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs ${
+              isPeriodCancelled ? 'bg-orange-50/60 border border-orange-100' :
+              p.isAbsent && !p.substitute ? 'bg-red-50 border border-red-100' :
+              p.isClub ? 'bg-orange-50 border border-orange-100' :
+              p.isAbsent ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'
+            }`}>
+              <span className="font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
+              <span className="text-slate-400 w-14 flex-shrink-0 truncate">{p.subject}</span>
+              <div className="flex-1 min-w-0 flex items-center gap-1">
+                {isPeriodCancelled ? (
+                  <>
+                    <span className="text-orange-300 line-through truncate">{shortName(p.teacher)}</span>
+                    <span className="text-orange-500 font-semibold flex-shrink-0 ml-1 text-[10px]">FREE</span>
+                  </>
+                ) : p.isAbsent ? (
+                  <>
+                    <span className="text-red-400 line-through truncate">{shortName(p.teacher)}</span>
+                    {p.substitute
+                      ? <><span className="text-slate-400 flex-shrink-0">→</span>
+                          <span className={`font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>
+                            {shortName(p.substitute)}
+                          </span>
+                          {p.isClub && <span className="font-bold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
+                      : <span className="font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
+                    }
+                  </>
+                ) : (
+                  <span className="font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
