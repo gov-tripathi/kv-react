@@ -1,6 +1,13 @@
 import { ReportRow, DutyEntry } from './types';
 import { shortName } from './timetable';
 
+function titleName(name: string): string {
+  const u = name.toUpperCase();
+  if (u.startsWith('MS. ') || u.startsWith('MS.')) return 'Ms. ' + shortName(name);
+  if (u.startsWith('MR. ') || u.startsWith('MR.')) return 'Mr. ' + shortName(name);
+  return shortName(name);
+}
+
 function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
@@ -88,11 +95,11 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     const subDisplay =
       r.Substitute === '— Not Assigned —' ? 'UNASSIGNED ⚠' :
       r.Type === 'CLUBBED'
-        ? `${shortName(r.Substitute)}\n(clubbing: ${r.Sub_Own_Class}${r.Sub_Own_Subject ? ' · ' + r.Sub_Own_Subject : ''})`
-        : shortName(r.Substitute);
+        ? `${titleName(r.Substitute)}\n(clubbing: ${r.Sub_Own_Class}${r.Sub_Own_Subject ? ' · ' + r.Sub_Own_Subject : ''})`
+        : titleName(r.Substitute);
     return [
       String(i + 1),
-      shortName(r.Absent_Teacher),
+      titleName(r.Absent_Teacher),
       ordinal(r.Period),
       r.Class,
       r.Subject,
@@ -171,7 +178,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     autoTable(doc, {
       startY: afterTableY,
       head: [[group.label, 'TEACHER IN CHARGE', 'SIGN']],
-      body: group.entries.map(d => [d.cls, shortName(d.teacher), '']),
+      body: group.entries.map(d => [d.cls, titleName(d.teacher), '']),
       theme: 'grid',
       tableWidth: pageW - 2 * margin,
       headStyles: { fillColor: group.headColor, fontSize: 7.5, halign: 'center', fontStyle: 'bold', cellPadding: 1.5 },
