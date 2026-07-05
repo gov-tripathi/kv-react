@@ -1420,7 +1420,11 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
           if (row && isNotReq(row.Subject)) {
             periodStatus[p] = 'notReq'; periodClass[p] = 'Upper Class';
           } else if (row && cancelledClasses.includes(row.Class)) {
-            periodStatus[p] = 'free'; periodClass[p] = `${row.Class} cancelled`;
+            if (subPs.has(p)) {
+              periodStatus[p] = 'sub'; periodClass[p] = `${subForCls[p]} · Sub for ${shortName(subFor[p])}`;
+            } else {
+              periodStatus[p] = 'free'; periodClass[p] = `${row.Class} cancelled`;
+            }
           } else {
             periodStatus[p] = 'teaching'; periodClass[p] = row ? `${row.Class} · ${row.Subject}` : '';
           }
