@@ -662,7 +662,8 @@ export default function App() {
               </SelectField>
               <Btn size="sm" disabled={!lunchTeacher || !lunchClass} onClick={() => {
                 if (lunchTeacher && lunchClass) {
-                  setLunchDuties(prev => [...prev, { teacher: lunchTeacher, cls: lunchClass }]);
+                  const full = allTeachers.find(t => shortName(t).toLowerCase() === lunchTeacher.trim().toLowerCase() || t.toLowerCase() === lunchTeacher.trim().toLowerCase()) ?? lunchTeacher.trim();
+                  setLunchDuties(prev => [...prev, { teacher: full, cls: lunchClass }]);
                   setLunchTeacher(''); setLunchClass('');
                 }
               }}>Add</Btn>
@@ -696,7 +697,8 @@ export default function App() {
               </SelectField>
               <Btn size="sm" disabled={!attendanceTeacher || !attendanceClass} onClick={() => {
                 if (attendanceTeacher && attendanceClass) {
-                  setAttendanceDuties(prev => [...prev, { teacher: attendanceTeacher, cls: attendanceClass }]);
+                  const full = allTeachers.find(t => shortName(t).toLowerCase() === attendanceTeacher.trim().toLowerCase() || t.toLowerCase() === attendanceTeacher.trim().toLowerCase()) ?? attendanceTeacher.trim();
+                  setAttendanceDuties(prev => [...prev, { teacher: full, cls: attendanceClass }]);
                   setAttendanceTeacher(''); setAttendanceClass('');
                 }
               }}>Add</Btn>
