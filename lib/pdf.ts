@@ -115,7 +115,6 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
           r.Class,
           r.Subject,
           subDisplay,
-          r.Type === 'CLUBBED' ? 'CLUB' : 'SUB',
           '',
         ]);
       } else {
@@ -125,7 +124,6 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
           r.Class,
           r.Subject,
           subDisplay,
-          r.Type === 'CLUBBED' ? 'CLUB' : 'SUB',
           '',
         ]);
       }
@@ -135,7 +133,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
 
   autoTable(doc, {
     startY: y,
-    head: [['S.No', 'Absent Teacher', 'Per.', 'Class', 'Subject', 'Substitute Teacher', 'Mode', 'Sign']],
+    head: [['S.No', 'Absent Teacher', 'Per.', 'Class', 'Subject', 'Substitute Teacher', 'Sign']],
     body: tableRows,
     theme: 'grid',
     headStyles: { fillColor: [30, 64, 175], fontSize: 7.5, halign: 'center', fontStyle: 'bold' },
@@ -146,9 +144,8 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
       2: { halign: 'center', cellWidth: 10, fontStyle: 'bolditalic' },
       3: { halign: 'center', cellWidth: 20, fontStyle: 'bolditalic' },
       4: { halign: 'center', cellWidth: 22 },
-      5: { cellWidth: 42 },
-      6: { halign: 'center', cellWidth: 14 },
-      7: { cellWidth: 20 },
+      5: { cellWidth: 52 },
+      6: { cellWidth: 24 },
     },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     didParseCell(data) {
