@@ -1424,7 +1424,11 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
           if (row && isNotReq(row.Subject)) {
             periodStatus[p] = 'notReq'; periodClass[p] = 'Upper Class';
           } else if (row && cancelledClasses.includes(row.Class)) {
-            if (subPs.has(p)) {
+            const clsCfg = cancelledClassConfigs[row.Class];
+            const isPeriodCancelled = !clsCfg?.halfDay || clsCfg.cancelledPeriods.includes(p);
+            if (!isPeriodCancelled) {
+              periodStatus[p] = 'teaching'; periodClass[p] = `${row.Class} · ${row.Subject}`;
+            } else if (subPs.has(p)) {
               periodStatus[p] = 'sub'; periodClass[p] = `${subForCls[p]} · Sub for ${shortName(subFor[p])}`;
             } else {
               periodStatus[p] = 'free'; periodClass[p] = `${row.Class} cancelled`;
@@ -1447,7 +1451,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       if (sa !== sb) return sb - sa;
       return a.name.localeCompare(b.name);
     });
-  }, [df, presentTeachers, selectedDay, absentPeriods, subs, clubs, absenceConfigs, cancelledClasses]);
+  }, [df, presentTeachers, selectedDay, absentPeriods, subs, clubs, absenceConfigs, cancelledClasses, cancelledClassConfigs]);
 
   const classData = useMemo(() => {
     const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
