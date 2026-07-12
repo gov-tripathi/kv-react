@@ -143,7 +143,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
               className="h-11 w-auto drop-shadow-2xl"
               style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,.5)) brightness(1.15)' }} />
           </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">PM SHRI Kendriya Vidyalaya Burhanpur</h1>
+          <h1 className="text-base font-extrabold text-white tracking-widest uppercase text-center">PM SHRI KENDRIYA VIDYALAYA BURHANPUR</h1>
           <p className="text-blue-300/80 text-sm mt-1 font-medium">Teacher Arrangement System</p>
           <p className="text-blue-400/50 text-xs mt-0.5">2026–27</p>
         </div>
@@ -400,7 +400,7 @@ export default function App() {
               <img src="/2023042075.png" alt="KV Logo" className="h-11 w-auto"
                 style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
               <div className="text-center">
-                <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">PM SHRI Kendriya Vidyalaya Burhanpur</h1>
+                <h1 className="text-sm font-extrabold text-white tracking-widest leading-tight uppercase">PM SHRI KENDRIYA VIDYALAYA BURHANPUR</h1>
               </div>
               <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto"
                 style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
