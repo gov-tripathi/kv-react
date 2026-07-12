@@ -395,10 +395,6 @@ export default function App() {
             <div className="absolute -top-8 -right-8 w-40 h-40 bg-blue-400/10 rounded-full blur-2xl" />
             <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl" />
           </div>
-          <button onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
-            className="absolute top-3 right-3 text-white/60 hover:text-white hover:bg-white/10 text-xs font-semibold border border-white/15 h-7 px-3 rounded-full transition-all">
-            Sign out
-          </button>
           <div className="flex flex-col items-center gap-2 relative z-10">
             <div className="flex items-center gap-4">
               <img src="/2023042075.png" alt="KV Logo" className="h-11 w-auto"
@@ -768,6 +764,14 @@ export default function App() {
             schoolMaxPeriod={schoolMaxPeriod}
           />
         )}
+
+        {/* ── Sign out ── */}
+        <div className="pt-2 pb-4 flex justify-center">
+          <button onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
+            className="text-xs font-semibold text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 hover:bg-red-50 px-4 py-2 rounded-full transition-all">
+            Sign out
+          </button>
+        </div>
       </div>
     </div>
   );
