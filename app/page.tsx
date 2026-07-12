@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback, FormEvent } from 'react';
 import Papa from 'papaparse';
-
-// ── Design primitives ─────────────────────────────────────────────────────────
+// ── Lightweight design primitives (no external lib, avoids React Aria compat issues)
 function Btn({ children, variant = 'primary', size = 'md', disabled = false, type = 'button', onPress, onClick, className = '', style }: {
   children: React.ReactNode; variant?: 'primary'|'secondary'|'ghost'|'outline'|'danger-soft';
   size?: 'sm'|'md'|'lg'; disabled?: boolean; type?: 'button'|'submit'; onPress?: () => void; onClick?: () => void; className?: string; style?: React.CSSProperties;
@@ -11,10 +10,10 @@ function Btn({ children, variant = 'primary', size = 'md', disabled = false, typ
   const base = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
   const sizes = { sm: 'px-3 py-1.5 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-5 py-3 text-base' };
   const variants = {
-    primary: 'bg-black hover:bg-[#333333] text-white focus:ring-black shadow-sm',
-    secondary: 'bg-white hover:bg-[#F8F9FA] text-black border border-[#E0E0E0] focus:ring-black',
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-400 shadow-sm',
+    secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700 focus:ring-slate-300',
     ghost: 'hover:bg-white/10 text-inherit focus:ring-white/20',
-    outline: 'border border-[#E0E0E0] hover:bg-[#F8F9FA] text-[#000000] focus:ring-black',
+    outline: 'border border-slate-200 hover:bg-slate-50 text-slate-700 focus:ring-blue-400',
     'danger-soft': 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 focus:ring-red-400',
   };
   return (
@@ -29,11 +28,11 @@ function StatusChip({ children, color = 'default', size = 'md' }: {
   children: React.ReactNode; color?: 'default'|'danger'|'success'|'warning'|'accent'; size?: 'sm'|'md';
 }) {
   const colors = {
-    default: 'bg-[#F8F9FA] text-[#000000] border-[#E0E0E0]',
+    default: 'bg-slate-100 text-slate-700 border-slate-200',
     danger: 'bg-red-50 text-red-700 border-red-200',
     success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    accent: 'bg-black text-white border-black',
+    accent: 'bg-blue-50 text-blue-700 border-blue-200',
   };
   const sizes = { sm: 'text-[11px] px-2 py-0.5', md: 'text-xs px-2.5 py-0.5' };
   return (
@@ -46,19 +45,18 @@ function StatusChip({ children, color = 'default', size = 'md' }: {
 function LoadingSpinner({ size = 'md', className = '' }: { size?: 'sm'|'md'|'lg'; className?: string }) {
   const sizes = { sm: 'w-4 h-4 border-2', md: 'w-7 h-7 border-[3px]', lg: 'w-10 h-10 border-4' };
   return (
-    <span className={`inline-block ${sizes[size]} border-black border-t-transparent rounded-full animate-spin ${className}`} />
+    <span className={`inline-block ${sizes[size]} border-blue-500 border-t-transparent rounded-full animate-spin ${className}`} />
   );
 }
 
 function KvProgressBar({ value, color = 'default' }: { value: number; color?: 'default'|'success'|'warning'|'danger' }) {
-  const colors = { default: 'bg-black', success: 'bg-[#22C55E]', warning: 'bg-[#F59E0B]', danger: 'bg-[#EF4444]' };
+  const colors = { default: 'bg-blue-500', success: 'bg-emerald-500', warning: 'bg-amber-500', danger: 'bg-red-500' };
   return (
-    <div className="h-1.5 bg-[#F8F9FA] rounded-full overflow-hidden">
+    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
       <div className={`h-full rounded-full transition-all duration-500 ${colors[color]}`} style={{ width: `${Math.min(100, value)}%` }} />
     </div>
   );
 }
-
 import {
   TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry, CancelledClassConfig,
 } from '@/lib/types';
@@ -80,27 +78,27 @@ const USERS: Record<string, string> = {
   'nt4472@gmail.com': 'nt4472@6065',
 };
 
-// ── Toggle switch ─────────────────────────────────────────────────────────────
+// ── Reusable toggle switch ────────────────────────────────────────────────────
 function Toggle({ on, onToggle, accent = 'blue' }: { on: boolean; onToggle: () => void; accent?: 'blue' | 'green' | 'amber' }) {
-  const colors = { blue: 'bg-black', green: 'bg-[#22C55E]', amber: 'bg-[#F59E0B]' };
+  const colors = { blue: 'bg-blue-500', green: 'bg-emerald-500', amber: 'bg-amber-500' };
   return (
     <button type="button" role="switch" aria-checked={on} onClick={onToggle}
-      className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-1 ${on ? colors[accent] : 'bg-[#E0E0E0]'}`}>
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${on ? colors[accent] : 'bg-slate-200'}`}>
       <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
     </button>
   );
 }
 
-// ── Select wrapper ────────────────────────────────────────────────────────────
+// ── Styled select wrapper ─────────────────────────────────────────────────────
 function SelectField({ className = '', children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { className?: string }) {
   return (
     <div className={`relative ${className}`}>
       <select {...props}
-        className="w-full appearance-none bg-white border border-[#E0E0E0] rounded-xl px-3 py-2.5 pr-8 text-sm text-[#000000] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all cursor-pointer hover:border-[#000000]">
+        className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-2.5 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer hover:border-slate-300">
         {children}
       </select>
       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5">
-        <svg className="w-4 h-4 text-[#666666]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </div>
@@ -130,46 +128,51 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-black">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center gap-4 mb-5">
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 60%, #1D4ED8 100%)' }}>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+
+      <div className="w-full max-w-sm relative z-10">
+        <div className="flex flex-col items-center mb-7">
+          <div className="flex items-center gap-4 mb-4">
             <img src="/2023042075.png" alt="KV Logo"
-              className="h-14 w-auto drop-shadow-xl"
-              style={{ filter: 'brightness(1.1)' }} />
+              className="h-14 w-auto drop-shadow-2xl"
+              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,.5)) brightness(1.15)' }} />
             <img src="/2025021137.png" alt="PM SHRI Logo"
-              className="h-11 w-auto drop-shadow-xl"
-              style={{ filter: 'brightness(1.1)' }} />
+              className="h-11 w-auto drop-shadow-2xl"
+              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,.5)) brightness(1.15)' }} />
           </div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">KV Burhanpur</h1>
-          <p className="text-[#666666] text-sm mt-1 font-medium">Teacher Arrangement System</p>
-          <p className="text-[#444444] text-xs mt-0.5">2026–27</p>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">KV Burhanpur</h1>
+          <p className="text-blue-300/80 text-sm mt-1 font-medium">Teacher Arrangement System</p>
+          <p className="text-blue-400/50 text-xs mt-0.5">2026–27</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#E0E0E0] p-6">
+        <div className="rounded-2xl border border-white/10 shadow-2xl p-6"
+          style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(24px)' }}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-[#000000] mb-1.5 tracking-wide">Email address</label>
+              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Email address</label>
               <input type="email" value={email} placeholder="you@example.com" autoComplete="email"
                 onChange={e => { setEmail(e.target.value); setError(''); }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E0E0E0] bg-white text-[#000000] placeholder:text-[#666666] text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all" />
+                className="w-full px-3.5 py-2.5 rounded-xl border border-white/15 bg-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:border-transparent transition-all" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#000000] mb-1.5 tracking-wide">Password</label>
+              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Password</label>
               <div className="relative">
                 <input type={showPw ? 'text' : 'password'} value={password} placeholder="••••••••" autoComplete="current-password"
                   onChange={e => { setPassword(e.target.value); setError(''); }}
-                  className="w-full px-3.5 py-2.5 pr-16 rounded-xl border border-[#E0E0E0] bg-white text-[#000000] placeholder:text-[#666666] text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all" />
+                  className="w-full px-3.5 py-2.5 pr-16 rounded-xl border border-white/15 bg-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:border-transparent transition-all" />
                 <button type="button" onClick={() => setShowPw(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#666666] hover:text-[#000000] transition-colors">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-300/70 hover:text-blue-200 transition-colors">
                   {showPw ? 'hide' : 'show'}
                 </button>
               </div>
             </div>
             {error && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
-                <span className="text-red-500 text-xs">●</span>
-                <span className="text-red-700 text-xs font-medium">{error}</span>
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-500/15 border border-red-400/30 rounded-lg">
+                <span className="text-red-400 text-xs">●</span>
+                <span className="text-red-300 text-xs font-medium">{error}</span>
               </div>
             )}
             <Btn type="submit" variant="primary" className="w-full mt-1 h-11" disabled={loading}>
@@ -197,7 +200,7 @@ function todayDate(): string {
 
 // ── Section label ─────────────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[10px] font-bold uppercase tracking-widest text-[#666666] mb-3">{children}</p>;
+  return <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">{children}</p>;
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
@@ -210,6 +213,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status'>('arrangement');
 
+  // Restore session from localStorage (persists across page refreshes)
   const ss = (() => {
     try { return JSON.parse(localStorage.getItem('kv_form_state') || 'null') ?? {}; }
     catch { return {}; }
@@ -257,6 +261,7 @@ export default function App() {
     } catch {}
   }, []);
 
+  // Save form state on every change so it survives a page refresh
   useEffect(() => {
     try {
       localStorage.setItem('kv_form_state', JSON.stringify({
@@ -281,6 +286,7 @@ export default function App() {
     [df, cancelledClasses, selectedDay, schoolMaxPeriod, cancelledClassConfigs],
   );
 
+  // These refs prevent the reset effects from wiping restored localStorage state on mount
   const skipSubsReset = useRef(true);
   const skipDayReset = useRef(true);
 
@@ -362,10 +368,10 @@ export default function App() {
   if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
   if (loading) return (
-    <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center">
       <div className="text-center">
         <LoadingSpinner size="lg" />
-        <p className="text-[#666666] text-sm mt-4 font-medium">Loading timetable…</p>
+        <p className="text-slate-500 text-sm mt-4 font-medium">Loading timetable…</p>
       </div>
     </div>
   );
@@ -375,54 +381,60 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
+    <div className="min-h-screen" style={{ background: '#F1F5F9' }}>
+      {/* Global datalist for teacher name autocomplete (used by duty + custom sub inputs) */}
       <datalist id="kv-teacher-names">
         {allTeachers.map(t => <option key={t} value={shortName(t)} />)}
       </datalist>
       <div className="max-w-3xl mx-auto px-3 py-4 pb-24">
 
         {/* ── Header ── */}
-        <div className="relative rounded-2xl px-5 pt-5 pb-5 mb-5 overflow-hidden bg-black">
+        <div className="relative rounded-3xl px-5 pt-5 pb-5 mb-5 overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #2563EB 100%)', boxShadow: '0 8px 32px rgba(37,99,235,.3)' }}>
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-8 -right-8 w-40 h-40 bg-blue-400/10 rounded-full blur-2xl" />
+            <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl" />
+          </div>
           <button onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
             className="absolute top-3 right-3 text-white/60 hover:text-white hover:bg-white/10 text-xs font-semibold border border-white/15 h-7 px-3 rounded-full transition-all">
             Sign out
           </button>
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2 relative z-10">
             <div className="flex items-center gap-4">
               <img src="/2023042075.png" alt="KV Logo" className="h-11 w-auto"
-                style={{ filter: 'brightness(1.1)' }} />
+                style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
               <div className="text-center">
-                <h1 className="text-lg font-semibold text-white tracking-tight leading-tight">KV Burhanpur</h1>
-                <p className="text-white/50 text-[10px] font-medium tracking-widest uppercase">PM SHRI Kendriya Vidyalaya</p>
+                <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">KV Burhanpur</h1>
+                <p className="text-blue-300/50 text-[10px] font-medium tracking-widest uppercase">PM SHRI Kendriya Vidyalaya</p>
               </div>
               <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto"
-                style={{ filter: 'brightness(1.1)' }} />
+                style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
             </div>
-            <p className="text-white/40 text-xs tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
+            <p className="text-blue-300/50 text-xs tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
           </div>
         </div>
 
         {/* ── Morning Setup ── */}
-        <div className="bg-white rounded-2xl border border-[#E0E0E0] p-4 mb-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-4">
           <SectionLabel>Morning Setup</SectionLabel>
 
           {/* Date */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-semibold text-[#000000]">Date</label>
+              <label className="text-sm font-semibold text-slate-600">Date</label>
               <StatusChip color="accent" size="sm">{selectedDay}</StatusChip>
             </div>
             <input type="date" value={dateVal}
               onChange={e => { setDateVal(e.target.value); setAbsentTeachers([]); }}
-              className="w-full border border-[#E0E0E0] rounded-xl px-3 py-2.5 text-sm text-[#000000] bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all" />
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
           </div>
 
           {/* Absent Teachers */}
           <div className="mb-1">
-            <label className="block text-sm font-semibold text-[#000000] mb-1.5">Mark Teachers Absent</label>
+            <label className="block text-sm font-semibold text-slate-600 mb-1.5">Mark Teachers Absent</label>
             <div className="relative">
               <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666666] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input type="text" placeholder="Search or tap to see all teachers…"
@@ -430,14 +442,14 @@ export default function App() {
                   onChange={e => setTeacherSearch(e.target.value)}
                   onFocus={() => setShowTeacherDropdown(true)}
                   onBlur={() => setTimeout(() => setShowTeacherDropdown(false), 150)}
-                  className="w-full pl-9 pr-3 py-2.5 border border-[#E0E0E0] rounded-xl text-sm text-[#000000] bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all placeholder:text-[#666666]" />
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
               </div>
               {showTeacherDropdown && (
-                <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-[#E0E0E0] rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
                   {filteredTeachers.map(t => (
                     <button key={t} onMouseDown={e => e.preventDefault()}
                       onClick={() => { setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-[#000000] hover:bg-[#F8F9FA] transition-colors border-b border-[#E0E0E0] last:border-0 flex items-center gap-2.5">
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-slate-50 last:border-0 flex items-center gap-2.5">
                       <span className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0"
                         style={{ background: avColor(t) }}>
                         {avInitials(t)}
@@ -446,7 +458,7 @@ export default function App() {
                     </button>
                   ))}
                   {filteredTeachers.length === 0 && (
-                    <div className="px-3 py-3 text-sm text-[#666666] text-center">No teachers found</div>
+                    <div className="px-3 py-3 text-sm text-slate-400 text-center">No teachers found</div>
                   )}
                 </div>
               )}
@@ -476,11 +488,11 @@ export default function App() {
                 const schedule = getSchedule(df, t, selectedDay);
                 const allPeriods = Array.from({ length: schoolMaxPeriod }, (_, i) => i + 1);
                 return (
-                  <div key={t} className="bg-[#F8F9FA] rounded-xl p-3 border border-[#E0E0E0]">
+                  <div key={t} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#000000] uppercase tracking-wide">{shortName(t)}</span>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">{shortName(t)}</span>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-medium ${cfg.halfDay ? 'text-[#F59E0B]' : 'text-[#666666]'}`}>
+                        <span className={`text-xs font-medium ${cfg.halfDay ? 'text-amber-600' : 'text-slate-400'}`}>
                           {cfg.halfDay ? 'Half Day' : 'Full Day'}
                         </span>
                         <Toggle on={cfg.halfDay} accent="amber"
@@ -492,7 +504,7 @@ export default function App() {
                     </div>
                     {cfg.halfDay && (
                       <div>
-                        <p className="text-xs text-[#666666] mb-2">Tap periods teacher is <strong>absent</strong> for:</p>
+                        <p className="text-xs text-slate-400 mb-2">Tap periods teacher is <strong>absent</strong> for:</p>
                         <div className="flex flex-wrap gap-1.5">
                           {allPeriods.map(p => {
                             const row = schedule.find(r => r.Period === p);
@@ -509,10 +521,10 @@ export default function App() {
                                 }}
                                 className={`text-xs px-2.5 py-1.5 rounded-lg border font-semibold transition-all min-h-[32px] ${
                                   isAbsent
-                                    ? 'bg-[#EF4444] text-white border-[#EF4444] shadow-sm'
+                                    ? 'bg-red-500 text-white border-red-500 shadow-sm'
                                     : isTeaching
-                                      ? 'bg-white text-[#666666] border-[#E0E0E0] hover:border-[#EF4444] hover:text-[#EF4444]'
-                                      : 'bg-white text-[#999999] border-[#E0E0E0] hover:border-[#EF4444]/50 hover:text-[#EF4444]/60'
+                                      ? 'bg-white text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-600'
+                                      : 'bg-white text-slate-300 border-slate-150 hover:border-red-200 hover:text-red-400'
                                 }`}>
                                 P{p} · {label}
                               </button>
@@ -528,19 +540,19 @@ export default function App() {
           )}
 
           {/* School Half Day */}
-          <div className="mt-4 pt-4 border-t border-[#E0E0E0]">
+          <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-[#000000]">School Half Day</p>
+                <p className="text-sm font-semibold text-slate-700">School Half Day</p>
                 {schoolHalfDay && (
-                  <p className="text-xs text-[#666666] mt-0.5">Periods {schoolHalfDayPeriod + 1}–8 skipped</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Periods {schoolHalfDayPeriod + 1}–8 skipped</p>
                 )}
               </div>
               <Toggle on={schoolHalfDay} onToggle={() => { setSchoolHalfDay(v => !v); setReport(null); }} />
             </div>
             {schoolHalfDay && (
               <div className="flex items-center gap-3 mt-3">
-                <span className="text-sm text-[#666666]">School runs up to period</span>
+                <span className="text-sm text-slate-500">School runs up to period</span>
                 <SelectField value={schoolHalfDayPeriod} onChange={e => { setSchoolHalfDayPeriod(Number(e.target.value)); setReport(null); }}
                   className="w-20">
                   {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}</option>)}
@@ -550,8 +562,8 @@ export default function App() {
           </div>
 
           {/* Cancel Classes */}
-          <div className="mt-4 pt-4 border-t border-[#E0E0E0]">
-            <label className="block text-sm font-semibold text-[#000000] mb-2">Cancel Classes</label>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <label className="block text-sm font-semibold text-slate-600 mb-2">Cancel Classes</label>
             <SelectField value="" onChange={e => {
               const cls = e.target.value;
               if (cls && !cancelledClasses.includes(cls)) { setCancelledClasses(prev => [...prev, cls]); setReport(null); }
@@ -583,11 +595,11 @@ export default function App() {
                     );
                     const allPeriods = Array.from({ length: schoolMaxPeriod }, (_, i) => i + 1);
                     return (
-                      <div key={c} className="bg-[#F8F9FA] rounded-xl p-3 border border-[#E0E0E0]">
+                      <div key={c} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-[#000000] uppercase tracking-wide">{c}</span>
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">{c}</span>
                           <div className="flex items-center gap-2">
-                            <span className={`text-xs font-medium ${cfg.halfDay ? 'text-orange-600' : 'text-[#666666]'}`}>
+                            <span className={`text-xs font-medium ${cfg.halfDay ? 'text-orange-600' : 'text-slate-400'}`}>
                               {cfg.halfDay ? 'Select Periods' : 'Full Day'}
                             </span>
                             <Toggle on={cfg.halfDay} accent="amber"
@@ -599,7 +611,7 @@ export default function App() {
                         </div>
                         {cfg.halfDay && (
                           <div>
-                            <p className="text-xs text-[#666666] mb-2">Tap periods to <strong>cancel</strong>:</p>
+                            <p className="text-xs text-slate-400 mb-2">Tap periods to <strong>cancel</strong>:</p>
                             <div className="flex flex-wrap gap-1.5">
                               {allPeriods.map(p => {
                                 const hasClass = classPeriods.has(p);
@@ -616,8 +628,8 @@ export default function App() {
                                       isCancelled
                                         ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
                                         : hasClass
-                                          ? 'bg-white text-[#666666] border-[#E0E0E0] hover:border-orange-300 hover:text-orange-600'
-                                          : 'bg-white text-[#999999] border-[#E0E0E0] hover:border-orange-200 hover:text-orange-400'
+                                          ? 'bg-white text-slate-500 border-slate-200 hover:border-orange-300 hover:text-orange-600'
+                                          : 'bg-white text-slate-300 border-slate-150 hover:border-orange-200 hover:text-orange-400'
                                     }`}>
                                     P{p}{!hasClass ? ' · Free' : ''}
                                   </button>
@@ -633,20 +645,20 @@ export default function App() {
 
                 <div className="flex items-center gap-2.5 mt-3">
                   <Toggle on={useCancelledTeachers} accent="green" onToggle={() => setUseCancelledTeachers(v => !v)} />
-                  <span className="text-xs font-medium text-[#000000]">Use freed teachers in arrangement</span>
+                  <span className="text-xs font-medium text-slate-600">Use freed teachers in arrangement</span>
                 </div>
               </>
             )}
           </div>
 
           {/* Lunch Duty */}
-          <div className="mt-4 pt-4 border-t border-[#E0E0E0]">
-            <label className="block text-sm font-semibold text-[#000000] mb-2">🍱 Lunch Duty</label>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <label className="block text-sm font-semibold text-slate-600 mb-2">🍱 Lunch Duty</label>
             <div className="flex gap-2">
               <input type="text" list="kv-teacher-names" value={lunchTeacher}
                 onChange={e => setLunchTeacher(e.target.value)}
                 placeholder="Teacher name…"
-                className="flex-1 bg-white border border-[#E0E0E0] rounded-xl px-3 py-2.5 text-sm text-[#000000] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all placeholder:text-[#666666]" />
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
               <SelectField value={lunchClass} onChange={e => setLunchClass(e.target.value)} className="flex-1">
                 <option value="">Class…</option>
                 {allClasses.filter(c => !lunchDuties.some(d => d.cls === c)).map(c => (
@@ -674,13 +686,13 @@ export default function App() {
           </div>
 
           {/* Attendance Duty */}
-          <div className="mt-4 pt-4 border-t border-[#E0E0E0]">
-            <label className="block text-sm font-semibold text-[#000000] mb-2">📝 Attendance Duty</label>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <label className="block text-sm font-semibold text-slate-600 mb-2">📝 Attendance Duty</label>
             <div className="flex gap-2">
               <input type="text" list="kv-teacher-names" value={attendanceTeacher}
                 onChange={e => setAttendanceTeacher(e.target.value)}
                 placeholder="Teacher name…"
-                className="flex-1 bg-white border border-[#E0E0E0] rounded-xl px-3 py-2.5 text-sm text-[#000000] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all placeholder:text-[#666666]" />
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
               <SelectField value={attendanceClass} onChange={e => setAttendanceClass(e.target.value)} className="flex-1">
                 <option value="">Class…</option>
                 {allClasses.filter(c => !attendanceDuties.some(d => d.cls === c)).map(c => (
@@ -709,13 +721,13 @@ export default function App() {
         </div>
 
         {/* ── Tab bar ── */}
-        <div className="bg-white rounded-2xl border border-[#E0E0E0] p-1 mb-4 flex gap-1">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-1 mb-4 flex gap-1">
           {(['arrangement', 'status'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === tab
-                  ? 'bg-black text-white shadow-sm'
-                  : 'text-[#666666] hover:text-[#000000] hover:bg-[#F8F9FA]'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}>
               {tab === 'arrangement' ? '📋  Arrangement' : '👥  Teacher Status'}
             </button>
@@ -817,10 +829,10 @@ function ArrangementTab({
   }
 
   if (!absentTeachers.length && !cancelledClasses.length) return (
-    <div className="text-center py-16 bg-white rounded-2xl border border-[#E0E0E0]">
+    <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-slate-100">
       <div className="text-5xl mb-3">☀️</div>
-      <div className="font-semibold text-[#000000]">Good morning!</div>
-      <div className="text-sm text-[#666666] mt-1">Mark absent teachers or cancel classes above to begin.</div>
+      <div className="font-bold text-slate-700">Good morning!</div>
+      <div className="text-sm text-slate-400 mt-1">Mark absent teachers or cancel classes above to begin.</div>
     </div>
   );
 
@@ -840,7 +852,7 @@ function ArrangementTab({
         <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-4">
           <SectionLabel>
             <span className="text-orange-500">Cancelled · {cancelledClasses.join(', ')}</span>
-            {useCancelledTeachers && <span className="ml-2 normal-case font-semibold text-[#22C55E]"> · freed teachers available</span>}
+            {useCancelledTeachers && <span className="ml-2 normal-case font-semibold text-emerald-600"> · freed teachers available</span>}
           </SectionLabel>
           {[...new Set(cancelledPeriods.map(e => e.period))].sort((a, b) => a - b).map(p => (
             <div key={p} className="flex flex-wrap items-center gap-1.5 mb-1.5">
@@ -857,39 +869,43 @@ function ArrangementTab({
 
       {/* Progress card */}
       {absentPeriods.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 mb-4 border border-[#E0E0E0]">
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
+          {/* Stats row */}
           <div className="flex items-center gap-3 mb-3">
             <div className="flex-1">
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-semibold text-[#000000]">{covered}</span>
-                <span className="text-lg font-medium text-[#666666]">/ {total}</span>
+                <span className="text-3xl font-extrabold text-slate-800">{covered}</span>
+                <span className="text-lg font-semibold text-slate-300">/ {total}</span>
               </div>
-              <p className="text-xs text-[#666666] font-medium mt-0.5">Periods covered</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Periods covered</p>
             </div>
             <div className="flex gap-4">
               <div className="text-center">
-                <div className="text-2xl font-semibold text-[#EF4444]">{total - covered}</div>
-                <div className="text-xs text-[#666666] font-medium">Pending</div>
+                <div className="text-2xl font-extrabold text-red-500">{total - covered}</div>
+                <div className="text-xs text-slate-400 font-medium">Pending</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-semibold text-[#22C55E]">{absentTeachers.length}</div>
-                <div className="text-xs text-[#666666] font-medium">Absent</div>
+                <div className="text-2xl font-extrabold text-emerald-500">{absentTeachers.length}</div>
+                <div className="text-xs text-slate-400 font-medium">Absent</div>
               </div>
             </div>
           </div>
 
+          {/* Progress bar */}
           <KvProgressBar value={Math.round(pct * 100)}
             color={pct >= 1 ? 'success' : pct >= 0.5 ? 'warning' : 'danger'} />
-          <p className="text-xs text-[#666666] mt-1 mb-4 text-right">{Math.round(pct * 100)}% complete</p>
+          <p className="text-xs text-slate-400 mt-1 mb-4 text-right">{Math.round(pct * 100)}% complete</p>
 
+          {/* Action buttons */}
           <div className="flex gap-2">
             <button onClick={onAutoFill}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white bg-black hover:bg-[#333333] transition-all active:scale-[0.98]">
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)', boxShadow: '0 4px 14px rgba(37,99,235,.35)' }}>
               <span className="text-base">⚡</span>
               Auto-Fill All Periods
             </button>
             <button onClick={onReset} disabled={covered === 0}
-              className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-semibold text-sm border transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-red-50 text-red-600 border-red-200 hover:bg-red-100 active:scale-[0.98]">
+              className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-bold text-sm border transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-red-50 text-red-600 border-red-200 hover:bg-red-100 active:scale-[0.98]">
               <span>↺</span> Reset
             </button>
           </div>
@@ -904,18 +920,18 @@ function ArrangementTab({
         const allDone = tCov === tPeriods.length;
 
         return (
-          <div key={teacher} className={`bg-white rounded-2xl mb-4 border overflow-hidden ${allDone ? 'border-[#22C55E]/40' : 'border-[#E0E0E0]'}`}>
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#E0E0E0]">
+          <div key={teacher} className={`bg-white rounded-2xl mb-4 shadow-sm border overflow-hidden ${allDone ? 'border-emerald-200' : 'border-slate-100'}`}>
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-50">
               <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm"
                 style={{ background: avColor(teacher) }}>
                 {avInitials(teacher)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[#000000] text-sm">{shortName(teacher)}</div>
-                <div className="text-xs text-[#666666] mt-0.5">{tPeriods.length} periods · {tCov}/{tPeriods.length} assigned</div>
+                <div className="font-bold text-slate-800 text-sm">{shortName(teacher)}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{tPeriods.length} periods · {tCov}/{tPeriods.length} assigned</div>
               </div>
               {allDone && (
-                <span className="text-xs font-semibold text-[#22C55E] bg-[#F0FDF4] border border-[#22C55E]/30 rounded-full px-2 py-0.5 flex-shrink-0">✓ Done</span>
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0">✓ Done</span>
               )}
             </div>
             {tPeriods.map(e => (
@@ -934,19 +950,19 @@ function ArrangementTab({
 
       {/* Duties card */}
       {registerDuties.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 mb-4 border border-[#E0E0E0]">
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
           <SectionLabel>Duties</SectionLabel>
           {registerDuties.map(d => (
-            <div key={d.cls} className="flex items-center gap-3 py-2.5 border-b border-[#E0E0E0] last:border-0">
+            <div key={d.cls} className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
               <span className="text-xl flex-shrink-0">📋</span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-[#000000]">
-                  Register Duty <span className="font-normal text-[#666666] text-xs">· {d.cls}</span>
+                <div className="text-sm font-semibold text-slate-700">
+                  Register Duty <span className="font-normal text-slate-400 text-xs">· {d.cls}</span>
                 </div>
-                <div className="text-xs text-[#666666]">{shortName(d.absentTeacher)} absent</div>
+                <div className="text-xs text-slate-400">{shortName(d.absentTeacher)} absent</div>
               </div>
-              <span className={`text-xs font-semibold border rounded-lg px-2.5 py-1 flex-shrink-0 ${
-                d.assignedTo ? 'text-[#000000] bg-[#F8F9FA] border-[#E0E0E0]' : 'text-red-500 bg-red-50 border-red-200'
+              <span className={`text-xs font-bold border rounded-lg px-2.5 py-1 flex-shrink-0 ${
+                d.assignedTo ? 'text-blue-700 bg-blue-50 border-blue-200' : 'text-red-500 bg-red-50 border-red-200'
               }`}>
                 {d.assignedTo ? shortName(d.assignedTo) : '— P1 unassigned —'}
               </span>
@@ -957,13 +973,14 @@ function ArrangementTab({
 
       {/* Generate report CTA */}
       <button onClick={onGenerateReport}
-        className="w-full py-4 rounded-2xl font-semibold text-white text-sm mb-4 transition-all hover:bg-[#333333] active:scale-[0.99] tracking-wide bg-black">
+        className="w-full py-4 rounded-2xl font-extrabold text-white text-sm mb-4 transition-all hover:opacity-95 active:scale-[0.99] tracking-wide"
+        style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB, #3B82F6)', boxShadow: '0 6px 20px rgba(37,99,235,.35)' }}>
         📋 Finalise &amp; Generate Report
       </button>
 
       {/* Report */}
       {report && (
-        <div className="bg-white rounded-2xl p-4 mb-4 border border-[#E0E0E0]">
+        <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-slate-100">
           <SectionLabel>Arrangement Sheet · {selectedDay} {dateVal}</SectionLabel>
           {(() => {
             const subReport = report.filter(r => r.Type !== 'CANCELLED');
@@ -975,30 +992,30 @@ function ArrangementTab({
             }
             return (
               <>
-                <div className="overflow-x-auto mb-4 rounded-xl overflow-hidden border border-[#E0E0E0]">
+                <div className="overflow-x-auto mb-4 rounded-xl overflow-hidden border border-slate-100">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-black">
+                      <tr style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
                         {['Per.', 'Absent Teacher', 'Class', 'Substitute', 'Mode'].map(h => (
-                          <th key={h} className="px-3 py-2.5 text-left font-semibold text-white text-xs">{h}</th>
+                          <th key={h} className="px-3 py-2.5 text-left font-bold text-white text-xs">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {subReport.map((r, i) => (
-                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FA]'}>
-                          <td className="px-3 py-2.5 font-semibold text-[#000000]">{r.Period}</td>
-                          <td className="px-3 py-2.5 text-[#666666]">{shortName(r.Absent_Teacher)}</td>
-                          <td className="px-3 py-2.5 font-medium text-[#000000]">{r.Class}</td>
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                          <td className="px-3 py-2.5 font-bold text-blue-700">{r.Period}</td>
+                          <td className="px-3 py-2.5 text-slate-600">{shortName(r.Absent_Teacher)}</td>
+                          <td className="px-3 py-2.5 font-medium text-slate-700">{r.Class}</td>
                           <td className="px-3 py-2.5">
                             {r.Type === 'CLUBBED'
                               ? <span className="text-amber-700 font-semibold">🔀 {shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
-                              : <span className="font-semibold text-[#000000]">{shortName(r.Substitute)}</span>
+                              : <span className="font-semibold text-slate-800">{shortName(r.Substitute)}</span>
                             }
                           </td>
                           <td className="px-3 py-2.5">
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                              r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' : 'bg-[#F0FDF4] text-[#22C55E]'
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                             }`}>
                               {r.Type === 'CLUBBED' ? 'CLUB' : 'SUB'}
                             </span>
@@ -1006,7 +1023,7 @@ function ArrangementTab({
                         </tr>
                       ))}
                       {subReport.length === 0 && (
-                        <tr><td colSpan={5} className="px-3 py-4 text-center text-[#666666] text-xs">No substitutions today</td></tr>
+                        <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-400 text-xs">No substitutions today</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -1027,27 +1044,28 @@ function ArrangementTab({
             );
           })()}
 
+
           {/* Lunch & Attendance Duty sections */}
           {lunchDuties.length > 0 && (
-            <div className="mt-2 mb-4 pt-3 border-t border-[#E0E0E0]">
+            <div className="mt-2 mb-4 pt-3 border-t border-slate-100">
               <SectionLabel>🍱 Lunch Duty</SectionLabel>
               {lunchDuties.map((d, i) => (
-                <div key={i} className="flex items-center gap-3 py-2 border-b border-[#E0E0E0] last:border-0">
-                  <span className="text-sm font-semibold text-amber-700 w-16 flex-shrink-0">{d.cls}</span>
-                  <span className="text-xs text-[#666666]">→</span>
-                  <span className="text-sm font-medium text-[#000000]">{shortName(d.teacher)}</span>
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                  <span className="text-sm font-bold text-amber-700 w-16 flex-shrink-0">{d.cls}</span>
+                  <span className="text-xs text-slate-400">→</span>
+                  <span className="text-sm font-semibold text-slate-700">{shortName(d.teacher)}</span>
                 </div>
               ))}
             </div>
           )}
           {attendanceDuties.length > 0 && (
-            <div className="mt-2 mb-4 pt-3 border-t border-[#E0E0E0]">
+            <div className="mt-2 mb-4 pt-3 border-t border-slate-100">
               <SectionLabel>📝 Attendance Duty</SectionLabel>
               {attendanceDuties.map((d, i) => (
-                <div key={i} className="flex items-center gap-3 py-2 border-b border-[#E0E0E0] last:border-0">
-                  <span className="text-sm font-semibold text-purple-700 w-16 flex-shrink-0">{d.cls}</span>
-                  <span className="text-xs text-[#666666]">→</span>
-                  <span className="text-sm font-medium text-[#000000]">{shortName(d.teacher)}</span>
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+                  <span className="text-sm font-bold text-purple-700 w-16 flex-shrink-0">{d.cls}</span>
+                  <span className="text-xs text-slate-400">→</span>
+                  <span className="text-sm font-semibold text-slate-700">{shortName(d.teacher)}</span>
                 </div>
               ))}
             </div>
@@ -1056,31 +1074,31 @@ function ArrangementTab({
           {/* WhatsApp text */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-[#666666] uppercase tracking-wide">Time-Table In-Charge</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Time-Table In-Charge</p>
               <button onClick={handleCopyWA}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
-                  copied ? 'bg-[#F0FDF4] text-[#22C55E] border-[#22C55E]/30' : 'bg-[#F8F9FA] text-[#000000] border-[#E0E0E0] hover:bg-black hover:text-white hover:border-black'
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                  copied ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'
                 }`}>
                 {copied ? '✓ Copied!' : '📋 Copy'}
               </button>
             </div>
             <textarea readOnly value={whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties)}
-              className="w-full border border-[#E0E0E0] rounded-xl p-3 text-xs font-mono bg-[#F8F9FA] resize-none h-40 text-[#000000] focus:outline-none focus:ring-2 focus:ring-black" />
+              className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono bg-slate-50 resize-none h-40 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
 
           {/* Note for PDF */}
-          <div className="mb-4 pt-3 border-t border-[#E0E0E0]">
+          <div className="mb-4 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-[#666666] uppercase tracking-wide">Note in PDF</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Note in PDF</label>
               <div className="flex items-center gap-2">
                 {includeNotes && (
-                  <span className={`text-[10px] font-semibold ${countWords(reportNote) >= 70 ? 'text-[#EF4444]' : 'text-[#666666]'}`}>
+                  <span className={`text-[10px] font-semibold ${countWords(reportNote) >= 70 ? 'text-red-500' : 'text-slate-400'}`}>
                     {countWords(reportNote)}/75 words
                   </span>
                 )}
                 <button
                   onClick={() => setIncludeNotes(v => !v)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${includeNotes ? 'bg-black' : 'bg-[#E0E0E0]'}`}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${includeNotes ? 'bg-blue-500' : 'bg-slate-300'}`}
                 >
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${includeNotes ? 'translate-x-4' : 'translate-x-1'}`} />
                 </button>
@@ -1091,7 +1109,7 @@ function ArrangementTab({
                 value={reportNote}
                 onChange={handleNoteChange}
                 placeholder="Type a note to include at the bottom of the PDF report…"
-                className="w-full border border-[#E0E0E0] rounded-xl p-3 text-xs bg-white resize-none h-20 text-[#000000] placeholder:text-[#666666] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                className="w-full border border-slate-200 rounded-xl p-3 text-xs bg-white resize-none h-20 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
               />
             )}
           </div>
@@ -1099,11 +1117,11 @@ function ArrangementTab({
           {/* Download buttons */}
           <div className="grid grid-cols-3 gap-2">
             <button onClick={() => onDownloadPDF(includeNotes ? reportNote : null)} disabled={pdfLoading}
-              className="py-3 rounded-xl text-xs font-semibold bg-black text-white hover:bg-[#333333] transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
-              {pdfLoading ? <LoadingSpinner size="sm" className="border-white/70 border-t-transparent" /> : '📄'} PDF
+              className="py-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
+              {pdfLoading ? <LoadingSpinner size="sm" /> : '📄'} PDF
             </button>
             <button onClick={onDownloadCSV}
-              className="py-3 rounded-xl text-xs font-semibold bg-white text-[#000000] border border-[#E0E0E0] hover:bg-[#F8F9FA] transition-all flex items-center justify-center gap-1.5">
+              className="py-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5">
               ⬇ CSV
             </button>
             <button onClick={() => {
@@ -1111,7 +1129,7 @@ function ArrangementTab({
               const blob = new Blob([wa], { type: 'text/plain' });
               const url = URL.createObjectURL(blob); const a = document.createElement('a');
               a.href = url; a.download = `arrangement_${dateVal}.txt`; a.click(); URL.revokeObjectURL(url);
-            }} className="py-3 rounded-xl text-xs font-semibold bg-white text-[#666666] border border-[#E0E0E0] hover:bg-[#F8F9FA] transition-all flex items-center justify-center gap-1.5">
+            }} className="py-3 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5">
               📱 Text
             </button>
           </div>
@@ -1119,48 +1137,48 @@ function ArrangementTab({
       )}
 
       {/* Past log */}
-      <div className="bg-white rounded-2xl border border-[#E0E0E0] overflow-hidden mb-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
         <button onClick={() => setShowLog(!showLog)}
-          className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-semibold text-[#000000] hover:bg-[#F8F9FA] transition-colors">
+          className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
           <span className="flex items-center gap-2">
             <span>📂</span>
             Past Arrangements Log
-            <span className="text-xs font-semibold text-[#666666] bg-[#F8F9FA] border border-[#E0E0E0] rounded-full px-2 py-0.5">{log.length}</span>
+            <span className="text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">{log.length}</span>
           </span>
-          <span className="text-[#666666] text-xs">{showLog ? '▲' : '▼'}</span>
+          <span className="text-slate-400 text-xs">{showLog ? '▲' : '▼'}</span>
         </button>
         {showLog && (
-          <div className="border-t border-[#E0E0E0] p-4">
+          <div className="border-t border-slate-100 p-4">
             {log.length === 0 ? (
-              <p className="text-xs text-[#666666] text-center py-4">No arrangements saved yet.</p>
+              <p className="text-xs text-slate-400 text-center py-4">No arrangements saved yet.</p>
             ) : (
               <>
                 <button onClick={onDownloadLog}
-                  className="mb-3 px-3 py-1.5 text-xs font-semibold bg-[#F0FDF4] text-[#22C55E] border border-[#22C55E]/30 rounded-xl hover:bg-[#DCFCE7] transition-colors">
+                  className="mb-3 px-3 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors">
                   ⬇ Download Full Log
                 </button>
-                <div className="overflow-x-auto rounded-xl border border-[#E0E0E0]">
+                <div className="overflow-x-auto rounded-xl border border-slate-100">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-[#F8F9FA] text-[#666666]">
+                      <tr className="bg-slate-50 text-slate-500">
                         {['Date', 'Day', 'Period', 'Absent', 'Sub', 'Type'].map(h => (
-                          <th key={h} className="px-2.5 py-2 text-left font-semibold">{h}</th>
+                          <th key={h} className="px-2.5 py-2 text-left font-bold">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {log.slice(-30).reverse().map((r, i) => (
-                        <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-[#F8F9FA]'} border-t border-[#E0E0E0]`}>
-                          <td className="px-2.5 py-2 font-medium text-[#000000]">{r.Date}</td>
-                          <td className="px-2.5 py-2 text-[#666666]">{r.Day}</td>
-                          <td className="px-2.5 py-2 font-semibold text-[#000000]">{r.Period}</td>
-                          <td className="px-2.5 py-2 text-[#666666]">{shortName(r.Absent_Teacher)}</td>
-                          <td className="px-2.5 py-2 font-medium text-[#000000]">{shortName(r.Substitute)}</td>
+                        <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'} border-t border-slate-50`}>
+                          <td className="px-2.5 py-2 font-medium text-slate-600">{r.Date}</td>
+                          <td className="px-2.5 py-2 text-slate-500">{r.Day}</td>
+                          <td className="px-2.5 py-2 font-bold text-blue-600">{r.Period}</td>
+                          <td className="px-2.5 py-2 text-slate-600">{shortName(r.Absent_Teacher)}</td>
+                          <td className="px-2.5 py-2 font-medium text-slate-700">{shortName(r.Substitute)}</td>
                           <td className="px-2.5 py-2">
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                               r.Type === 'CANCELLED' ? 'bg-orange-100 text-orange-700' :
                               r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' :
-                              'bg-[#F0FDF4] text-[#22C55E]'
+                              'bg-emerald-100 text-emerald-700'
                             }`}>{r.Type}</span>
                           </td>
                         </tr>
@@ -1212,6 +1230,7 @@ function PeriodRow({
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
 
+  // Custom substitute mode — allows typing any name not in the master list
   const isCustomSub = !!currentSub && !allTeachers.includes(currentSub);
   const [customMode, setCustomMode] = useState(false);
   const inCustom = customMode || isCustomSub;
@@ -1267,15 +1286,15 @@ function PeriodRow({
   // Status badge
   let statusBadge: React.ReactNode;
   if (clubMode && !isAssigned) {
-    statusBadge = <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 Select to club</span>;
+    statusBadge = <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 Select to club</span>;
   } else if (!isAssigned) {
-    statusBadge = <span className="text-[11px] font-semibold text-[#EF4444] bg-red-50 border border-red-200 rounded-full px-2 py-0.5 flex-shrink-0">Unassigned</span>;
+    statusBadge = <span className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 flex-shrink-0">Unassigned</span>;
   } else if (clubMode) {
     const [tc] = teacherPeriodInfo(df, currentSub, selectedDay, e.period);
-    statusBadge = <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 {shortName(currentSub)}{tc ? ` (${tc})` : ''}</span>;
+    statusBadge = <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 {shortName(currentSub)}{tc ? ` (${tc})` : ''}</span>;
   } else {
     statusBadge = (
-      <span className="text-[11px] font-semibold text-[#22C55E] bg-[#F0FDF4] border border-[#22C55E]/30 rounded-full pl-1 pr-2 py-0.5 flex-shrink-0 flex items-center gap-1">
+      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full pl-1 pr-2 py-0.5 flex-shrink-0 flex items-center gap-1">
         <span className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[9px] leading-none font-bold flex-shrink-0"
           style={{ background: avColor(currentSub) }}>{avInitials(currentSub)}</span>
         {shortName(currentSub)}
@@ -1284,14 +1303,14 @@ function PeriodRow({
   }
 
   return (
-    <div className={`border-b border-[#E0E0E0] last:border-0 ${clubMode ? 'bg-amber-50/30' : ''}`}>
+    <div className={`border-b border-slate-50 last:border-0 ${clubMode ? 'bg-amber-50/30' : ''}`}>
       <div className="flex items-center gap-2.5 px-4 py-2.5">
-        <div className={`min-w-[32px] h-7 rounded-lg flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
-          clubMode ? 'bg-amber-100 text-amber-700' : 'bg-[#F8F9FA] text-[#000000] border border-[#E0E0E0]'
+        <div className={`min-w-[32px] h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+          clubMode ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-blue-700'
         }`}>P{e.period}</div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-semibold text-[#000000] truncate">{e.cls}</div>
-          <div className="text-[10px] text-[#666666]">{e.subj}</div>
+          <div className="text-xs font-bold text-slate-800 truncate">{e.cls}</div>
+          <div className="text-[10px] text-slate-400">{e.subj}</div>
         </div>
         {statusBadge}
       </div>
@@ -1307,10 +1326,10 @@ function PeriodRow({
                   onChange={e2 => onSetSub(teacher, e.period, e2.target.value)}
                   placeholder="Enter teacher name…"
                   autoFocus
-                  className="flex-1 bg-white border border-black rounded-xl px-3 py-2 text-sm text-[#000000] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all placeholder:text-[#666666]"
+                  className="flex-1 bg-white border border-blue-300 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
                 />
                 <button onClick={() => { setCustomMode(false); onSetSub(teacher, e.period, ''); }}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-[#F8F9FA] text-[#000000] border border-[#E0E0E0] hover:bg-[#E0E0E0] transition-all whitespace-nowrap flex-shrink-0">
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-all whitespace-nowrap flex-shrink-0">
                   ↩ List
                 </button>
               </>
@@ -1326,11 +1345,11 @@ function PeriodRow({
                   ))}
                 </SelectField>
                 <button onClick={() => setCustomMode(true)}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-[#F8F9FA] text-[#666666] border border-[#E0E0E0] hover:bg-[#E0E0E0] transition-all whitespace-nowrap flex-shrink-0">
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 transition-all whitespace-nowrap flex-shrink-0">
                   ✏
                 </button>
                 <button onClick={() => onSetClub(teacher, e.period, true)}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all whitespace-nowrap flex-shrink-0">
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all whitespace-nowrap flex-shrink-0">
                   🔀 Club
                 </button>
               </>
@@ -1345,7 +1364,7 @@ function PeriodRow({
               {clubTeachers.map(t => <option key={t} value={t}>{clubLabel(t)}</option>)}
             </SelectField>
             <button onClick={() => onSetClub(teacher, e.period, false)}
-              className="px-3 py-2 rounded-xl text-xs font-semibold bg-[#F8F9FA] text-[#000000] border border-[#E0E0E0] hover:bg-[#E0E0E0] transition-all whitespace-nowrap flex-shrink-0">
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-all whitespace-nowrap flex-shrink-0">
               ↩ Back
             </button>
           </>
@@ -1460,7 +1479,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
   const nOnSub = teacherData.filter(td => td.subCount > 0).length;
 
   const statTiles = [
-    { val: nPresent, lbl: 'Present', color: '#22C55E' },
+    { val: nPresent, lbl: 'Present', color: '#10B981' },
     { val: nAbsent,  lbl: 'Absent',  color: '#EF4444' },
     { val: nFreeAll, lbl: 'Free',    color: '#3B82F6' },
     { val: nOnSub,   lbl: 'On Sub',  color: '#F59E0B' },
@@ -1480,9 +1499,9 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       {/* Stat tiles */}
       <div className="grid grid-cols-4 gap-2 mb-4">
         {statTiles.map(({ val, lbl, color }) => (
-          <div key={lbl} className="bg-white rounded-2xl p-3 text-center border border-[#E0E0E0]">
-            <div className="text-2xl font-semibold" style={{ color }}>{val}</div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-[#666666] mt-0.5">{lbl}</div>
+          <div key={lbl} className="bg-white rounded-2xl p-3 text-center shadow-sm border border-slate-100">
+            <div className="text-2xl font-extrabold" style={{ color }}>{val}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mt-0.5">{lbl}</div>
           </div>
         ))}
       </div>
@@ -1490,7 +1509,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-3 px-1">
         {legend.map(({ color, label }) => (
-          <span key={label} className="flex items-center gap-1.5 text-xs text-[#666666] font-medium">
+          <span key={label} className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
             <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: color }} />
             {label}
           </span>
@@ -1500,7 +1519,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       {/* Absent pills */}
       {absentTeachers.length > 0 && (
         <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 text-xs text-red-700">
-          <span className="font-semibold">Absent today: </span>
+          <span className="font-bold">Absent today: </span>
           {absentTeachers.map(t => (
             <span key={t} className="inline-block bg-red-100 border border-red-200 rounded-full px-2 py-0.5 mr-1 mb-1 font-semibold">
               {shortName(t)}
@@ -1510,11 +1529,11 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       )}
 
       {/* View toggle */}
-      <div className="bg-white rounded-xl border border-[#E0E0E0] p-1 mb-4 flex gap-1">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-1 mb-4 flex gap-1">
         {(['teacher', 'class'] as const).map(v => (
           <button key={v} onClick={() => setViewMode(v)}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              viewMode === v ? 'bg-black text-white shadow-sm' : 'text-[#666666] hover:bg-[#F8F9FA]'
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+              viewMode === v ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'
             }`}>
             {v === 'teacher' ? '👥 Teacher View' : '🏫 Class View'}
           </button>
@@ -1547,25 +1566,27 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
   const dotText  = { teaching: '#fff', sub: '#fff', clubbed: '#fff', free: '#94A3B8', notReq: '#fff', absent: '#EF4444' };
 
   return (
-    <div className="bg-white rounded-2xl p-3.5 border border-[#E0E0E0] hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2.5 mb-3">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm"
           style={{ background: avColor(td.name) }}>
           {avInitials(td.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[#000000] truncate">{shortName(td.name)}</div>
-          <div className="text-xs text-[#666666]">
-            <span className="text-[#22C55E] font-semibold">{td.freeCount} free</span>
-            <span className="mx-1 text-[#E0E0E0]">·</span>
+          <div className="text-sm font-bold text-slate-800 truncate">{shortName(td.name)}</div>
+          <div className="text-xs text-slate-400">
+            <span className="text-emerald-500 font-semibold">{td.freeCount} free</span>
+            <span className="mx-1 text-slate-200">·</span>
             <span>{busyCount} busy</span>
           </div>
         </div>
       </div>
 
+      {/* Load bar */}
       <KvProgressBar value={Math.round(loadPct * 100)}
         color={loadPct >= 0.75 ? 'danger' : loadPct >= 0.5 ? 'warning' : 'success'} />
 
+      {/* Period dots */}
       <div className="flex gap-1 flex-wrap mt-2.5 mb-2">
         {activePeriods.map(p => {
           const s = td.periodStatus[p];
@@ -1581,17 +1602,17 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
       </div>
 
       <button onClick={() => setExpanded(!expanded)}
-        className="text-xs text-[#666666] hover:text-[#000000] transition-colors font-medium">
+        className="text-xs text-slate-400 hover:text-slate-600 transition-colors font-medium">
         {expanded ? '▲ Hide' : '▼ Details'}
       </button>
 
       {expanded && (
-        <div className="mt-2 border-t border-[#E0E0E0] pt-2 space-y-0.5">
+        <div className="mt-2 border-t border-slate-50 pt-2 space-y-0.5">
           {activePeriods.map(p => (
             <div key={p} className="flex items-center gap-2 py-0.5">
-              <span className="w-6 text-[11px] text-[#666666] font-semibold">P{p}</span>
+              <span className="w-6 text-[11px] text-slate-400 font-bold">P{p}</span>
               <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: dotColor[td.periodStatus[p]] }} />
-              <span className="text-xs text-[#000000]">{td.periodClass[p] || td.periodStatus[p]}</span>
+              <span className="text-xs text-slate-600">{td.periodClass[p] || td.periodStatus[p]}</span>
             </div>
           ))}
         </div>
@@ -1613,28 +1634,28 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
   const hasIssue = !cd.isCancelled && cd.periods.some(p => p.isAbsent && !p.substitute && !cd.cancelledPeriodNums.includes(p.period));
 
   return (
-    <div className={`rounded-2xl p-3.5 border hover:shadow-md transition-shadow ${
+    <div className={`rounded-2xl p-3.5 shadow-sm border hover:shadow-md transition-shadow ${
       cd.isCancelled ? 'bg-orange-50 border-orange-200' :
       isPartialCancel ? 'bg-orange-50/40 border-orange-100' :
-      hasIssue ? 'bg-white border-amber-200' : 'bg-white border-[#E0E0E0]'
+      hasIssue ? 'bg-white border-amber-200' : 'bg-white border-slate-100'
     }`}>
       <div className="flex items-center gap-2.5 mb-3">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm ${
-          cd.isCancelled ? 'bg-orange-400' : isPartialCancel ? 'bg-orange-300' : 'bg-black'
+          cd.isCancelled ? 'bg-orange-400' : isPartialCancel ? 'bg-orange-300' : 'bg-blue-600'
         }`}>
           {cd.cls.replace(' ', '')}
         </div>
         <div className="flex-1">
-          <div className="text-sm font-semibold text-[#000000]">Class {cd.cls}</div>
+          <div className="text-sm font-bold text-slate-800">Class {cd.cls}</div>
           {cd.isCancelled
             ? <div className="text-xs font-semibold text-orange-600">🚫 Cancelled</div>
             : isPartialCancel
             ? <div className="text-xs font-semibold text-orange-500">🚫 P{cd.cancelledPeriodNums.join(', P')} cancelled</div>
-            : <div className="text-xs text-[#666666]">{cd.periods.length} periods</div>
+            : <div className="text-xs text-slate-400">{cd.periods.length} periods</div>
           }
         </div>
         {hasIssue && (
-          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">⚠ Issues</span>
+          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">⚠ Issues</span>
         )}
       </div>
 
@@ -1646,10 +1667,10 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
               isPeriodCancelled ? 'bg-orange-50/60 border border-orange-100' :
               p.isAbsent && !p.substitute ? 'bg-red-50 border border-red-100' :
               p.isClub ? 'bg-orange-50 border border-orange-100' :
-              p.isAbsent ? 'bg-amber-50 border border-amber-100' : 'bg-[#F8F9FA]'
+              p.isAbsent ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50'
             }`}>
-              <span className="font-semibold text-[#000000] w-5 flex-shrink-0">P{p.period}</span>
-              <span className="text-[#666666] w-14 flex-shrink-0 truncate">{p.subject}</span>
+              <span className="font-bold text-blue-700 w-5 flex-shrink-0">P{p.period}</span>
+              <span className="text-slate-400 w-14 flex-shrink-0 truncate">{p.subject}</span>
               <div className="flex-1 min-w-0 flex items-center gap-1">
                 {isPeriodCancelled ? (
                   <>
@@ -1660,16 +1681,16 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
                   <>
                     <span className="text-red-400 line-through truncate">{shortName(p.teacher)}</span>
                     {p.substitute
-                      ? <><span className="text-[#666666] flex-shrink-0">→</span>
+                      ? <><span className="text-slate-400 flex-shrink-0">→</span>
                           <span className={`font-semibold truncate ${p.isClub ? 'text-orange-600' : 'text-amber-700'}`}>
                             {shortName(p.substitute)}
                           </span>
-                          {p.isClub && <span className="font-semibold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
-                      : <span className="font-semibold text-[#EF4444] flex-shrink-0">⚠ Unassigned</span>
+                          {p.isClub && <span className="font-bold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
+                      : <span className="font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
                     }
                   </>
                 ) : (
-                  <span className="font-semibold text-[#000000] truncate">{shortName(p.teacher)}</span>
+                  <span className="font-semibold text-slate-700 truncate">{shortName(p.teacher)}</span>
                 )}
               </div>
             </div>

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  background: #F8F9FA;
+  background: #F1F5F9;
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
