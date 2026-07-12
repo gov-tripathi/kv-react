@@ -91,23 +91,47 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     a.Absent_Teacher.localeCompare(b.Absent_Teacher) || a.Period - b.Period,
   );
 
-  const tableRows = sorted.map((r, i) => {
-    const subDisplay =
-      r.Substitute === '— Not Assigned —' ? 'UNASSIGNED ⚠' :
-      r.Type === 'CLUBBED'
-        ? `${titleName(r.Substitute)}\n(clubbing: ${r.Sub_Own_Class}${r.Sub_Own_Subject ? ' · ' + r.Sub_Own_Subject : ''})`
-        : titleName(r.Substitute);
-    return [
-      String(i + 1),
-      titleName(r.Absent_Teacher),
-      ordinal(r.Period),
-      r.Class,
-      r.Subject,
-      subDisplay,
-      r.Type === 'CLUBBED' ? 'CLUB' : 'SUB',
-      '',
-    ];
-  });
+  // Build rows with rowSpan on the Absent Teacher cell
+  const tableRows: any[][] = [];
+  let rowNum = 0;
+  let i = 0;
+  while (i < sorted.length) {
+    const teacher = sorted[i].Absent_Teacher;
+    let span = 0;
+    while (i + span < sorted.length && sorted[i + span].Absent_Teacher === teacher) span++;
+    for (let j = 0; j < span; j++) {
+      const r = sorted[i + j];
+      rowNum++;
+      const subDisplay =
+        r.Substitute === '— Not Assigned —' ? 'UNASSIGNED ⚠' :
+        r.Type === 'CLUBBED'
+          ? `${titleName(r.Substitute)}\n(clubbing: ${r.Sub_Own_Class}${r.Sub_Own_Subject ? ' · ' + r.Sub_Own_Subject : ''})`
+          : titleName(r.Substitute);
+      if (j === 0) {
+        tableRows.push([
+          String(rowNum),
+          { content: titleName(teacher), rowSpan: span, styles: { valign: 'middle', fontStyle: 'bold', halign: 'left' } },
+          ordinal(r.Period),
+          r.Class,
+          r.Subject,
+          subDisplay,
+          r.Type === 'CLUBBED' ? 'CLUB' : 'SUB',
+          '',
+        ]);
+      } else {
+        tableRows.push([
+          String(rowNum),
+          ordinal(r.Period),
+          r.Class,
+          r.Subject,
+          subDisplay,
+          r.Type === 'CLUBBED' ? 'CLUB' : 'SUB',
+          '',
+        ]);
+      }
+    }
+    i += span;
+  }
 
   autoTable(doc, {
     startY: y,
