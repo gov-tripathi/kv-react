@@ -1427,7 +1427,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
             if (subPs.has(p)) {
               periodStatus[p] = 'sub'; periodClass[p] = `${subForCls[p]} · Sub for ${shortName(subFor[p])}`;
             } else {
-              periodStatus[p] = 'free'; periodClass[p] = '';
+              periodStatus[p] = 'free'; periodClass[p] = `${row.Class} cancelled`;
             }
           } else {
             periodStatus[p] = 'teaching'; periodClass[p] = row ? `${row.Class} · ${row.Subject}` : '';
