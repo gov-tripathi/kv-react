@@ -396,16 +396,14 @@ export default function App() {
             <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl" />
           </div>
           <div className="flex flex-col items-center gap-2 relative z-10">
-            <div className="flex items-center gap-4">
-              <img src="/2023042075.png" alt="KV Logo" className="h-11 w-auto"
+            <div className="flex items-center justify-center gap-3 mb-1">
+              <img src="/2023042075.png" alt="KV Logo" className="h-10 w-auto flex-shrink-0"
                 style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
-              <div className="text-center">
-                <h1 className="text-sm font-extrabold text-white tracking-widest leading-tight uppercase">PM SHRI KENDRIYA VIDYALAYA BURHANPUR</h1>
-              </div>
-              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-9 w-auto"
+              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-8 w-auto flex-shrink-0"
                 style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
             </div>
-            <p className="text-blue-300/50 text-xs tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
+            <h1 className="text-sm font-extrabold text-white tracking-wider leading-snug uppercase text-center">PM SHRI Kendriya Vidyalaya Burhanpur</h1>
+            <p className="text-blue-300/60 text-xs tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
           </div>
         </div>
 
