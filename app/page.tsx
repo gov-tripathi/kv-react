@@ -68,10 +68,14 @@ import {
   buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod,
   getNotReqTeachersForPeriod, priorityIdx, isNotReq,
 } from '@/lib/timetable';
-import type { AbsenceConfig } from '@/lib/types';
+import type { AbsenceConfig, FormState, Arrangement } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
 import { computeRegisterDuties } from '@/lib/duties';
 import type { RegisterDuty } from '@/lib/duties';
+import {
+  getMyArrangements, getSharedArrangements,
+  saveArrangement, updateArrangement, deleteArrangement,
+} from '@/lib/db';
 
 const USERS: Record<string, string> = {
   'iamgovind560@gmail.com': 'govind@kv2025',
@@ -206,12 +210,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [currentUser, setCurrentUser] = useState<string>('');
   useEffect(() => {
-    try { setAuthed(!!localStorage.getItem('kv_auth')); } catch { setAuthed(false); }
+    try {
+      const email = localStorage.getItem('kv_auth') ?? '';
+      setAuthed(!!email);
+      if (email) setCurrentUser(email);
+    } catch { setAuthed(false); }
   }, []);
   const [df, setDf] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'arrangement' | 'status'>('arrangement');
+  const [activeTab, setActiveTab] = useState<'arrangement' | 'status' | 'history'>('arrangement');
 
   // Restore session from localStorage (persists across page refreshes)
   const ss = (() => {
@@ -241,10 +250,17 @@ export default function App() {
   const [attendanceClass, setAttendanceClass] = useState('');
   const [subs, setSubs] = useState<Record<string, string>>(ss.subs ?? {});
   const [clubs, setClubs] = useState<Record<string, boolean>>(ss.clubs ?? {});
-  const [report, setReport] = useState<ReportRow[] | null>(null);
+  const [report, setReport] = useState<ReportRow[] | null>(() => {
+    try {
+      const r = localStorage.getItem('kv_report');
+      return r ? JSON.parse(r) as ReportRow[] : null;
+    } catch { return null; }
+  });
   const [pdfLoading, setPdfLoading] = useState(false);
   const [log, setLog] = useState<ReportRow[]>([]);
   const [showLog, setShowLog] = useState(false);
+  const [savedArrangementId, setSavedArrangementId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch('/timetable_master.csv').then(r => r.text()).then(csv => {
@@ -271,6 +287,14 @@ export default function App() {
       }));
     } catch {}
   }, [dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs, useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod, lunchDuties, attendanceDuties, subs, clubs]);
+
+  // Persist report so Save button survives a page reload
+  useEffect(() => {
+    try {
+      if (report) localStorage.setItem('kv_report', JSON.stringify(report));
+      else localStorage.removeItem('kv_report');
+    } catch {}
+  }, [report]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
   const allClasses = useMemo(() => getAllClasses(df), [df]);
@@ -334,6 +358,7 @@ export default function App() {
   const handleGenerateReport = useCallback(() => {
     const rows = buildReportRowsWithCancelled(df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal);
     setReport(rows);
+    setSavedArrangementId(null);
     const newLog = [...log, ...rows];
     setLog(newLog);
     try { localStorage.setItem('kv_arrangement_log', JSON.stringify(newLog)); } catch {}
@@ -354,6 +379,46 @@ export default function App() {
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
     a.download = `arrangement_${dateVal}.csv`; a.click(); URL.revokeObjectURL(url);
   }, [report, dateVal]);
+
+  const handleSaveArrangement = useCallback(async () => {
+    if (!report) return;
+    setSaving(true);
+    const formState: FormState = {
+      dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
+      useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
+      lunchDuties, attendanceDuties, subs, clubs,
+    };
+    try {
+      const arr = await saveArrangement({
+        title: null, date: dateVal, day: selectedDay, created_by: currentUser,
+        form_state: formState, report_rows: report, is_shared: false,
+      });
+      setSavedArrangementId(arr.id);
+    } catch (e) { console.error('Save error:', e); alert('Failed to save: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setSaving(false); }
+  }, [report, dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
+      useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
+      lunchDuties, attendanceDuties, subs, clubs, selectedDay, currentUser]);
+
+  const handleLoadArrangement = useCallback((fs: FormState) => {
+    skipSubsReset.current = true;
+    skipDayReset.current = true;
+    setDateVal(fs.dateVal);
+    setAbsentTeachers(fs.absentTeachers);
+    setAbsenceConfigs(fs.absenceConfigs);
+    setCancelledClasses(fs.cancelledClasses);
+    setCancelledClassConfigs(fs.cancelledClassConfigs);
+    setUseCancelledTeachers(fs.useCancelledTeachers ?? false);
+    setSchoolHalfDay(fs.schoolHalfDay);
+    setSchoolHalfDayPeriod(fs.schoolHalfDayPeriod);
+    setLunchDuties(fs.lunchDuties);
+    setAttendanceDuties(fs.attendanceDuties);
+    setSubs(fs.subs);
+    setClubs(fs.clubs);
+    setReport(null);
+    setSavedArrangementId(null);
+    setActiveTab('arrangement');
+  }, []);
 
   const handleDownloadLog = useCallback(() => {
     if (!log.length) return;
@@ -717,14 +782,14 @@ export default function App() {
 
         {/* ── Tab bar ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-1 mb-4 flex gap-1">
-          {(['arrangement', 'status'] as const).map(tab => (
+          {(['arrangement', 'status', 'history'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === tab
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}>
-              {tab === 'arrangement' ? '📋  Arrangement' : '👥  Teacher Status'}
+              {tab === 'arrangement' ? '📋 Arrange' : tab === 'status' ? '👥 Status' : '☁ History'}
             </button>
           ))}
         </div>
@@ -749,7 +814,15 @@ export default function App() {
             onDownloadPDF={handleDownloadPDF}
             onDownloadCSV={handleDownloadCSV}
             onDownloadLog={handleDownloadLog}
+            onSave={handleSaveArrangement}
+            saving={saving}
+            isSaved={savedArrangementId !== null}
           />
+        )}
+
+        {/* ── History Tab ── */}
+        {activeTab === 'history' && (
+          <HistoryTab currentUser={currentUser} onLoad={handleLoadArrangement} />
         )}
 
         {/* ── Teacher Status Tab ── */}
@@ -800,6 +873,9 @@ interface ArrProps {
   onDownloadPDF: (note: string | null) => void;
   onDownloadCSV: () => void;
   onDownloadLog: () => void;
+  onSave: () => void;
+  saving: boolean;
+  isSaved: boolean;
 }
 
 function ArrangementTab({
@@ -810,6 +886,7 @@ function ArrangementTab({
   report, pdfLoading, log, showLog, setShowLog,
   onAutoFill, onReset, onSetSub, onSetClub, onGenerateReport,
   onDownloadPDF, onDownloadCSV, onDownloadLog,
+  onSave, saving, isSaved,
 }: ArrProps) {
   const [copied, setCopied] = useState(false);
   const [reportNote, setReportNote] = useState('');
@@ -1136,6 +1213,16 @@ function ArrangementTab({
               📱 Text
             </button>
           </div>
+
+          {/* Save to cloud history */}
+          <button onClick={onSave} disabled={saving || isSaved}
+            className={`mt-3 w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+              isSaved
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 active:scale-[0.99]'
+            }`}>
+            {saving ? <LoadingSpinner size="sm" /> : isSaved ? '✓ Saved to History' : '☁ Save to History'}
+          </button>
         </div>
       )}
 
@@ -1195,6 +1282,146 @@ function ArrangementTab({
         )}
       </div>
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// History Tab
+// ─────────────────────────────────────────────────────────────────────────────
+function fmtDate(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs: FormState) => void }) {
+  const [section, setSection] = useState<'mine' | 'shared'>('mine');
+  const [mine, setMine] = useState<Arrangement[]>([]);
+  const [shared, setShared] = useState<Arrangement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true); setErr(null);
+    try {
+      const [m, s] = await Promise.all([
+        getMyArrangements(currentUser),
+        getSharedArrangements(currentUser),
+      ]);
+      setMine(m); setShared(s);
+    } catch { setErr('Failed to load. Check your connection.'); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this arrangement?')) return;
+    setActionId(id);
+    try {
+      await deleteArrangement(id);
+      setMine(prev => prev.filter(a => a.id !== id));
+    } catch (e) { console.error('Delete error:', e); alert('Failed to delete: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setActionId(null); }
+  }
+
+  async function handleToggleShare(arr: Arrangement) {
+    setActionId(arr.id);
+    try {
+      const updated = await updateArrangement(arr.id, { is_shared: !arr.is_shared });
+      setMine(prev => prev.map(a => a.id === arr.id ? updated : a));
+    } catch (e) { console.error('Share error:', e); alert('Failed to update sharing: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setActionId(null); }
+  }
+
+  function Card({ arr, isOwn }: { arr: Arrangement; isOwn: boolean }) {
+    const busy = actionId === arr.id;
+    const absent = arr.form_state.absentTeachers.length;
+    const cancelled = arr.form_state.cancelledClasses.length;
+    const subs = arr.report_rows.filter(r => r.Type !== 'CANCELLED').length;
+    return (
+      <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-3 shadow-sm">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div>
+            <div className="font-bold text-slate-800 text-sm">{arr.day} · {fmtDate(arr.date)}</div>
+            <div className="text-xs text-slate-400 mt-0.5">{isOwn ? 'You' : arr.created_by.split('@')[0]}</div>
+          </div>
+          <div className="flex gap-1.5 flex-shrink-0">
+            {arr.is_shared && (
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">Shared</span>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-1.5 mb-3 flex-wrap">
+          {absent > 0 && <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-full px-2 py-0.5">{absent} absent</span>}
+          {cancelled > 0 && <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2 py-0.5">{cancelled} cancelled</span>}
+          {subs > 0 && <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-2 py-0.5">{subs} subs</span>}
+        </div>
+        <div className="flex gap-1.5">
+          <button onClick={() => onLoad(arr.form_state)}
+            className="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all">
+            Load
+          </button>
+          {isOwn && (<>
+            <button onClick={() => handleToggleShare(arr)} disabled={busy}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${arr.is_shared ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+              {busy ? '…' : arr.is_shared ? 'Unshare' : 'Share'}
+            </button>
+            <button onClick={() => handleDelete(arr.id)} disabled={busy}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all disabled:opacity-50">
+              🗑
+            </button>
+          </>)}
+        </div>
+      </div>
+    );
+  }
+
+  const list = section === 'mine' ? mine : shared;
+
+  return (
+    <div>
+      <div className="bg-white rounded-2xl border border-slate-100 p-1 mb-4 flex gap-1 shadow-sm">
+        {(['mine', 'shared'] as const).map(s => (
+          <button key={s} onClick={() => setSection(s)}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === s ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+            {s === 'mine' ? `My Saved${mine.length ? ` (${mine.length})` : ''}` : `Shared${shared.length ? ` (${shared.length})` : ''}`}
+          </button>
+        ))}
+      </div>
+
+      {loading && <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>}
+
+      {err && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm flex items-center gap-2">
+          ⚠ {err}
+          <button onClick={load} className="ml-auto text-xs font-bold underline">Retry</button>
+        </div>
+      )}
+
+      {!loading && !err && (
+        list.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
+            <div className="text-4xl mb-3">{section === 'mine' ? '☁' : '🔗'}</div>
+            <div className="font-bold text-slate-600 text-sm">
+              {section === 'mine' ? 'No saved arrangements' : 'Nothing shared yet'}
+            </div>
+            <div className="text-xs text-slate-400 mt-1">
+              {section === 'mine' ? 'Generate a report and tap Save to History' : 'Other users haven\'t shared any arrangements'}
+            </div>
+          </div>
+        ) : (
+          list.map(arr => <Card key={arr.id} arr={arr} isOwn={section === 'mine'} />)
+        )
+      )}
+
+      {!loading && (
+        <div className="flex justify-center mt-2">
+          <button onClick={load} className="text-xs font-semibold text-slate-400 hover:text-blue-600 border border-slate-200 hover:border-blue-200 px-4 py-2 rounded-full transition-all">
+            ↻ Refresh
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

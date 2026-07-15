@@ -49,3 +49,31 @@ export interface TeacherData {
   subCount: number;
   freeCount: number;
 }
+
+export interface FormState {
+  dateVal: string;
+  absentTeachers: string[];
+  absenceConfigs: Record<string, AbsenceConfig>;
+  cancelledClasses: string[];
+  cancelledClassConfigs: Record<string, CancelledClassConfig>;
+  useCancelledTeachers: boolean;
+  schoolHalfDay: boolean;
+  schoolHalfDayPeriod: number;
+  lunchDuties: DutyEntry[];
+  attendanceDuties: DutyEntry[];
+  subs: Record<string, string>;
+  clubs: Record<string, boolean>;
+}
+
+export interface Arrangement {
+  id: string;
+  title: string | null;
+  date: string;
+  day: string;
+  created_by: string;
+  form_state: FormState;
+  report_rows: ReportRow[];
+  is_shared: boolean;
+  created_at: string;
+  updated_at: string;
+}

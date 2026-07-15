@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@heroui/react": "^3.0.4",
+    "@supabase/supabase-js": "^2.110.6",
     "framer-motion": "^12.38.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
