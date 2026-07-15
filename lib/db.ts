@@ -1,8 +1,8 @@
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 import type { Arrangement, FormState, ReportRow } from './types';
 
 export async function getMyArrangements(email: string): Promise<Arrangement[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('arrangements')
     .select('*')
     .eq('created_by', email)
@@ -13,7 +13,7 @@ export async function getMyArrangements(email: string): Promise<Arrangement[]> {
 }
 
 export async function getSharedArrangements(excludeEmail: string): Promise<Arrangement[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('arrangements')
     .select('*')
     .eq('is_shared', true)
@@ -33,7 +33,7 @@ export async function saveArrangement(payload: {
   report_rows: ReportRow[];
   is_shared: boolean;
 }): Promise<Arrangement> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('arrangements')
     .insert(payload)
     .select()
@@ -46,7 +46,7 @@ export async function updateArrangement(
   id: string,
   updates: { title?: string | null; is_shared?: boolean; form_state?: FormState; report_rows?: ReportRow[] },
 ): Promise<Arrangement> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('arrangements')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -57,6 +57,6 @@ export async function updateArrangement(
 }
 
 export async function deleteArrangement(id: string): Promise<void> {
-  const { error } = await supabase.from('arrangements').delete().eq('id', id);
+  const { error } = await getSupabase().from('arrangements').delete().eq('id', id);
   if (error) throw error;
 }
