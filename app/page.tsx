@@ -485,6 +485,12 @@ export default function App() {
   const [arrangementTitle, setArrangementTitle] = useState('');
   const [titleLocked, setTitleLocked] = useState(false);
   const [loadedArrangementId, setLoadedArrangementId] = useState<string | null>(null);
+  const [myArrangements, setMyArrangements] = useState<Arrangement[]>([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    getMyArrangements(currentUser).then(setMyArrangements).catch(() => {});
+  }, [currentUser]);
 
   useEffect(() => {
     fetch('/timetable_master.csv').then(r => r.text()).then(csv => {
@@ -653,6 +659,7 @@ export default function App() {
       setArrangementTitle(resolvedTitle);
       setLoadedArrangementId(null);
       setTitleLocked(true);
+      setMyArrangements(prev => [arr, ...prev.filter(a => a.id !== arr.id)]);
     } catch (e) { console.error('Save error:', e); alert('Failed to save: ' + (e instanceof Error ? e.message : String(e))); }
     finally { setSaving(false); }
   }, [report, dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
@@ -691,9 +698,10 @@ export default function App() {
       lunchDuties, attendanceDuties, subs, clubs,
     };
     try {
-      await updateArrangement(loadedArrangementId, { title: arrangementTitle || undefined, form_state: formState, report_rows: report });
+      const updated = await updateArrangement(loadedArrangementId, { title: arrangementTitle || undefined, form_state: formState, report_rows: report });
       setSavedArrangementId(loadedArrangementId);
       setTitleLocked(true);
+      setMyArrangements(prev => prev.map(a => a.id === loadedArrangementId ? updated : a));
     } catch (e) { console.error('Update error:', e); alert('Failed to update: ' + (e instanceof Error ? e.message : String(e))); }
     finally { setSaving(false); }
   }, [report, loadedArrangementId, arrangementTitle, dateVal, absentTeachers, absenceConfigs,
@@ -778,7 +786,15 @@ export default function App() {
               <StatusChip color="accent" size="sm">{selectedDay}</StatusChip>
             </div>
             <input type="date" value={dateVal}
-              onChange={e => { setDateVal(e.target.value); setAbsentTeachers([]); }}
+              onChange={e => {
+                const newDate = e.target.value;
+                try {
+                  const concluded_ids = new Set<string>(JSON.parse(localStorage.getItem('kv_concluded') || '[]'));
+                  const concluded = myArrangements.filter(a => a.date === newDate).find(a => concluded_ids.has(a.id));
+                  if (concluded) { handleLoadArrangement(concluded.form_state, concluded.title, concluded.id); return; }
+                } catch {}
+                setDateVal(newDate); setAbsentTeachers([]);
+              }}
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
           </div>
 
