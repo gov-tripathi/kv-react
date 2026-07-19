@@ -766,24 +766,9 @@ export default function App() {
         </button>
         {/* ── Morning Setup ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
-          <button
-            type="button"
-            onClick={() => setSetupCollapsed(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-slate-50/50 transition-colors"
-            style={{ borderBottom: !setupCollapsed ? '1px solid #f1f5f9' : 'none' }}
-          >
-            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex-shrink-0">Morning Setup</span>
-              {setupCollapsed && (<>
-                <StatusChip color="accent" size="sm">{selectedDay}</StatusChip>
-                {absentTeachers.length > 0 && <StatusChip color="danger" size="sm">{absentTeachers.length} absent</StatusChip>}
-                {cancelledClasses.length > 0 && <StatusChip color="warning" size="sm">{cancelledClasses.length} cancelled</StatusChip>}
-                {schoolHalfDay && <StatusChip color="default" size="sm">Half Day</StatusChip>}
-              </>)}
-            </div>
-            <span className="text-slate-300 flex-shrink-0 text-base leading-none">{setupCollapsed ? '▼' : '▲'}</span>
-          </button>
-          {!setupCollapsed && (
+          <div className="px-4 py-3.5" style={{ borderBottom: '1px solid #f1f5f9' }}>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Morning Setup</span>
+          </div>
           <div className="p-4">
 
           {/* Date */}
@@ -1088,7 +1073,6 @@ export default function App() {
             )}
           </div>
           </div>
-          )}
         </div>
           <ArrangementTab
             df={df} absentTeachers={absentTeachers} absentPeriods={absentPeriods}
