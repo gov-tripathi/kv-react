@@ -73,8 +73,8 @@ import { generatePDF } from '@/lib/pdf';
 import { computeRegisterDuties } from '@/lib/duties';
 import type { RegisterDuty } from '@/lib/duties';
 import {
-  getMyArrangements, getSharedArrangements,
-  saveArrangement, updateArrangement, deleteArrangement, setConcluded, saveDraft, loadDraft,
+  getMyArrangements,
+  saveArrangement, updateArrangement, deleteArrangement, saveDraft, loadDraft,
   loginTeacher, getTeacherAccounts, createTeacherAccount, deleteTeacherAccount, getSharedArrangementForDate,
 } from '@/lib/db';
 
@@ -1635,9 +1635,8 @@ function fmtDate(d: string) {
 }
 
 function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string; onLoad: (fs: FormState, title?: string | null, id?: string) => void; allTeachers: string[] }) {
-  const [section, setSection] = useState<'mine' | 'shared' | 'teachers'>('mine');
+  const [section, setSection] = useState<'mine' | 'teachers'>('mine');
   const [mine, setMine] = useState<Arrangement[]>([]);
-  const [shared, setShared] = useState<Arrangement[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -1648,11 +1647,8 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
   async function load() {
     setLoading(true); setErr(null);
     try {
-      const [m, s] = await Promise.all([
-        getMyArrangements(currentUser),
-        getSharedArrangements(currentUser),
-      ]);
-      setMine(m); setShared(s);
+      const m = await getMyArrangements(currentUser);
+      setMine(m);
     } catch { setErr('Failed to load. Check your connection.'); }
     finally { setLoading(false); }
   }
@@ -1669,20 +1665,6 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
     finally { setActionId(null); }
   }
 
-  async function handleToggleShare(arr: Arrangement) {
-    const newShared = !arr.is_shared;
-    // Optimistic update — instant feedback
-    setMine(prev => prev.map(a => a.id === arr.id ? { ...a, is_shared: newShared } : a));
-    try {
-      const updated = await updateArrangement(arr.id, { is_shared: newShared });
-      setMine(prev => prev.map(a => a.id === arr.id ? updated : a));
-    } catch (e) {
-      // Revert on failure
-      setMine(prev => prev.map(a => a.id === arr.id ? arr : a));
-      alert('Failed to update sharing: ' + (e instanceof Error ? e.message : String(e)));
-    }
-  }
-
   async function handleRename(id: string, newTitle: string) {
     if (!newTitle.trim()) { setEditingId(null); return; }
     setActionId(id);
@@ -1693,18 +1675,28 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
     finally { setActionId(null); setEditingId(null); }
   }
 
+  async function handleToggleShare(arr: Arrangement) {
+    const newValue = !arr.is_shared;
+    setActionId(arr.id);
+    try {
+      await updateArrangement(arr.id, { is_shared: newValue });
+      setMine(prev => prev.map(a => a.id === arr.id ? { ...a, is_shared: newValue } : a));
+    } catch (e) { alert('Failed to update: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setActionId(null); }
+  }
+
   async function handleConclude(arr: Arrangement, siblingIds: string[]) {
     const newValue = !arr.is_concluded;
     const toUnconclude = siblingIds.filter(sid => sid !== arr.id);
     setActionId(arr.id);
     try {
       await Promise.all([
-        ...(toUnconclude.length > 0 ? [setConcluded(toUnconclude, false)] : []),
-        setConcluded([arr.id], newValue),
+        updateArrangement(arr.id, { is_concluded: newValue, is_shared: newValue }),
+        ...toUnconclude.map(id => updateArrangement(id, { is_concluded: false, is_shared: false })),
       ]);
       setMine(prev => prev.map(a => {
-        if (a.id === arr.id) return { ...a, is_concluded: newValue };
-        if (toUnconclude.includes(a.id)) return { ...a, is_concluded: false };
+        if (a.id === arr.id) return { ...a, is_concluded: newValue, is_shared: newValue };
+        if (toUnconclude.includes(a.id)) return { ...a, is_concluded: false, is_shared: false };
         return a;
       }));
     } catch (e) { alert('Failed to update: ' + (e instanceof Error ? e.message : String(e))); }
@@ -1786,15 +1778,6 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
             {pdfBusy ? <LoadingSpinner size="sm" /> : '📄 PDF'}
           </button>
           {isOwn && (
-            <button onClick={() => handleToggleShare(arr)}
-              className={`flex-[2] py-2 rounded-xl text-xs font-bold border transition-all
-                ${arr.is_shared
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
-              {arr.is_shared ? '🔗 Unshare from teachers' : 'Share with teachers'}
-            </button>
-          )}
-          {isOwn && (
             <button onClick={() => handleDelete(arr.id)} disabled={busy}
               className="px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 hover:text-red-700 transition-all disabled:opacity-50">
               🗑
@@ -1802,21 +1785,32 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
           )}
         </div>
 
-        {/* Conclude toggle — multi-version only */}
+        {/* Conclude toggle — multi-version only (also shares/unshares) */}
         {isOwn && hasMultiple && (
           <button onClick={() => handleConclude(arr, siblingIds)} disabled={busy}
             className={`w-full py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-40
               ${isConcluded
                 ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                 : 'border-dashed border-slate-200 text-slate-400 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
-            {isConcluded ? '★ This is the Final Version' : '☆ Mark as Final Version'}
+            {isConcluded ? '★ Final — Shared with Teachers' : '☆ Mark Final & Share with Teachers'}
+          </button>
+        )}
+
+        {/* Share toggle — single-version only */}
+        {isOwn && !hasMultiple && (
+          <button onClick={() => handleToggleShare(arr)} disabled={busy}
+            className={`w-full py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-40
+              ${arr.is_shared
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                : 'border-dashed border-slate-200 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'}`}>
+            {arr.is_shared ? '🔗 Visible to Teachers' : '↗ Share with Teachers'}
           </button>
         )}
       </div>
     );
   }
 
-  const list = section === 'mine' ? mine : shared;
+  const list = mine;
 
   const grouped = useMemo(() => {
     const groups: Record<string, Arrangement[]> = {};
@@ -1838,10 +1832,6 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
         <button onClick={() => setSection('mine')}
           className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === 'mine' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
           {`My Saved${mine.length ? ` (${mine.length})` : ''}`}
-        </button>
-        <button onClick={() => setSection('shared')}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === 'shared' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-          {`Shared${shared.length ? ` (${shared.length})` : ''}`}
         </button>
         <button onClick={() => setSection('teachers')}
           className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === 'teachers' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
@@ -1865,13 +1855,9 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
       {!loading && !err && (
         list.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
-            <div className="text-4xl mb-3">{section === 'mine' ? '☁' : '🔗'}</div>
-            <div className="font-bold text-slate-600 text-sm">
-              {section === 'mine' ? 'No saved arrangements' : 'Nothing shared yet'}
-            </div>
-            <div className="text-xs text-slate-400 mt-1">
-              {section === 'mine' ? 'Generate a report and tap Save to History' : 'Other users haven\'t shared any arrangements'}
-            </div>
+            <div className="text-4xl mb-3">☁</div>
+            <div className="font-bold text-slate-600 text-sm">No saved arrangements</div>
+            <div className="text-xs text-slate-400 mt-1">Generate a report and tap Save to History</div>
           </div>
         ) : (
           grouped.map(({ date, arrs }) => {

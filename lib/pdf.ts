@@ -56,18 +56,18 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
   // line1 at y+8, line2 at y+14, line3 at y+20
   const cx = pageW / 2;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(13);
   doc.setTextColor(30, 64, 175);
   doc.text('PM SHRI KENDRIYA VIDYALAYA BURHANPUR', cx, y + 8, { align: 'center' });
 
-  doc.setFontSize(9);
+  doc.setFontSize(11);
   doc.setTextColor(30, 41, 59);
-  doc.text('DAILY TEACHER ARRANGEMENT', cx, y + 14, { align: 'center' });
+  doc.text('DAILY TEACHER ARRANGEMENT', cx, y + 15, { align: 'center' });
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(`${day}  ·  ${dateStr}  ·  Academic Year 2026-27`, cx, y + 20, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`${day}  ·  ${dateStr}  ·  Academic Year 2026-27`, cx, y + 22, { align: 'center' });
 
   y += headerH;
   doc.setDrawColor(30, 64, 175);
@@ -136,15 +136,15 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     head: [['S.No', 'Absent Teacher', 'Per.', 'Class', 'Subject', 'Substitute Teacher', 'Sign']],
     body: tableRows,
     theme: 'grid',
-    headStyles: { fillColor: [30, 64, 175], fontSize: 7.5, halign: 'center', fontStyle: 'bold' },
-    bodyStyles: { fontSize: 7.5, valign: 'middle' },
+    headStyles: { fillColor: [30, 64, 175], fontSize: 9, halign: 'center', fontStyle: 'bold', textColor: [255, 255, 255] },
+    bodyStyles: { fontSize: 9, valign: 'middle', textColor: [15, 23, 42], fontStyle: 'bold' },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
       1: { cellWidth: 32 },
       2: { halign: 'center', cellWidth: 10, fontStyle: 'bolditalic' },
       3: { halign: 'center', cellWidth: 20, fontStyle: 'bolditalic' },
-      4: { halign: 'center', cellWidth: 22 },
-      5: { cellWidth: 52 },
+      4: { halign: 'center', cellWidth: 22, fontStyle: 'bold' },
+      5: { cellWidth: 52, fontStyle: 'bold' },
       6: { cellWidth: 24 },
     },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -169,7 +169,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
   if (cancelledByClass.size > 0) {
     const cancelY = afterTableY + 6;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(9);
     doc.setTextColor(194, 65, 12); // orange-700
     doc.text('CANCELLED CLASSES:', margin, cancelY);
 
@@ -180,8 +180,8 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
         return `${cls}  (Per. ${sortedPeriods.map(ordinal).join(', ')})`;
       });
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
     doc.setTextColor(154, 52, 18); // orange-800
     doc.text(cancelLines.join('     '), margin + 38, cancelY);
     afterTableY = cancelY + 4;
@@ -202,8 +202,8 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
       body: group.entries.map(d => [d.cls, titleName(d.teacher), '']),
       theme: 'grid',
       tableWidth: pageW - 2 * margin,
-      headStyles: { fillColor: group.headColor, fontSize: 7.5, halign: 'center', fontStyle: 'bold', cellPadding: 1.5 },
-      bodyStyles: { fontSize: 7.5, valign: 'middle', cellPadding: 1.5 },
+      headStyles: { fillColor: group.headColor, fontSize: 9, halign: 'center', fontStyle: 'bold', cellPadding: 1.5, textColor: [255, 255, 255] },
+      bodyStyles: { fontSize: 9, valign: 'middle', cellPadding: 1.5, textColor: [15, 23, 42], fontStyle: 'bold' },
       columnStyles: {
         0: { halign: 'center', cellWidth: 30, fontStyle: 'bold' },
         1: { cellWidth: 100 },
@@ -218,13 +218,13 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
   if (note !== undefined) {
     afterTableY += 6;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(9);
     doc.setTextColor(30, 41, 59);
     doc.text('NOTES:', margin, afterTableY);
 
     if (note.trim()) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
       doc.setTextColor(51, 65, 85);
       const wrappedNote = doc.splitTextToSize(note.trim(), pageW - margin * 2 - 22);
       doc.text(wrappedNote, margin + 22, afterTableY);
@@ -255,16 +255,16 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
   doc.text('____________________________', pageW - margin - 60, footerY);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(30, 41, 59);
   doc.text('Time-Table In-Charge (Primary)', margin + 5, footerY + 6);
   doc.text('PRINCIPAL', pageW - margin - 60, footerY + 6);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(100, 116, 139);
-  doc.text('PM Shri KV Burhanpur', margin + 5, footerY + 11);
-  doc.text('PM Shri KV Burhanpur', pageW - margin - 60, footerY + 11);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text('PM Shri KV Burhanpur', margin + 5, footerY + 12);
+  doc.text('PM Shri KV Burhanpur', pageW - margin - 60, footerY + 12);
 
   doc.save(`arrangement_${dateStr}.pdf`);
 }
