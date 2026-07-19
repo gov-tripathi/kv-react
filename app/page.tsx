@@ -74,7 +74,7 @@ import { computeRegisterDuties } from '@/lib/duties';
 import type { RegisterDuty } from '@/lib/duties';
 import {
   getMyArrangements, getSharedArrangements,
-  saveArrangement, updateArrangement, deleteArrangement,
+  saveArrangement, updateArrangement, deleteArrangement, setConcluded, saveDraft, loadDraft,
 } from '@/lib/db';
 
 const USERS: Record<string, string> = {
@@ -444,52 +444,60 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status' | 'history'>('arrangement');
 
-  // Restore session from localStorage (persists across page refreshes)
-  const ss = (() => {
-    try { return JSON.parse(localStorage.getItem('kv_form_state') || 'null') ?? {}; }
-    catch { return {}; }
-  })();
-
-  const [dateVal, setDateVal] = useState<string>(ss.dateVal ?? todayDate);
+  const [dateVal, setDateVal] = useState<string>(todayDate());
   const selectedDay = useMemo(() => {
     const d = new Date(dateVal + 'T00:00:00');
     return DAY_MAP[d.getDay()] ?? 'MON';
   }, [dateVal]);
-  const [absentTeachers, setAbsentTeachers] = useState<string[]>(ss.absentTeachers ?? []);
+  const [absentTeachers, setAbsentTeachers] = useState<string[]>([]);
   const [teacherSearch, setTeacherSearch] = useState('');
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
-  const [absenceConfigs, setAbsenceConfigs] = useState<Record<string, AbsenceConfig>>(ss.absenceConfigs ?? {});
-  const [cancelledClasses, setCancelledClasses] = useState<string[]>(ss.cancelledClasses ?? []);
-  const [cancelledClassConfigs, setCancelledClassConfigs] = useState<Record<string, CancelledClassConfig>>(ss.cancelledClassConfigs ?? {});
-  const [useCancelledTeachers, setUseCancelledTeachers] = useState<boolean>(ss.useCancelledTeachers ?? false);
-  const [schoolHalfDay, setSchoolHalfDay] = useState<boolean>(ss.schoolHalfDay ?? false);
-  const [schoolHalfDayPeriod, setSchoolHalfDayPeriod] = useState<number>(ss.schoolHalfDayPeriod ?? 4);
-  const [lunchDuties, setLunchDuties] = useState<DutyEntry[]>(ss.lunchDuties ?? []);
-  const [attendanceDuties, setAttendanceDuties] = useState<DutyEntry[]>(ss.attendanceDuties ?? []);
+  const [absenceConfigs, setAbsenceConfigs] = useState<Record<string, AbsenceConfig>>({});
+  const [cancelledClasses, setCancelledClasses] = useState<string[]>([]);
+  const [cancelledClassConfigs, setCancelledClassConfigs] = useState<Record<string, CancelledClassConfig>>({});
+  const [useCancelledTeachers, setUseCancelledTeachers] = useState<boolean>(false);
+  const [schoolHalfDay, setSchoolHalfDay] = useState<boolean>(false);
+  const [schoolHalfDayPeriod, setSchoolHalfDayPeriod] = useState<number>(4);
+  const [lunchDuties, setLunchDuties] = useState<DutyEntry[]>([]);
+  const [attendanceDuties, setAttendanceDuties] = useState<DutyEntry[]>([]);
   const [lunchTeacher, setLunchTeacher] = useState('');
   const [lunchClass, setLunchClass] = useState('');
   const [attendanceTeacher, setAttendanceTeacher] = useState('');
   const [attendanceClass, setAttendanceClass] = useState('');
-  const [subs, setSubs] = useState<Record<string, string>>(ss.subs ?? {});
-  const [clubs, setClubs] = useState<Record<string, boolean>>(ss.clubs ?? {});
-  const [report, setReport] = useState<ReportRow[] | null>(() => {
-    try {
-      const r = localStorage.getItem('kv_report');
-      return r ? JSON.parse(r) as ReportRow[] : null;
-    } catch { return null; }
-  });
+  const [subs, setSubs] = useState<Record<string, string>>({});
+  const [clubs, setClubs] = useState<Record<string, boolean>>({});
+  const [report, setReport] = useState<ReportRow[] | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [savedArrangementId, setSavedArrangementId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [arrangementTitle, setArrangementTitle] = useState('');
   const [titleLocked, setTitleLocked] = useState(false);
   const [loadedArrangementId, setLoadedArrangementId] = useState<string | null>(null);
   const [myArrangements, setMyArrangements] = useState<Arrangement[]>([]);
 
+  // Load draft + arrangements from DB on login
   useEffect(() => {
     if (!currentUser) return;
     getMyArrangements(currentUser).then(setMyArrangements).catch(() => {});
+    loadDraft(currentUser).then(draft => {
+      if (!draft?.form_state) return;
+      const fs = draft.form_state;
+      skipSubsReset.current = true;
+      skipDayReset.current = true;
+      setDateVal(fs.dateVal);
+      setAbsentTeachers(fs.absentTeachers);
+      setAbsenceConfigs(fs.absenceConfigs);
+      setCancelledClasses(fs.cancelledClasses);
+      setCancelledClassConfigs(fs.cancelledClassConfigs);
+      setUseCancelledTeachers(fs.useCancelledTeachers ?? false);
+      setSchoolHalfDay(fs.schoolHalfDay);
+      setSchoolHalfDayPeriod(fs.schoolHalfDayPeriod);
+      setLunchDuties(fs.lunchDuties);
+      setAttendanceDuties(fs.attendanceDuties);
+      setSubs(fs.subs);
+      setClubs(fs.clubs);
+      if (draft.report_rows) setReport(draft.report_rows);
+    }).catch(() => {});
   }, [currentUser]);
 
   useEffect(() => {
@@ -501,24 +509,19 @@ export default function App() {
   }, []);
 
 
-  // Save form state on every change so it survives a page refresh
+  // Debounced draft save to DB (3 s after last change)
   useEffect(() => {
-    try {
-      localStorage.setItem('kv_form_state', JSON.stringify({
+    if (!currentUser) return;
+    const timer = setTimeout(() => {
+      saveDraft(currentUser, {
         dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
         useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
         lunchDuties, attendanceDuties, subs, clubs,
-      }));
-    } catch {}
-  }, [dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs, useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod, lunchDuties, attendanceDuties, subs, clubs]);
-
-  // Persist report so Save button survives a page reload
-  useEffect(() => {
-    try {
-      if (report) localStorage.setItem('kv_report', JSON.stringify(report));
-      else localStorage.removeItem('kv_report');
-    } catch {}
-  }, [report]);
+      }, report).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [currentUser, dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
+      useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod, lunchDuties, attendanceDuties, subs, clubs, report]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
   const allClasses = useMemo(() => getAllClasses(df), [df]);
@@ -562,11 +565,6 @@ export default function App() {
     setAttendanceTeacher(''); setAttendanceClass('');
   }, [selectedDay]);
 
-  // Auto-collapse setup once teachers are marked; expand when all removed
-  useEffect(() => {
-    if (absentTeachers.length === 1) setSetupCollapsed(true);
-    if (absentTeachers.length === 0) setSetupCollapsed(false);
-  }, [absentTeachers.length]);
 
   const subWl = useMemo(() => computeSubWorkload(absentPeriods, subs, clubs), [absentPeriods, subs, clubs]);
   const covered = useMemo(
@@ -605,7 +603,6 @@ export default function App() {
     setArrangementTitle('');
     setTitleLocked(false);
     setLoadedArrangementId(null);
-    setSetupCollapsed(false);
   }, []);
 
   const handleSetSub = useCallback((teacher: string, period: number, val: string) => {
@@ -788,11 +785,8 @@ export default function App() {
             <input type="date" value={dateVal}
               onChange={e => {
                 const newDate = e.target.value;
-                try {
-                  const concluded_ids = new Set<string>(JSON.parse(localStorage.getItem('kv_concluded') || '[]'));
-                  const concluded = myArrangements.filter(a => a.date === newDate).find(a => concluded_ids.has(a.id));
-                  if (concluded) { handleLoadArrangement(concluded.form_state, concluded.title, concluded.id); return; }
-                } catch {}
+                const concluded = myArrangements.filter(a => a.date === newDate).find(a => a.is_concluded);
+                if (concluded) { handleLoadArrangement(concluded.form_state, concluded.title, concluded.id); return; }
                 setDateVal(newDate); setAbsentTeachers([]);
               }}
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
@@ -1603,10 +1597,6 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [concludedIds, setConcludedIds] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('kv_concluded') || '[]')); }
-    catch { return new Set<string>(); }
-  });
 
   async function load() {
     setLoading(true); setErr(null);
@@ -1651,18 +1641,28 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
     finally { setActionId(null); setEditingId(null); }
   }
 
-  function handleConclude(id: string, siblingIds: string[]) {
-    const next = new Set(concludedIds);
-    for (const sid of siblingIds) next.delete(sid);
-    if (concludedIds.has(id)) { next.delete(id); } else { next.add(id); }
-    setConcludedIds(next);
-    try { localStorage.setItem('kv_concluded', JSON.stringify([...next])); } catch {}
+  async function handleConclude(arr: Arrangement, siblingIds: string[]) {
+    const newValue = !arr.is_concluded;
+    const toUnconclude = siblingIds.filter(sid => sid !== arr.id);
+    setActionId(arr.id);
+    try {
+      await Promise.all([
+        ...(toUnconclude.length > 0 ? [setConcluded(toUnconclude, false)] : []),
+        setConcluded([arr.id], newValue),
+      ]);
+      setMine(prev => prev.map(a => {
+        if (a.id === arr.id) return { ...a, is_concluded: newValue };
+        if (toUnconclude.includes(a.id)) return { ...a, is_concluded: false };
+        return a;
+      }));
+    } catch (e) { alert('Failed to update: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setActionId(null); }
   }
 
   function Card({ arr, isOwn, siblingIds = [] }: { arr: Arrangement; isOwn: boolean; siblingIds?: string[] }) {
     const busy = actionId === arr.id;
     const isEditing = editingId === arr.id;
-    const isConcluded = concludedIds.has(arr.id);
+    const isConcluded = arr.is_concluded;
     const absent = arr.form_state.absentTeachers.length;
     const cancelled = arr.form_state.cancelledClasses.length;
     const subs = arr.report_rows.filter(r => r.Type !== 'CANCELLED').length;
@@ -1708,7 +1708,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
             Load
           </button>
           {siblingIds.length > 0 && (
-            <button onClick={() => handleConclude(arr.id, siblingIds)}
+            <button onClick={() => handleConclude(arr, siblingIds)}
               className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${isConcluded ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'}`}>
               {isConcluded ? '★ Final' : '☆ Conclude'}
             </button>
@@ -1784,9 +1784,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
             const allIds = arrs.map(a => a.id);
             // Put concluded version first, then by created_at desc
             const sorted = [...arrs].sort((a, b) => {
-              const ac = concludedIds.has(a.id) ? 1 : 0;
-              const bc = concludedIds.has(b.id) ? 1 : 0;
-              if (ac !== bc) return bc - ac;
+              if (a.is_concluded !== b.is_concluded) return a.is_concluded ? -1 : 1;
               return b.created_at.localeCompare(a.created_at);
             });
             const displayed = hasMultiple && !isExpanded ? [sorted[0]] : sorted;
@@ -1806,14 +1804,14 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
                     <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                       {arrs.length} versions
                     </span>
-                    {allIds.some(id => concludedIds.has(id)) && (
+                    {arrs.some(a => a.is_concluded) && (
                       <span className="text-[10px] font-bold text-amber-700">★ concluded</span>
                     )}
                   </button>
                 )}
                 {displayed.map((arr, i) => (
                   <div key={arr.id} className={hasMultiple ? 'border-l-2 border-amber-200 pl-3 ml-1' : ''}>
-                    {hasMultiple && i === 0 && !concludedIds.has(arr.id) && (
+                    {hasMultiple && i === 0 && !arr.is_concluded && (
                       <span className="inline-block text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 mb-1">Latest</span>
                     )}
                     {hasMultiple && i > 0 && (

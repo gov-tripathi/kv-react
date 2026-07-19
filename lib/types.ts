@@ -74,6 +74,7 @@ export interface Arrangement {
   form_state: FormState;
   report_rows: ReportRow[];
   is_shared: boolean;
+  is_concluded: boolean;
   created_at: string;
   updated_at: string;
 }
