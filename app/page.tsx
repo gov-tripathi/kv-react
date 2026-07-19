@@ -831,8 +831,9 @@ export default function App() {
             <input type="date" value={dateVal}
               onChange={e => {
                 const newDate = e.target.value;
-                const concluded = myArrangements.filter(a => a.date === newDate).find(a => a.is_concluded);
-                if (concluded) { handleLoadArrangement(concluded.form_state, concluded.title, concluded.id); return; }
+                const sameDate = myArrangements.filter(a => a.date === newDate);
+                const toLoad = sameDate.length === 1 ? sameDate[0] : sameDate.find(a => a.is_concluded);
+                if (toLoad) { handleLoadArrangement(toLoad.form_state, toLoad.title, toLoad.id); return; }
                 setDateVal(newDate); setAbsentTeachers([]);
               }}
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
@@ -1708,7 +1709,15 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
   function Card({ arr, isOwn, siblingIds = [] }: { arr: Arrangement; isOwn: boolean; siblingIds?: string[] }) {
     const busy = actionId === arr.id;
     const isEditing = editingId === arr.id;
-    const isConcluded = arr.is_concluded;
+    // Single-version arrangements are always treated as the final version
+    const isConcluded = arr.is_concluded || siblingIds.length === 0;
+    const [pdfBusy, setPdfBusy] = useState(false);
+    async function handlePDF() {
+      setPdfBusy(true);
+      try {
+        await generatePDF(arr.report_rows, arr.day, arr.date, arr.form_state.lunchDuties, arr.form_state.attendanceDuties);
+      } finally { setPdfBusy(false); }
+    }
     const absent = arr.form_state.absentTeachers.length;
     const cancelled = arr.form_state.cancelledClasses.length;
     const subs = arr.report_rows.filter(r => r.Type !== 'CANCELLED').length;
@@ -1752,6 +1761,10 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
           <button onClick={() => onLoad(arr.form_state, arr.title, arr.id)}
             className="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all">
             Load
+          </button>
+          <button onClick={handlePDF} disabled={pdfBusy}
+            className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all disabled:opacity-50">
+            {pdfBusy ? <LoadingSpinner size="sm" /> : '📄 PDF'}
           </button>
           {siblingIds.length > 0 && (
             <button onClick={() => handleConclude(arr, siblingIds)}
