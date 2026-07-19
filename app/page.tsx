@@ -1698,10 +1698,12 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
             </button>
           )}
           {isOwn && (<>
-            <button onClick={() => handleToggleShare(arr)} disabled={busy}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${arr.is_shared ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
-              {busy ? '…' : arr.is_shared ? 'Unshare' : 'Share'}
-            </button>
+            {(siblingIds.length === 0 || isConcluded) && (
+              <button onClick={() => handleToggleShare(arr)} disabled={busy}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${arr.is_shared ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                {busy ? '…' : arr.is_shared ? 'Unshare' : 'Share'}
+              </button>
+            )}
             <button onClick={() => handleDelete(arr.id)} disabled={busy}
               className="px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all disabled:opacity-50">
               🗑
