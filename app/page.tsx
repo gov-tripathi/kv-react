@@ -531,6 +531,17 @@ export default function App() {
   // These refs prevent the reset effects from wiping restored localStorage state on mount
   const skipSubsReset = useRef(true);
   const skipDayReset = useRef(true);
+  const teacherDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleOutside(e: PointerEvent) {
+      if (teacherDropdownRef.current && !teacherDropdownRef.current.contains(e.target as Node)) {
+        setShowTeacherDropdown(false);
+      }
+    }
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
+  }, []);
 
   useEffect(() => {
     if (skipSubsReset.current) { skipSubsReset.current = false; return; }
@@ -770,7 +781,7 @@ export default function App() {
                 {schoolHalfDay && <StatusChip color="default" size="sm">Half Day</StatusChip>}
               </>)}
             </div>
-            <span className="text-xs font-semibold text-slate-400 flex-shrink-0">{setupCollapsed ? 'Edit ▼' : 'Done ▲'}</span>
+            <span className="text-slate-300 flex-shrink-0 text-base leading-none">{setupCollapsed ? '▼' : '▲'}</span>
           </button>
           {!setupCollapsed && (
           <div className="p-4">
@@ -789,7 +800,7 @@ export default function App() {
           {/* Absent Teachers */}
           <div className="mb-1">
             <label className="block text-sm font-semibold text-slate-600 mb-1.5">Mark Teachers Absent</label>
-            <div className="relative">
+            <div className="relative" ref={teacherDropdownRef}>
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -798,14 +809,13 @@ export default function App() {
                   value={teacherSearch}
                   onChange={e => setTeacherSearch(e.target.value)}
                   onFocus={() => setShowTeacherDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowTeacherDropdown(false), 150)}
                   className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
               </div>
               {showTeacherDropdown && (
                 <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
                   {filteredTeachers.map(t => (
-                    <button key={t} onMouseDown={e => e.preventDefault()}
-                      onClick={() => { setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
+                    <button key={t}
+                      onPointerDown={e => { e.preventDefault(); setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); setShowTeacherDropdown(false); }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-slate-50 last:border-0 flex items-center gap-2.5">
                       <span className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0"
                         style={{ background: avColor(t) }}>
