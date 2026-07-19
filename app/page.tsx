@@ -110,6 +110,198 @@ function SelectField({ className = '', children, ...props }: React.SelectHTMLAtt
   );
 }
 
+// ── Sidebar nav items (shared by desktop sidebar + mobile bottom nav) ─────────
+const NAV_ITEMS = [
+  { id: 'arrangement' as const, icon: '⚡', label: 'Arrange', desc: 'Assign substitutes' },
+  { id: 'status'      as const, icon: '👥', label: 'Status',  desc: 'Teacher overview'  },
+  { id: 'history'     as const, icon: '☁',  label: 'History', desc: 'Cloud records'     },
+] as const;
+
+// ── Desktop sidebar ───────────────────────────────────────────────────────────
+function AppSidebar({
+  activeTab, setActiveTab, onSignOut, currentUser,
+  absentCount, coveredCount, totalPeriods, dateVal, selectedDay,
+}: {
+  activeTab: 'arrangement' | 'status' | 'history';
+  setActiveTab: (t: 'arrangement' | 'status' | 'history') => void;
+  onSignOut: () => void;
+  currentUser: string;
+  absentCount: number;
+  coveredCount: number;
+  totalPeriods: number;
+  dateVal: string;
+  selectedDay: string;
+}) {
+  const progress = totalPeriods > 0 ? Math.round((coveredCount / totalPeriods) * 100) : null;
+  const fmtShort = (d: string) =>
+    new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+
+  return (
+    <aside
+      className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 z-40 select-none overflow-hidden"
+      style={{
+        background: 'linear-gradient(160deg, #0F172A 0%, #1a2c6a 55%, #1E3A8A 100%)',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      {/* Dot-grid texture */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '22px 22px' }} />
+      {/* Top glow */}
+      <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-56 h-56 rounded-full pointer-events-none"
+        style={{ background: 'rgba(59,130,246,0.14)', filter: 'blur(40px)' }} />
+
+      {/* Branding */}
+      <div className="relative px-5 pt-6 pb-4">
+        <div className="flex items-center gap-3 mb-3">
+          <img src="/2023042075.png" alt="KV Logo" className="h-10 w-auto flex-shrink-0"
+            style={{ filter: 'brightness(1.15) drop-shadow(0 2px 10px rgba(0,0,0,.6))' }} />
+          <img src="/2025021137.png" alt="PM SHRI Logo" className="h-8 w-auto flex-shrink-0"
+            style={{ filter: 'brightness(1.15) drop-shadow(0 2px 10px rgba(0,0,0,.6))' }} />
+        </div>
+        <p className="text-[10px] font-extrabold text-white/70 tracking-[0.12em] uppercase leading-snug">PM SHRI Kendriya Vidyalaya</p>
+        <p className="text-[10px] font-bold tracking-wider mt-0.5" style={{ color: 'rgba(147,197,253,0.55)' }}>Burhanpur · 2026–27</p>
+        <div className="mt-4 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.1), transparent)' }} />
+      </div>
+
+      {/* Date + coverage widgets */}
+      <div className="relative px-4 space-y-2 mb-2">
+        {/* Date chip */}
+        <div className="rounded-xl px-3.5 py-2.5 flex items-center justify-between"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div>
+            <p className="text-[9px] font-bold text-white/25 tracking-widest uppercase">Date</p>
+            <p className="text-sm font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.82)' }}>{fmtShort(dateVal)}</p>
+          </div>
+          <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg"
+            style={{ background: 'rgba(37,99,235,0.3)', color: 'rgba(147,197,253,0.9)', border: '1px solid rgba(37,99,235,0.25)' }}>
+            {selectedDay}
+          </span>
+        </div>
+
+        {/* Coverage widget — only when arrangement is active */}
+        {absentCount > 0 && (
+          <div className="rounded-xl px-3.5 py-3"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="text-[9px] font-bold text-white/25 tracking-widest uppercase mb-1.5">Coverage</p>
+            <div className="flex items-baseline gap-1 mb-2">
+              <span className="text-xl font-extrabold" style={{ color: 'rgba(255,255,255,0.9)' }}>{coveredCount}</span>
+              <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>/ {totalPeriods}</span>
+              <span className="text-[10px] ml-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>periods</span>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${progress ?? 0}%`,
+                  background: (progress ?? 0) >= 100 ? '#10B981' : (progress ?? 0) >= 50 ? '#F59E0B' : '#EF4444',
+                  boxShadow: `0 0 6px ${(progress ?? 0) >= 100 ? '#10B981' : (progress ?? 0) >= 50 ? '#F59E0B80' : '#EF444480'}`,
+                }} />
+            </div>
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] font-semibold" style={{ color: 'rgba(248,113,113,0.7)' }}>{absentCount} absent</span>
+              {progress !== null && (
+                <span className="text-[10px] font-bold" style={{ color: progress >= 100 ? '#6EE7B7' : progress >= 50 ? '#FCD34D' : '#FCA5A5' }}>
+                  {progress}%
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className="relative flex-1 px-3 pt-3 overflow-y-auto">
+        <p className="text-[8px] font-bold text-white/20 tracking-[0.2em] uppercase px-3 mb-1.5">Workspace</p>
+        {NAV_ITEMS.map(({ id, icon, label, desc }) => {
+          const isActive = activeTab === id;
+          return (
+            <button key={id} onClick={() => setActiveTab(id)}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl mb-0.5 text-left transition-all duration-150 group relative hover:bg-white/5"
+              style={isActive
+                ? { background: 'rgba(255,255,255,0.11)', border: '1px solid rgba(255,255,255,0.09)' }
+                : { border: '1px solid transparent' }
+              }>
+              {/* Active left accent bar */}
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                  style={{ background: 'linear-gradient(180deg, #93C5FD, #3B82F6)' }} />
+              )}
+              <span className={`text-lg leading-none flex-shrink-0 transition-transform duration-150 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
+                {icon}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className={`text-sm font-bold leading-none ${isActive ? 'text-white' : 'text-white/45 group-hover:text-white/70'}`}>
+                  {label}
+                </div>
+                <div className={`text-[10px] mt-0.5 leading-none ${isActive ? 'text-blue-300/50' : 'text-white/20 group-hover:text-white/35'}`}>
+                  {desc}
+                </div>
+              </div>
+              {isActive && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#60A5FA' }} />}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* User info + sign out */}
+      <div className="relative px-4 pb-5 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center gap-2.5 px-1 mb-3">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+            style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+            {currentUser.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold truncate leading-none" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {currentUser.split('@')[0]}
+            </p>
+            <p className="text-[9px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>Admin · KV Burhanpur</p>
+          </div>
+        </div>
+        <button onClick={onSignOut}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-all">
+          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Sign out
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ── Mobile bottom navigation ──────────────────────────────────────────────────
+function MobileBottomNav({
+  activeTab, setActiveTab,
+}: {
+  activeTab: 'arrangement' | 'status' | 'history';
+  setActiveTab: (t: 'arrangement' | 'status' | 'history') => void;
+}) {
+  return (
+    <nav className="kv-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40"
+      style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(148,163,184,0.2)' }}>
+      <div className="flex">
+        {NAV_ITEMS.map(({ id, icon, label }) => {
+          const isActive = activeTab === id;
+          return (
+            <button key={id} onClick={() => setActiveTab(id)}
+              className="flex-1 flex flex-col items-center gap-0.5 py-2.5 relative transition-all">
+              {isActive && (
+                <span className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full bg-blue-600" />
+              )}
+              <span className={`text-xl leading-none transition-transform duration-150 ${isActive ? 'scale-110' : ''}`}>
+                {icon}
+              </span>
+              <span className={`text-[10px] font-bold tracking-wide ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                {label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState('');
@@ -207,6 +399,36 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">{children}</p>;
 }
 
+// ── Workflow step indicator ───────────────────────────────────────────────────
+function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
+  const steps = [
+    { n: 1 as const, label: 'Setup' },
+    { n: 2 as const, label: 'Assign' },
+    { n: 3 as const, label: 'Report' },
+  ];
+  return (
+    <div className="flex items-center mb-4 px-1">
+      {steps.map(({ n, label }, i) => {
+        const done = step > n;
+        const active = step === n;
+        return (
+          <div key={n} className="flex items-center flex-1 last:flex-none">
+            <div className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${active ? 'opacity-100' : done ? 'opacity-60' : 'opacity-30'}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold flex-shrink-0 transition-all duration-200 ${
+                done ? 'bg-blue-500 text-white' : active ? 'bg-blue-600 text-white ring-2 ring-blue-200 ring-offset-1' : 'bg-slate-200 text-slate-400'
+              }`}>
+                {done ? '✓' : n}
+              </div>
+              <span className={`text-xs font-bold ${active ? 'text-blue-700' : done ? 'text-slate-500' : 'text-slate-300'}`}>{label}</span>
+            </div>
+            {i < 2 && <div className={`flex-1 h-px mx-2 transition-colors duration-300 ${done ? 'bg-blue-400' : 'bg-slate-200'}`} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -257,10 +479,12 @@ export default function App() {
     } catch { return null; }
   });
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [log, setLog] = useState<ReportRow[]>([]);
-  const [showLog, setShowLog] = useState(false);
   const [savedArrangementId, setSavedArrangementId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [setupCollapsed, setSetupCollapsed] = useState(false);
+  const [arrangementTitle, setArrangementTitle] = useState('');
+  const [titleLocked, setTitleLocked] = useState(false);
+  const [loadedArrangementId, setLoadedArrangementId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/timetable_master.csv').then(r => r.text()).then(csv => {
@@ -270,12 +494,6 @@ export default function App() {
     });
   }, []);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('kv_arrangement_log');
-      if (saved) setLog(JSON.parse(saved));
-    } catch {}
-  }, []);
 
   // Save form state on every change so it survives a page refresh
   useEffect(() => {
@@ -327,6 +545,12 @@ export default function App() {
     setAttendanceTeacher(''); setAttendanceClass('');
   }, [selectedDay]);
 
+  // Auto-collapse setup once teachers are marked; expand when all removed
+  useEffect(() => {
+    if (absentTeachers.length === 1) setSetupCollapsed(true);
+    if (absentTeachers.length === 0) setSetupCollapsed(false);
+  }, [absentTeachers.length]);
+
   const subWl = useMemo(() => computeSubWorkload(absentPeriods, subs, clubs), [absentPeriods, subs, clubs]);
   const covered = useMemo(
     () => absentPeriods.filter(e => !!subs[subKey(e.teacher, e.period)]).length,
@@ -346,6 +570,27 @@ export default function App() {
     setSubs({}); setClubs({}); setReport(null);
   }, []);
 
+  const handleNewSchedule = useCallback(() => {
+    setDateVal(todayDate());
+    setAbsentTeachers([]);
+    setAbsenceConfigs({});
+    setCancelledClasses([]);
+    setCancelledClassConfigs({});
+    setUseCancelledTeachers(false);
+    setSchoolHalfDay(false);
+    setSchoolHalfDayPeriod(4);
+    setLunchDuties([]);
+    setAttendanceDuties([]);
+    setSubs({});
+    setClubs({});
+    setReport(null);
+    setSavedArrangementId(null);
+    setArrangementTitle('');
+    setTitleLocked(false);
+    setLoadedArrangementId(null);
+    setSetupCollapsed(false);
+  }, []);
+
   const handleSetSub = useCallback((teacher: string, period: number, val: string) => {
     setSubs(prev => ({ ...prev, [subKey(teacher, period)]: val })); setReport(null);
   }, []);
@@ -359,10 +604,7 @@ export default function App() {
     const rows = buildReportRowsWithCancelled(df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal);
     setReport(rows);
     setSavedArrangementId(null);
-    const newLog = [...log, ...rows];
-    setLog(newLog);
-    try { localStorage.setItem('kv_arrangement_log', JSON.stringify(newLog)); } catch {}
-  }, [df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal, log]);
+  }, [df, absentPeriods, cancelledPeriods, subs, clubs, selectedDay, dateVal]);
 
   const handleDownloadPDF = useCallback(async (note: string | null) => {
     if (!report) return;
@@ -380,7 +622,7 @@ export default function App() {
     a.download = `arrangement_${dateVal}.csv`; a.click(); URL.revokeObjectURL(url);
   }, [report, dateVal]);
 
-  const handleSaveArrangement = useCallback(async () => {
+  const handleSaveArrangement = useCallback(async (titleOverride?: string) => {
     if (!report) return;
     setSaving(true);
     const formState: FormState = {
@@ -389,18 +631,24 @@ export default function App() {
       lunchDuties, attendanceDuties, subs, clubs,
     };
     try {
+      const fmtD = new Date(dateVal + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      const resolvedTitle = (titleOverride ?? arrangementTitle).trim() || `${selectedDay} · ${fmtD}`;
       const arr = await saveArrangement({
-        title: null, date: dateVal, day: selectedDay, created_by: currentUser,
+        title: resolvedTitle,
+        date: dateVal, day: selectedDay, created_by: currentUser,
         form_state: formState, report_rows: report, is_shared: false,
       });
       setSavedArrangementId(arr.id);
+      setArrangementTitle(resolvedTitle);
+      setLoadedArrangementId(null);
+      setTitleLocked(true);
     } catch (e) { console.error('Save error:', e); alert('Failed to save: ' + (e instanceof Error ? e.message : String(e))); }
     finally { setSaving(false); }
   }, [report, dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
       useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
-      lunchDuties, attendanceDuties, subs, clubs, selectedDay, currentUser]);
+      lunchDuties, attendanceDuties, subs, clubs, selectedDay, currentUser, arrangementTitle]);
 
-  const handleLoadArrangement = useCallback((fs: FormState) => {
+  const handleLoadArrangement = useCallback((fs: FormState, title?: string | null, id?: string) => {
     skipSubsReset.current = true;
     skipDayReset.current = true;
     setDateVal(fs.dateVal);
@@ -417,17 +665,30 @@ export default function App() {
     setClubs(fs.clubs);
     setReport(null);
     setSavedArrangementId(null);
+    setArrangementTitle(title ?? '');
+    setTitleLocked(true);
+    setLoadedArrangementId(id ?? null);
     setActiveTab('arrangement');
   }, []);
 
-  const handleDownloadLog = useCallback(() => {
-    if (!log.length) return;
-    const headers = Object.keys(log[0]).join(',');
-    const body = log.map(r => Object.values(r).map(v => `"${v}"`).join(',')).join('\n');
-    const blob = new Blob([headers + '\n' + body], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
-    a.download = 'arrangements_log.csv'; a.click(); URL.revokeObjectURL(url);
-  }, [log]);
+  const handleUpdateVersion = useCallback(async () => {
+    if (!report || !loadedArrangementId) return;
+    setSaving(true);
+    const formState: FormState = {
+      dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
+      useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
+      lunchDuties, attendanceDuties, subs, clubs,
+    };
+    try {
+      await updateArrangement(loadedArrangementId, { title: arrangementTitle || undefined, form_state: formState, report_rows: report });
+      setSavedArrangementId(loadedArrangementId);
+      setTitleLocked(true);
+    } catch (e) { console.error('Update error:', e); alert('Failed to update: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setSaving(false); }
+  }, [report, loadedArrangementId, arrangementTitle, dateVal, absentTeachers, absenceConfigs,
+      cancelledClasses, cancelledClassConfigs, useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
+      lunchDuties, attendanceDuties, subs, clubs]);
+
 
   if (authed === null) return null;
   if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
@@ -446,35 +707,73 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: '#F1F5F9' }}>
-      {/* Global datalist for teacher name autocomplete (used by duty + custom sub inputs) */}
+    <div className="min-h-screen flex" style={{ background: '#F1F5F9' }}>
+      {/* Global datalist */}
       <datalist id="kv-teacher-names">
         {allTeachers.map(t => <option key={t} value={shortName(t)} />)}
       </datalist>
-      <div className="max-w-3xl mx-auto px-3 py-4 pb-24">
 
-        {/* ── Header ── */}
-        <div className="relative rounded-3xl px-5 pt-5 pb-5 mb-5 overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #2563EB 100%)', boxShadow: '0 8px 32px rgba(37,99,235,.3)' }}>
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-8 -right-8 w-40 h-40 bg-blue-400/10 rounded-full blur-2xl" />
-            <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl" />
-          </div>
-          <div className="flex flex-col items-center gap-2 relative z-10">
-            <div className="flex items-center justify-center gap-3 mb-1">
-              <img src="/2023042075.png" alt="KV Logo" className="h-10 w-auto flex-shrink-0"
-                style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
-              <img src="/2025021137.png" alt="PM SHRI Logo" className="h-8 w-auto flex-shrink-0"
-                style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.1)' }} />
+      {/* Desktop sidebar */}
+      <AppSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onSignOut={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
+        currentUser={currentUser}
+        absentCount={absentTeachers.length}
+        coveredCount={covered}
+        totalPeriods={absentPeriods.length}
+        dateVal={dateVal}
+        selectedDay={selectedDay}
+      />
+
+      {/* Main content area */}
+      <div className="flex-1 min-w-0 lg:pl-64">
+        {/* Mobile sticky header */}
+        <div className="lg:hidden sticky top-0 z-30 px-3 py-2.5 flex items-center justify-between"
+          style={{ background: 'rgba(241,245,249,0.96)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
+          <div className="flex items-center gap-2.5">
+            <img src="/2023042075.png" alt="KV" className="h-7 w-auto"
+              style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,.2))' }} />
+            <div>
+              <div className="text-sm font-extrabold text-slate-800 leading-none">KV Burhanpur</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Arrangement · 2026–27</div>
             </div>
-            <h1 className="text-sm font-extrabold text-white tracking-wider leading-snug uppercase text-center">PM SHRI Kendriya Vidyalaya Burhanpur</h1>
-            <p className="text-blue-300/60 text-xs tracking-wide">Teacher Arrangement &amp; Substitution · 2026-27</p>
           </div>
+          <StatusChip color="accent" size="sm">{selectedDay}</StatusChip>
         </div>
 
+        <div className="max-w-3xl mx-auto px-3 py-4 pb-24 lg:pb-8 lg:px-8 lg:py-6">
+
+        {/* ── Arrangement Tab (setup + assignment) ── */}
+        {activeTab === 'arrangement' && (<div className="kv-tab-content">
+        <StepIndicator step={report ? 3 : (absentTeachers.length > 0 || cancelledClasses.length > 0) ? 2 : 1} />
+        <button
+          onClick={handleNewSchedule}
+          className="w-full flex items-center justify-center gap-2 py-2.5 mb-4 rounded-xl text-sm font-bold border-2 border-dashed border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all active:scale-[0.99]"
+        >
+          <span className="text-base leading-none">＋</span> New Arrangement
+        </button>
         {/* ── Morning Setup ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-4">
-          <SectionLabel>Morning Setup</SectionLabel>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
+          <button
+            type="button"
+            onClick={() => setSetupCollapsed(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-slate-50/50 transition-colors"
+            style={{ borderBottom: !setupCollapsed ? '1px solid #f1f5f9' : 'none' }}
+          >
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex-shrink-0">Morning Setup</span>
+              {setupCollapsed && (<>
+                <StatusChip color="accent" size="sm">{selectedDay}</StatusChip>
+                {absentTeachers.length > 0 && <StatusChip color="danger" size="sm">{absentTeachers.length} absent</StatusChip>}
+                {cancelledClasses.length > 0 && <StatusChip color="warning" size="sm">{cancelledClasses.length} cancelled</StatusChip>}
+                {schoolHalfDay && <StatusChip color="default" size="sm">Half Day</StatusChip>}
+              </>)}
+            </div>
+            <span className="text-xs font-semibold text-slate-400 flex-shrink-0">{setupCollapsed ? 'Edit ▼' : 'Done ▲'}</span>
+          </button>
+          {!setupCollapsed && (
+          <div className="p-4">
 
           {/* Date */}
           <div className="mb-4">
@@ -778,24 +1077,9 @@ export default function App() {
               </div>
             )}
           </div>
+          </div>
+          )}
         </div>
-
-        {/* ── Tab bar ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-1 mb-4 flex gap-1">
-          {(['arrangement', 'status', 'history'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === tab
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}>
-              {tab === 'arrangement' ? '📋 Arrange' : tab === 'status' ? '👥 Status' : '☁ History'}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Arrangement Tab ── */}
-        {activeTab === 'arrangement' && (
           <ArrangementTab
             df={df} absentTeachers={absentTeachers} absentPeriods={absentPeriods}
             absenceConfigs={absenceConfigs}
@@ -806,27 +1090,33 @@ export default function App() {
             registerDuties={registerDuties}
             lunchDuties={lunchDuties} attendanceDuties={attendanceDuties}
             report={report} pdfLoading={pdfLoading}
-            log={log} showLog={showLog} setShowLog={setShowLog}
             onAutoFill={handleAutoFill}
             onReset={handleReset}
             onSetSub={handleSetSub} onSetClub={handleSetClub}
             onGenerateReport={handleGenerateReport}
             onDownloadPDF={handleDownloadPDF}
             onDownloadCSV={handleDownloadCSV}
-            onDownloadLog={handleDownloadLog}
             onSave={handleSaveArrangement}
             saving={saving}
             isSaved={savedArrangementId !== null}
+            arrangementTitle={arrangementTitle}
+            onTitleChange={setArrangementTitle}
+            titleLocked={titleLocked}
+            loadedArrangementId={loadedArrangementId}
+            onUpdateVersion={handleUpdateVersion}
           />
-        )}
+        </div>)}
 
         {/* ── History Tab ── */}
         {activeTab === 'history' && (
+          <div className="kv-tab-content">
           <HistoryTab currentUser={currentUser} onLoad={handleLoadArrangement} />
+          </div>
         )}
 
         {/* ── Teacher Status Tab ── */}
         {activeTab === 'status' && (
+          <div className="kv-tab-content">
           <TeacherStatusTab
             df={df} allTeachers={allTeachers}
             absentTeachers={absentTeachers} absentPeriods={absentPeriods}
@@ -836,16 +1126,14 @@ export default function App() {
             cancelledClassConfigs={cancelledClassConfigs}
             schoolMaxPeriod={schoolMaxPeriod}
           />
+          </div>
         )}
 
-        {/* ── Sign out ── */}
-        <div className="pt-2 pb-4 flex justify-center">
-          <button onClick={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
-            className="text-xs font-semibold text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 hover:bg-red-50 px-4 py-2 rounded-full transition-all">
-            Sign out
-          </button>
-        </div>
-      </div>
+        </div>{/* /max-w-3xl */}
+      </div>{/* /main content */}
+
+      {/* Mobile bottom navigation */}
+      <MobileBottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 }
@@ -864,7 +1152,6 @@ interface ArrProps {
   registerDuties: RegisterDuty[];
   lunchDuties: DutyEntry[]; attendanceDuties: DutyEntry[];
   report: ReportRow[] | null; pdfLoading: boolean;
-  log: ReportRow[]; showLog: boolean; setShowLog: (v: boolean) => void;
   onAutoFill: () => void;
   onReset: () => void;
   onSetSub: (t: string, p: number, v: string) => void;
@@ -872,10 +1159,14 @@ interface ArrProps {
   onGenerateReport: () => void;
   onDownloadPDF: (note: string | null) => void;
   onDownloadCSV: () => void;
-  onDownloadLog: () => void;
-  onSave: () => void;
+  onSave: (titleOverride?: string) => void;
+  onUpdateVersion: () => void;
   saving: boolean;
   isSaved: boolean;
+  arrangementTitle: string;
+  onTitleChange: (t: string) => void;
+  titleLocked: boolean;
+  loadedArrangementId: string | null;
 }
 
 function ArrangementTab({
@@ -883,14 +1174,17 @@ function ArrangementTab({
   absenceConfigs, cancelledClasses, cancelledClassConfigs, cancelledPeriods, useCancelledTeachers,
   selectedDay, dateVal, subs, clubs, subWl, covered, registerDuties,
   lunchDuties, attendanceDuties,
-  report, pdfLoading, log, showLog, setShowLog,
+  report, pdfLoading,
   onAutoFill, onReset, onSetSub, onSetClub, onGenerateReport,
-  onDownloadPDF, onDownloadCSV, onDownloadLog,
-  onSave, saving, isSaved,
+  onDownloadPDF, onDownloadCSV,
+  onSave, onUpdateVersion, saving, isSaved,
+  arrangementTitle, onTitleChange, titleLocked, loadedArrangementId,
 }: ArrProps) {
   const [copied, setCopied] = useState(false);
   const [reportNote, setReportNote] = useState('');
   const [includeNotes, setIncludeNotes] = useState(true);
+  const [newVersionMode, setNewVersionMode] = useState(false);
+  const [newVersionTitle, setNewVersionTitle] = useState('');
 
   function countWords(text: string) {
     return text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
@@ -1214,73 +1508,70 @@ function ArrangementTab({
             </button>
           </div>
 
-          {/* Save to cloud history */}
-          <button onClick={onSave} disabled={saving || isSaved}
-            className={`mt-3 w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-              isSaved
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 active:scale-[0.99]'
-            }`}>
-            {saving ? <LoadingSpinner size="sm" /> : isSaved ? '✓ Saved to History' : '☁ Save to History'}
-          </button>
+          {/* Schedule name */}
+          <div className="mt-3">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Schedule name</label>
+            {titleLocked || isSaved ? (
+              <div className="w-full border border-slate-100 rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50">
+                {arrangementTitle || `${selectedDay} – arrangement`}
+              </div>
+            ) : (
+              <input type="text" value={arrangementTitle} onChange={e => onTitleChange(e.target.value)}
+                placeholder={`e.g., ${selectedDay} – regular day`}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
+            )}
+          </div>
+
+          {/* Save actions */}
+          {isSaved ? (
+            <div className="mt-3 w-full py-3 rounded-xl font-bold text-sm bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center gap-2">
+              ✓ Saved to History
+            </div>
+          ) : loadedArrangementId && !newVersionMode ? (
+            /* Loaded arrangement — ask update or new version */
+            <div className="mt-3 rounded-2xl border border-slate-200 overflow-hidden">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                You edited a loaded arrangement — save as:
+              </p>
+              <div className="flex divide-x divide-slate-100">
+                <button onClick={onUpdateVersion} disabled={saving}
+                  className="flex-1 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  {saving ? <LoadingSpinner size="sm" /> : '↺'} Update same version
+                </button>
+                <button onClick={() => { setNewVersionMode(true); setNewVersionTitle(arrangementTitle ? arrangementTitle + ' (v2)' : ''); }} disabled={saving}
+                  className="flex-1 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  ＋ New version
+                </button>
+              </div>
+            </div>
+          ) : newVersionMode ? (
+            /* New version title input + confirm */
+            <div className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2">New version name</p>
+              <input type="text" value={newVersionTitle} onChange={e => setNewVersionTitle(e.target.value)}
+                placeholder={`e.g., ${selectedDay} – revised`} autoFocus
+                className="w-full border border-blue-200 rounded-xl px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400 mb-2" />
+              <div className="flex gap-2">
+                <button onClick={() => setNewVersionMode(false)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all">
+                  Cancel
+                </button>
+                <button onClick={() => { onSave(newVersionTitle || undefined); setNewVersionMode(false); }} disabled={saving}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+                  {saving ? <LoadingSpinner size="sm" /> : '☁ Save New Version'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Fresh arrangement — normal save */
+            <button onClick={() => onSave()} disabled={saving}
+              className="mt-3 w-full py-3 rounded-xl font-bold text-sm bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+              {saving ? <LoadingSpinner size="sm" /> : '☁ Save to History'}
+            </button>
+          )}
         </div>
       )}
 
-      {/* Past log */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
-        <button onClick={() => setShowLog(!showLog)}
-          className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
-          <span className="flex items-center gap-2">
-            <span>📂</span>
-            Past Arrangements Log
-            <span className="text-xs font-bold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">{log.length}</span>
-          </span>
-          <span className="text-slate-400 text-xs">{showLog ? '▲' : '▼'}</span>
-        </button>
-        {showLog && (
-          <div className="border-t border-slate-100 p-4">
-            {log.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">No arrangements saved yet.</p>
-            ) : (
-              <>
-                <button onClick={onDownloadLog}
-                  className="mb-3 px-3 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors">
-                  ⬇ Download Full Log
-                </button>
-                <div className="overflow-x-auto rounded-xl border border-slate-100">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-500">
-                        {['Date', 'Day', 'Period', 'Absent', 'Sub', 'Type'].map(h => (
-                          <th key={h} className="px-2.5 py-2 text-left font-bold">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {log.slice(-30).reverse().map((r, i) => (
-                        <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'} border-t border-slate-50`}>
-                          <td className="px-2.5 py-2 font-medium text-slate-600">{r.Date}</td>
-                          <td className="px-2.5 py-2 text-slate-500">{r.Day}</td>
-                          <td className="px-2.5 py-2 font-bold text-blue-600">{r.Period}</td>
-                          <td className="px-2.5 py-2 text-slate-600">{shortName(r.Absent_Teacher)}</td>
-                          <td className="px-2.5 py-2 font-medium text-slate-700">{shortName(r.Substitute)}</td>
-                          <td className="px-2.5 py-2">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                              r.Type === 'CANCELLED' ? 'bg-orange-100 text-orange-700' :
-                              r.Type === 'CLUBBED' ? 'bg-amber-100 text-amber-700' :
-                              'bg-emerald-100 text-emerald-700'
-                            }`}>{r.Type}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
     </>
   );
 }
@@ -1292,13 +1583,20 @@ function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs: FormState) => void }) {
+function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs: FormState, title?: string | null, id?: string) => void }) {
   const [section, setSection] = useState<'mine' | 'shared'>('mine');
   const [mine, setMine] = useState<Arrangement[]>([]);
   const [shared, setShared] = useState<Arrangement[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [concludedIds, setConcludedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('kv_concluded') || '[]')); }
+    catch { return new Set<string>(); }
+  });
 
   async function load() {
     setLoading(true); setErr(null);
@@ -1333,23 +1631,61 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
     finally { setActionId(null); }
   }
 
-  function Card({ arr, isOwn }: { arr: Arrangement; isOwn: boolean }) {
+  async function handleRename(id: string, newTitle: string) {
+    if (!newTitle.trim()) { setEditingId(null); return; }
+    setActionId(id);
+    try {
+      const updated = await updateArrangement(id, { title: newTitle.trim() });
+      setMine(prev => prev.map(a => a.id === id ? updated : a));
+    } catch (e) { alert('Failed to rename: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setActionId(null); setEditingId(null); }
+  }
+
+  function handleConclude(id: string, siblingIds: string[]) {
+    const next = new Set(concludedIds);
+    for (const sid of siblingIds) next.delete(sid);
+    if (concludedIds.has(id)) { next.delete(id); } else { next.add(id); }
+    setConcludedIds(next);
+    try { localStorage.setItem('kv_concluded', JSON.stringify([...next])); } catch {}
+  }
+
+  function Card({ arr, isOwn, siblingIds = [] }: { arr: Arrangement; isOwn: boolean; siblingIds?: string[] }) {
     const busy = actionId === arr.id;
+    const isEditing = editingId === arr.id;
+    const isConcluded = concludedIds.has(arr.id);
     const absent = arr.form_state.absentTeachers.length;
     const cancelled = arr.form_state.cancelledClasses.length;
     const subs = arr.report_rows.filter(r => r.Type !== 'CANCELLED').length;
     return (
-      <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-3 shadow-sm">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div>
-            <div className="font-bold text-slate-800 text-sm">{arr.day} · {fmtDate(arr.date)}</div>
-            <div className="text-xs text-slate-400 mt-0.5">{isOwn ? 'You' : arr.created_by.split('@')[0]}</div>
-          </div>
-          <div className="flex gap-1.5 flex-shrink-0">
-            {arr.is_shared && (
-              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">Shared</span>
+      <div className={`bg-white border rounded-2xl p-4 mb-2 shadow-sm transition-all ${isConcluded ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-100'}`}>
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="flex-1 min-w-0">
+            {isEditing ? (
+              <input autoFocus value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                onBlur={() => handleRename(arr.id, editTitle)}
+                onKeyDown={e => { if (e.key === 'Enter') handleRename(arr.id, editTitle); if (e.key === 'Escape') setEditingId(null); }}
+                className="w-full border border-blue-300 rounded-lg px-2 py-1 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            ) : (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {isConcluded && <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">★ Final</span>}
+                <span className="font-bold text-slate-800 text-sm">{arr.title || `${arr.day} · ${fmtDate(arr.date)}`}</span>
+                {isOwn && (
+                  <button onClick={() => { setEditingId(arr.id); setEditTitle(arr.title || ''); }}
+                    className="text-slate-300 hover:text-blue-500 transition-colors flex-shrink-0 text-xs leading-none">✏</button>
+                )}
+              </div>
             )}
+            <div className="text-xs text-slate-400 mt-0.5">
+              {arr.day} · {fmtDate(arr.date)}
+              <span className="mx-1 text-slate-200">·</span>
+              {new Date(arr.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              <span className="mx-1 text-slate-200">·</span>
+              {isOwn ? 'You' : arr.created_by.split('@')[0]}
+            </div>
           </div>
+          {arr.is_shared && (
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0">Shared</span>
+          )}
         </div>
         <div className="flex gap-1.5 mb-3 flex-wrap">
           {absent > 0 && <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-full px-2 py-0.5">{absent} absent</span>}
@@ -1357,10 +1693,16 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
           {subs > 0 && <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-2 py-0.5">{subs} subs</span>}
         </div>
         <div className="flex gap-1.5">
-          <button onClick={() => onLoad(arr.form_state)}
+          <button onClick={() => onLoad(arr.form_state, arr.title, arr.id)}
             className="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all">
             Load
           </button>
+          {siblingIds.length > 0 && (
+            <button onClick={() => handleConclude(arr.id, siblingIds)}
+              className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${isConcluded ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'}`}>
+              {isConcluded ? '★ Final' : '☆ Conclude'}
+            </button>
+          )}
           {isOwn && (<>
             <button onClick={() => handleToggleShare(arr)} disabled={busy}
               className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${arr.is_shared ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
@@ -1377,6 +1719,20 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
   }
 
   const list = section === 'mine' ? mine : shared;
+
+  const grouped = useMemo(() => {
+    const groups: Record<string, Arrangement[]> = {};
+    for (const arr of list) {
+      if (!groups[arr.date]) groups[arr.date] = [];
+      groups[arr.date].push(arr);
+    }
+    return Object.entries(groups)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, arrs]) => ({
+        date,
+        arrs: [...arrs].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+      }));
+  }, [list]);
 
   return (
     <div>
@@ -1410,7 +1766,56 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
             </div>
           </div>
         ) : (
-          list.map(arr => <Card key={arr.id} arr={arr} isOwn={section === 'mine'} />)
+          grouped.map(({ date, arrs }) => {
+            const hasMultiple = arrs.length > 1;
+            const isExpanded = expandedDates.has(date);
+            const allIds = arrs.map(a => a.id);
+            // Put concluded version first, then by created_at desc
+            const sorted = [...arrs].sort((a, b) => {
+              const ac = concludedIds.has(a.id) ? 1 : 0;
+              const bc = concludedIds.has(b.id) ? 1 : 0;
+              if (ac !== bc) return bc - ac;
+              return b.created_at.localeCompare(a.created_at);
+            });
+            const displayed = hasMultiple && !isExpanded ? [sorted[0]] : sorted;
+            const toggleExpand = () => setExpandedDates(prev => {
+              const next = new Set(prev);
+              if (isExpanded) next.delete(date); else next.add(date);
+              return next;
+            });
+            return (
+              <div key={date}>
+                {hasMultiple && (
+                  <div className="flex items-center gap-2 mt-2 mb-1.5 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{arrs[0].day} · {fmtDate(date)}</span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                      {arrs.length} versions
+                    </span>
+                    {allIds.some(id => concludedIds.has(id)) && (
+                      <span className="text-[10px] font-bold text-amber-700">★ concluded</span>
+                    )}
+                  </div>
+                )}
+                {displayed.map((arr, i) => (
+                  <div key={arr.id} className={hasMultiple ? 'border-l-2 border-amber-200 pl-3 ml-1' : ''}>
+                    {hasMultiple && i === 0 && !concludedIds.has(arr.id) && (
+                      <span className="inline-block text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 mb-1">Latest</span>
+                    )}
+                    {hasMultiple && i > 0 && (
+                      <span className="inline-block text-[9px] font-bold text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5 mb-1">Older</span>
+                    )}
+                    <Card arr={arr} isOwn={section === 'mine'} siblingIds={hasMultiple ? allIds : []} />
+                  </div>
+                ))}
+                {hasMultiple && (
+                  <button onClick={toggleExpand}
+                    className="ml-4 mb-3 text-xs font-semibold text-slate-400 hover:text-blue-600 border border-slate-200 hover:border-blue-200 px-3 py-1.5 rounded-full transition-all">
+                    {isExpanded ? '▲ Show less' : `▼ ${arrs.length - 1} older version${arrs.length > 2 ? 's' : ''}`}
+                  </button>
+                )}
+              </div>
+            );
+          })
         )
       )}
 
