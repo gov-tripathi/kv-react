@@ -1670,12 +1670,17 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
   }
 
   async function handleToggleShare(arr: Arrangement) {
-    setActionId(arr.id);
+    const newShared = !arr.is_shared;
+    // Optimistic update — instant feedback
+    setMine(prev => prev.map(a => a.id === arr.id ? { ...a, is_shared: newShared } : a));
     try {
-      const updated = await updateArrangement(arr.id, { is_shared: !arr.is_shared });
+      const updated = await updateArrangement(arr.id, { is_shared: newShared });
       setMine(prev => prev.map(a => a.id === arr.id ? updated : a));
-    } catch (e) { console.error('Share error:', e); alert('Failed to update sharing: ' + (e instanceof Error ? e.message : String(e))); }
-    finally { setActionId(null); }
+    } catch (e) {
+      // Revert on failure
+      setMine(prev => prev.map(a => a.id === arr.id ? arr : a));
+      alert('Failed to update sharing: ' + (e instanceof Error ? e.message : String(e)));
+    }
   }
 
   async function handleRename(id: string, newTitle: string) {
@@ -1709,8 +1714,8 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
   function Card({ arr, isOwn, siblingIds = [] }: { arr: Arrangement; isOwn: boolean; siblingIds?: string[] }) {
     const busy = actionId === arr.id;
     const isEditing = editingId === arr.id;
-    // Single-version arrangements are always treated as the final version
     const isConcluded = arr.is_concluded || siblingIds.length === 0;
+    const hasMultiple = siblingIds.length > 0;
     const [pdfBusy, setPdfBusy] = useState(false);
     async function handlePDF() {
       setPdfBusy(true);
@@ -1721,8 +1726,13 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
     const absent = arr.form_state.absentTeachers.length;
     const cancelled = arr.form_state.cancelledClasses.length;
     const subs = arr.report_rows.filter(r => r.Type !== 'CANCELLED').length;
+    const timeStr = new Date(arr.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
     return (
-      <div className={`bg-white border rounded-2xl p-4 mb-2 shadow-sm transition-all ${isConcluded ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-100'}`}>
+      <div className={`bg-white border rounded-2xl p-4 mb-2 shadow-sm transition-all
+        ${isConcluded ? 'border-amber-300 ring-1 ring-amber-200' : arr.is_shared ? 'border-emerald-200' : 'border-slate-100'}`}>
+
+        {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="flex-1 min-w-0">
             {isEditing ? (
@@ -1733,58 +1743,75 @@ function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string;
             ) : (
               <div className="flex items-center gap-1.5 flex-wrap">
                 {isConcluded && <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">★ Final</span>}
-                <span className="font-bold text-slate-800 text-sm">{arr.title || `${arr.day} · ${fmtDate(arr.date)}`}</span>
+                <span className="font-bold text-slate-800 text-sm leading-snug">{arr.title || `${arr.day} · ${fmtDate(arr.date)}`}</span>
                 {isOwn && (
                   <button onClick={() => { setEditingId(arr.id); setEditTitle(arr.title || ''); }}
                     className="text-slate-300 hover:text-blue-500 transition-colors flex-shrink-0 text-xs leading-none">✏</button>
                 )}
               </div>
             )}
-            <div className="text-xs text-slate-400 mt-0.5">
-              {arr.day} · {fmtDate(arr.date)}
-              <span className="mx-1 text-slate-200">·</span>
-              {new Date(arr.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              <span className="mx-1 text-slate-200">·</span>
-              {isOwn ? 'You' : arr.created_by.split('@')[0]}
-            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              {arr.day} · {fmtDate(arr.date)} · {timeStr}
+              {!isOwn && <> · {arr.created_by.split('@')[0]}</>}
+            </p>
           </div>
+          {/* Shared status badge */}
           {arr.is_shared && (
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0">Shared</span>
+            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0 mt-0.5">
+              🔗 Shared
+            </span>
           )}
         </div>
-        <div className="flex gap-1.5 mb-3 flex-wrap">
-          {absent > 0 && <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-full px-2 py-0.5">{absent} absent</span>}
-          {cancelled > 0 && <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-100 rounded-full px-2 py-0.5">{cancelled} cancelled</span>}
-          {subs > 0 && <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 border border-slate-100 rounded-full px-2 py-0.5">{subs} subs</span>}
-        </div>
-        <div className="flex gap-1.5">
-          <button onClick={() => onLoad(arr.form_state, arr.title, arr.id)}
-            className="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all">
-            Load
-          </button>
+
+        {/* Stats */}
+        {(absent > 0 || cancelled > 0 || subs > 0) && (
+          <div className="flex gap-1.5 mb-3 flex-wrap mt-2">
+            {absent > 0 && <span className="text-[11px] font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1">👤 {absent} absent</span>}
+            {subs > 0 && <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1">↔ {subs} subs</span>}
+            {cancelled > 0 && <span className="text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-100 rounded-lg px-2.5 py-1">🚫 {cancelled} cancelled</span>}
+          </div>
+        )}
+
+        {/* Primary action */}
+        <button onClick={() => onLoad(arr.form_state, arr.title, arr.id)}
+          className="w-full py-2.5 mb-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.99]"
+          style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB)' }}>
+          Load Arrangement
+        </button>
+
+        {/* Secondary actions */}
+        <div className="flex gap-1.5 mb-1.5">
           <button onClick={handlePDF} disabled={pdfBusy}
-            className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all disabled:opacity-50">
+            className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all disabled:opacity-50 flex items-center justify-center gap-1">
             {pdfBusy ? <LoadingSpinner size="sm" /> : '📄 PDF'}
           </button>
-          {siblingIds.length > 0 && (
-            <button onClick={() => handleConclude(arr, siblingIds)}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${isConcluded ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'}`}>
-              {isConcluded ? '★ Final' : '☆ Conclude'}
+          {isOwn && (
+            <button onClick={() => handleToggleShare(arr)}
+              className={`flex-[2] py-2 rounded-xl text-xs font-bold border transition-all
+                ${arr.is_shared
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+              {arr.is_shared ? '🔗 Unshare from teachers' : 'Share with teachers'}
             </button>
           )}
-          {isOwn && (<>
-            {(siblingIds.length === 0 || isConcluded) && (
-              <button onClick={() => handleToggleShare(arr)} disabled={busy}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${arr.is_shared ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
-                {busy ? '…' : arr.is_shared ? 'Unshare' : 'Share'}
-              </button>
-            )}
+          {isOwn && (
             <button onClick={() => handleDelete(arr.id)} disabled={busy}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all disabled:opacity-50">
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 hover:text-red-700 transition-all disabled:opacity-50">
               🗑
             </button>
-          </>)}
+          )}
         </div>
+
+        {/* Conclude toggle — multi-version only */}
+        {isOwn && hasMultiple && (
+          <button onClick={() => handleConclude(arr, siblingIds)} disabled={busy}
+            className={`w-full py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-40
+              ${isConcluded
+                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                : 'border-dashed border-slate-200 text-slate-400 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+            {isConcluded ? '★ This is the Final Version' : '☆ Mark as Final Version'}
+          </button>
+        )}
       </div>
     );
   }
