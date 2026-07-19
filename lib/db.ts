@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase';
-import type { Arrangement, FormState, ReportRow } from './types';
+import type { Arrangement, FormState, ReportRow, TeacherAccount } from './types';
 
 export async function getMyArrangements(email: string): Promise<Arrangement[]> {
   const { data, error } = await getSupabase()
@@ -59,6 +59,56 @@ export async function updateArrangement(
 export async function deleteArrangement(id: string): Promise<void> {
   const { error } = await getSupabase().from('arrangements').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ── Teacher accounts ──────────────────────────────────────────────────────────
+
+export async function getTeacherAccounts(): Promise<TeacherAccount[]> {
+  const { data, error } = await getSupabase()
+    .from('teacher_accounts')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as TeacherAccount[];
+}
+
+export async function createTeacherAccount(username: string, password: string, teacherName: string): Promise<TeacherAccount> {
+  const { data, error } = await getSupabase()
+    .from('teacher_accounts')
+    .insert({ username, password, teacher_name: teacherName })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as TeacherAccount;
+}
+
+export async function deleteTeacherAccount(id: string): Promise<void> {
+  const { error } = await getSupabase().from('teacher_accounts').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function loginTeacher(username: string, password: string): Promise<TeacherAccount | null> {
+  const { data, error } = await getSupabase()
+    .from('teacher_accounts')
+    .select('*')
+    .eq('username', username)
+    .eq('password', password)
+    .single();
+  if (error) return null;
+  return data as TeacherAccount;
+}
+
+export async function getSharedArrangementForDate(date: string): Promise<Arrangement | null> {
+  const { data, error } = await getSupabase()
+    .from('arrangements')
+    .select('*')
+    .eq('date', date)
+    .eq('is_shared', true);
+  if (error || !data || data.length === 0) return null;
+  const arr = data as Arrangement[];
+  const concluded = arr.find(a => a.is_concluded);
+  if (concluded) return concluded;
+  return arr.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
 }
 
 // Set is_concluded on a batch of arrangement IDs

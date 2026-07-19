@@ -78,3 +78,11 @@ export interface Arrangement {
   created_at: string;
   updated_at: string;
 }
+
+export interface TeacherAccount {
+  id: string;
+  username: string;
+  password: string;
+  teacher_name: string;
+  created_at: string;
+}

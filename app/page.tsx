@@ -68,13 +68,14 @@ import {
   buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod,
   getNotReqTeachersForPeriod, priorityIdx, isNotReq,
 } from '@/lib/timetable';
-import type { AbsenceConfig, FormState, Arrangement } from '@/lib/types';
+import type { AbsenceConfig, FormState, Arrangement, TeacherAccount } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
 import { computeRegisterDuties } from '@/lib/duties';
 import type { RegisterDuty } from '@/lib/duties';
 import {
   getMyArrangements, getSharedArrangements,
   saveArrangement, updateArrangement, deleteArrangement, setConcluded, saveDraft, loadDraft,
+  loginTeacher, getTeacherAccounts, createTeacherAccount, deleteTeacherAccount, getSharedArrangementForDate,
 } from '@/lib/db';
 
 const USERS: Record<string, string> = {
@@ -303,23 +304,47 @@ function MobileBottomNav({
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
+function LoginScreen({ onLogin }: { onLogin: (role: 'admin' | 'teacher', user: string, teacherName: string) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (USERS[email.trim()] === password) {
+    const input = email.trim();
+    // Admin check (sync, hardcoded)
+    if (USERS[input] === password) {
       setLoading(true);
       setTimeout(() => {
-        try { localStorage.setItem('kv_auth', email.trim()); } catch {}
-        onLogin();
+        try {
+          localStorage.setItem('kv_auth', input);
+          localStorage.setItem('kv_role', 'admin');
+          localStorage.removeItem('kv_teacher_name');
+        } catch {}
+        onLogin('admin', input, '');
       }, 400);
-    } else {
-      setError('Invalid email or password.');
+      return;
+    }
+    // Teacher check (async, DB)
+    setLoading(true);
+    try {
+      const account = await loginTeacher(input, password);
+      if (account) {
+        try {
+          localStorage.setItem('kv_auth', input);
+          localStorage.setItem('kv_role', 'teacher');
+          localStorage.setItem('kv_teacher_name', account.teacher_name);
+        } catch {}
+        onLogin('teacher', input, account.teacher_name);
+      } else {
+        setError('Invalid username or password.');
+        setLoading(false);
+      }
+    } catch {
+      setError('Login failed. Check your connection.');
+      setLoading(false);
     }
   }
 
@@ -348,8 +373,8 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(24px)' }}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Email address</label>
-              <input type="email" value={email} placeholder="you@example.com" autoComplete="email"
+              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Email or Username</label>
+              <input type="text" value={email} placeholder="Email or username" autoComplete="username"
                 onChange={e => { setEmail(e.target.value); setError(''); }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-white/15 bg-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:border-transparent transition-all" />
             </div>
@@ -433,11 +458,19 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [currentUser, setCurrentUser] = useState<string>('');
+  const [userRole, setUserRole] = useState<'admin' | 'teacher'>('admin');
+  const [teacherName, setTeacherName] = useState<string>('');
   useEffect(() => {
     try {
-      const email = localStorage.getItem('kv_auth') ?? '';
-      setAuthed(!!email);
-      if (email) setCurrentUser(email);
+      const savedUser = localStorage.getItem('kv_auth') ?? '';
+      const savedRole = (localStorage.getItem('kv_role') ?? 'admin') as 'admin' | 'teacher';
+      const savedTeacherName = localStorage.getItem('kv_teacher_name') ?? '';
+      setAuthed(!!savedUser);
+      if (savedUser) {
+        setCurrentUser(savedUser);
+        setUserRole(savedRole);
+        setTeacherName(savedTeacherName);
+      }
     } catch { setAuthed(false); }
   }, []);
   const [df, setDf] = useState<TimetableRow[]>([]);
@@ -477,7 +510,7 @@ export default function App() {
 
   // Load draft + arrangements from DB on login
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || userRole === 'teacher') return;
     getMyArrangements(currentUser).then(setMyArrangements).catch(() => {});
     loadDraft(currentUser).then(draft => {
       if (!draft?.form_state) return;
@@ -511,7 +544,7 @@ export default function App() {
 
   // Debounced draft save to DB (3 s after last change)
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || userRole === 'teacher') return;
     const timer = setTimeout(() => {
       saveDraft(currentUser, {
         dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
@@ -707,7 +740,9 @@ export default function App() {
 
 
   if (authed === null) return null;
-  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
+  if (!authed) return <LoginScreen onLogin={(role, user, tName) => {
+    setUserRole(role); setCurrentUser(user); setTeacherName(tName); setAuthed(true);
+  }} />;
 
   if (loading) return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -716,6 +751,17 @@ export default function App() {
         <p className="text-slate-500 text-sm mt-4 font-medium">Loading timetable…</p>
       </div>
     </div>
+  );
+
+  if (userRole === 'teacher') return (
+    <TeacherView df={df} teacherName={teacherName} onSignOut={() => {
+      try {
+        localStorage.removeItem('kv_auth');
+        localStorage.removeItem('kv_role');
+        localStorage.removeItem('kv_teacher_name');
+      } catch {}
+      setAuthed(false);
+    }} />
   );
 
   const filteredTeachers = allTeachers.filter(
@@ -733,7 +779,7 @@ export default function App() {
       <AppSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onSignOut={() => { try { localStorage.removeItem('kv_auth'); } catch {} setAuthed(false); }}
+        onSignOut={() => { try { localStorage.removeItem('kv_auth'); localStorage.removeItem('kv_role'); localStorage.removeItem('kv_teacher_name'); } catch {} setAuthed(false); }}
         currentUser={currentUser}
         absentCount={absentTeachers.length}
         coveredCount={covered}
@@ -1114,7 +1160,7 @@ export default function App() {
         {/* ── History Tab ── */}
         {activeTab === 'history' && (
           <div className="kv-tab-content">
-          <HistoryTab currentUser={currentUser} onLoad={handleLoadArrangement} />
+          <HistoryTab currentUser={currentUser} onLoad={handleLoadArrangement} allTeachers={allTeachers} />
           </div>
         )}
 
@@ -1587,8 +1633,8 @@ function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs: FormState, title?: string | null, id?: string) => void }) {
-  const [section, setSection] = useState<'mine' | 'shared'>('mine');
+function HistoryTab({ currentUser, onLoad, allTeachers }: { currentUser: string; onLoad: (fs: FormState, title?: string | null, id?: string) => void; allTeachers: string[] }) {
+  const [section, setSection] = useState<'mine' | 'shared' | 'teachers'>('mine');
   const [mine, setMine] = useState<Arrangement[]>([]);
   const [shared, setShared] = useState<Arrangement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1749,13 +1795,23 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
   return (
     <div>
       <div className="bg-white rounded-2xl border border-slate-100 p-1 mb-4 flex gap-1 shadow-sm">
-        {(['mine', 'shared'] as const).map(s => (
-          <button key={s} onClick={() => setSection(s)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === s ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-            {s === 'mine' ? `My Saved${mine.length ? ` (${mine.length})` : ''}` : `Shared${shared.length ? ` (${shared.length})` : ''}`}
-          </button>
-        ))}
+        <button onClick={() => setSection('mine')}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === 'mine' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+          {`My Saved${mine.length ? ` (${mine.length})` : ''}`}
+        </button>
+        <button onClick={() => setSection('shared')}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === 'shared' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+          {`Shared${shared.length ? ` (${shared.length})` : ''}`}
+        </button>
+        <button onClick={() => setSection('teachers')}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${section === 'teachers' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+          Teachers
+        </button>
       </div>
+
+      {section === 'teachers' ? (
+        <TeachersPanel allTeachers={allTeachers} />
+      ) : (<>
 
       {loading && <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>}
 
@@ -1839,6 +1895,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
           </button>
         </div>
       )}
+      </>)}
     </div>
   );
 }
@@ -2348,6 +2405,323 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manage Teachers Panel (admin only, inside HistoryTab)
+// ─────────────────────────────────────────────────────────────────────────────
+function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
+  const [accounts, setAccounts] = useState<TeacherAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [addTeacherName, setAddTeacherName] = useState('');
+  const [addUsername, setAddUsername] = useState('');
+  const [addPassword, setAddPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setLoadingAccounts(true);
+    getTeacherAccounts().then(setAccounts).catch(() => {}).finally(() => setLoadingAccounts(false));
+  }, []);
+
+  async function handleAdd() {
+    if (!addTeacherName || !addUsername || !addPassword) return;
+    setSaving(true);
+    try {
+      const acc = await createTeacherAccount(addUsername.trim(), addPassword.trim(), addTeacherName);
+      setAccounts(prev => [...prev, acc]);
+      setAddTeacherName(''); setAddUsername(''); setAddPassword('');
+    } catch (e) {
+      alert('Failed to create account: ' + (e instanceof Error ? e.message : String(e)));
+    } finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this teacher account?')) return;
+    setDeletingId(id);
+    try {
+      await deleteTeacherAccount(id);
+      setAccounts(prev => prev.filter(a => a.id !== id));
+    } catch (e) {
+      alert('Failed to delete: ' + (e instanceof Error ? e.message : String(e)));
+    } finally { setDeletingId(null); }
+  }
+
+  function togglePassword(id: string) {
+    setVisiblePasswords(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  return (
+    <div>
+      {/* Add form */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-4 shadow-sm">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Create Teacher Login</p>
+        <div className="space-y-3">
+          <SelectField value={addTeacherName} onChange={e => setAddTeacherName(e.target.value)}>
+            <option value="">Select teacher from timetable…</option>
+            {allTeachers.map(t => <option key={t} value={t}>{shortName(t)}</option>)}
+          </SelectField>
+          <input type="text" value={addUsername} onChange={e => setAddUsername(e.target.value)}
+            placeholder="Username (e.g. radhakrishnan)"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
+          <input type="text" value={addPassword} onChange={e => setAddPassword(e.target.value)}
+            placeholder="Password"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
+          <Btn variant="primary" className="w-full" disabled={!addTeacherName || !addUsername || !addPassword || saving}
+            onClick={handleAdd}>
+            {saving ? 'Creating…' : '+ Create Account'}
+          </Btn>
+        </div>
+      </div>
+
+      {/* Account list */}
+      {loadingAccounts ? (
+        <div className="flex justify-center py-8"><LoadingSpinner size="lg" /></div>
+      ) : accounts.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
+          <div className="text-3xl mb-2">🔑</div>
+          <div className="font-bold text-slate-600 text-sm">No teacher accounts yet</div>
+          <div className="text-xs text-slate-400 mt-1">Create one above to get started</div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {accounts.map(acc => {
+            const showPw = visiblePasswords.has(acc.id);
+            const busy = deletingId === acc.id;
+            return (
+              <div key={acc.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-slate-800 text-sm">{shortName(acc.teacher_name)}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5 truncate">{acc.teacher_name}</div>
+                  </div>
+                  <button onClick={() => handleDelete(acc.id)} disabled={busy}
+                    className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition-all disabled:opacity-50 flex-shrink-0">
+                    {busy ? '…' : '🗑'}
+                  </button>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 w-16 flex-shrink-0">Username</span>
+                    <span className="text-sm font-mono font-semibold text-slate-700">{acc.username}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 w-16 flex-shrink-0">Password</span>
+                    <span className="text-sm font-mono font-semibold text-slate-700 flex-1">
+                      {showPw ? acc.password : '••••••••'}
+                    </span>
+                    <button onClick={() => togglePassword(acc.id)}
+                      className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
+                      {showPw ? 'hide' : 'show'}
+                    </button>
+                  </div>
+                </div>
+
+                <button onClick={() => {
+                  navigator.clipboard.writeText(`KV Burhanpur — Teacher Login\nUsername: ${acc.username}\nPassword: ${acc.password}`);
+                }} className="mt-2 w-full py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 transition-all">
+                  📋 Copy credentials to share
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Teacher View (shown to logged-in teachers instead of admin app)
+// ─────────────────────────────────────────────────────────────────────────────
+function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teacherName: string; onSignOut: () => void }) {
+  const [dateVal, setDateVal] = useState<string>(todayDate());
+  const [arrangement, setArrangement] = useState<Arrangement | null>(null);
+  const [loadingArr, setLoadingArr] = useState(false);
+
+  const selectedDay = useMemo(() => {
+    const d = new Date(dateVal + 'T00:00:00');
+    return DAY_MAP[d.getDay()] ?? 'MON';
+  }, [dateVal]);
+
+  useEffect(() => {
+    setLoadingArr(true);
+    setArrangement(null);
+    getSharedArrangementForDate(dateVal)
+      .then(arr => setArrangement(arr))
+      .catch(() => setArrangement(null))
+      .finally(() => setLoadingArr(false));
+  }, [dateVal]);
+
+  const fs = arrangement?.form_state;
+  const schoolMaxPeriod = fs?.schoolHalfDay ? fs.schoolHalfDayPeriod : 8;
+  const isAbsentToday = fs ? fs.absentTeachers.includes(teacherName) : false;
+  const lunchDuty = fs?.lunchDuties.find(d => d.teacher === teacherName);
+  const attendanceDuty = fs?.attendanceDuties.find(d => d.teacher === teacherName);
+
+  const schedule = useMemo(() => {
+    return Array.from({ length: schoolMaxPeriod }, (_, i) => i + 1).map(p => {
+      const regularRow = df.find(r => r.Teacher_Name === teacherName && r.Day === selectedDay && r.Period === p);
+
+      let status: 'teaching' | 'sub' | 'clubbed' | 'absent' | 'free' | 'notReq' = 'free';
+      let info = '';
+      let subForTeacher = '';
+
+      if (fs && isAbsentToday && isTeacherAbsentInPeriod(teacherName, p, fs.absentTeachers, fs.absenceConfigs)) {
+        status = 'absent';
+      } else {
+        const subDuty = arrangement?.report_rows.find(
+          r => r.Substitute === teacherName && r.Period === p && r.Type !== 'CANCELLED',
+        );
+        if (subDuty) {
+          status = subDuty.Type === 'CLUBBED' ? 'clubbed' : 'sub';
+          info = `${subDuty.Class} · ${subDuty.Subject}`;
+          subForTeacher = shortName(subDuty.Absent_Teacher);
+        } else if (regularRow) {
+          if (isNotReq(regularRow.Subject)) {
+            status = 'notReq'; info = 'Upper Class';
+          } else if (fs?.cancelledClasses.includes(regularRow.Class)) {
+            const clsCfg = fs.cancelledClassConfigs[regularRow.Class];
+            const cancelled = !clsCfg?.halfDay || clsCfg.cancelledPeriods.includes(p);
+            if (cancelled) { status = 'free'; info = `${regularRow.Class} cancelled`; }
+            else { status = 'teaching'; info = `${regularRow.Class} · ${regularRow.Subject}`; }
+          } else {
+            status = 'teaching'; info = `${regularRow.Class} · ${regularRow.Subject}`;
+          }
+        }
+      }
+      return { period: p, status, info, subForTeacher };
+    });
+  }, [df, teacherName, selectedDay, schoolMaxPeriod, arrangement, fs, isAbsentToday]);
+
+  const statusCfg = {
+    teaching: { bg: 'bg-blue-50',   border: 'border-l-blue-400',   badge: 'bg-blue-100 text-blue-700',   label: 'Teaching'    },
+    sub:      { bg: 'bg-amber-50',  border: 'border-l-amber-400',  badge: 'bg-amber-100 text-amber-700', label: 'Sub Duty'    },
+    clubbed:  { bg: 'bg-orange-50', border: 'border-l-orange-400', badge: 'bg-orange-100 text-orange-700', label: 'Clubbing'  },
+    absent:   { bg: 'bg-red-50',    border: 'border-l-red-300',    badge: 'bg-red-100 text-red-600',     label: 'Absent'      },
+    free:     { bg: 'bg-white',     border: 'border-l-slate-200',  badge: 'bg-slate-100 text-slate-400', label: 'Free'        },
+    notReq:   { bg: 'bg-purple-50', border: 'border-l-purple-300', badge: 'bg-purple-100 text-purple-700', label: 'Upper Class' },
+  };
+
+  const fmtLong = (d: string) =>
+    new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+
+  return (
+    <div className="min-h-screen" style={{ background: '#F1F5F9' }}>
+      {/* Header */}
+      <div className="sticky top-0 z-30"
+        style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <img src="/2023042075.png" alt="KV" className="h-8 w-auto flex-shrink-0"
+              style={{ filter: 'brightness(1.1) drop-shadow(0 1px 4px rgba(0,0,0,.4))' }} />
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold text-white/40 tracking-widest uppercase">Teacher Portal · KV Burhanpur</p>
+              <p className="text-sm font-bold text-white truncate">{shortName(teacherName)}</p>
+            </div>
+          </div>
+          <button onClick={onSignOut}
+            className="text-xs font-semibold text-white/50 hover:text-white/80 border border-white/15 hover:border-white/30 px-3 py-1.5 rounded-xl transition-all flex-shrink-0">
+            Sign out
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-5 pb-10">
+        {/* Date picker */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Date</label>
+          <div className="flex items-center gap-3">
+            <input type="date" value={dateVal} onChange={e => setDateVal(e.target.value)}
+              className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+            <span className="text-sm font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 flex-shrink-0">{selectedDay}</span>
+          </div>
+        </div>
+
+        {/* Arrangement status */}
+        {loadingArr ? (
+          <div className="flex items-center gap-2 py-3 px-4 mb-4 bg-white rounded-xl border border-slate-100 text-slate-400 text-sm shadow-sm">
+            <LoadingSpinner size="sm" /> Loading arrangement…
+          </div>
+        ) : arrangement ? (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-xs text-emerald-700 font-semibold mb-4 flex items-center gap-2">
+            <span>✓</span> Today's arrangement is shared — your duties are shown below
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700 font-medium mb-4">
+            No arrangement shared for this date — showing your regular timetable
+          </div>
+        )}
+
+        {/* Schedule */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-4">
+          <div className="px-4 py-3 border-b border-slate-50">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your Schedule · {fmtLong(dateVal)}</p>
+          </div>
+          {schedule.map(({ period, status, info, subForTeacher }) => {
+            const sc = statusCfg[status];
+            return (
+              <div key={period} className={`flex items-center gap-3 px-4 py-3.5 border-b border-slate-50 last:border-0 border-l-4 ${sc.bg} ${sc.border}`}>
+                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs font-bold text-blue-700 flex-shrink-0 shadow-sm">
+                  P{period}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {status === 'absent' ? (
+                    <p className="text-sm font-semibold text-red-500">Absent</p>
+                  ) : status === 'free' ? (
+                    <p className="text-sm text-slate-400">{info || 'Free period'}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-bold text-slate-800">{info}</p>
+                      {subForTeacher && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {status === 'sub' ? `For ${subForTeacher}` : `Clubbing with ${subForTeacher}`}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${sc.badge}`}>
+                  {sc.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Duties */}
+        {(lunchDuty || attendanceDuty) && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Today's Duties</p>
+            {lunchDuty && (
+              <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
+                <span className="text-xl">🍱</span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Lunch Duty</p>
+                  <p className="text-xs text-slate-400">{lunchDuty.cls}</p>
+                </div>
+              </div>
+            )}
+            {attendanceDuty && (
+              <div className="flex items-center gap-3 py-2.5 last:border-0">
+                <span className="text-xl">📝</span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Attendance Duty</p>
+                  <p className="text-xs text-slate-400">{attendanceDuty.cls}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
