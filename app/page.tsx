@@ -1786,7 +1786,10 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
             return (
               <div key={date}>
                 {hasMultiple && (
-                  <div className="flex items-center gap-2 mt-2 mb-1.5 px-1">
+                  <button
+                    onClick={() => onLoad(sorted[0].form_state, sorted[0].title, sorted[0].id)}
+                    className="w-full flex items-center gap-2 mt-2 mb-1.5 px-1 hover:opacity-75 transition-opacity text-left"
+                  >
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{arrs[0].day} · {fmtDate(date)}</span>
                     <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                       {arrs.length} versions
@@ -1794,7 +1797,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
                     {allIds.some(id => concludedIds.has(id)) && (
                       <span className="text-[10px] font-bold text-amber-700">★ concluded</span>
                     )}
-                  </div>
+                  </button>
                 )}
                 {displayed.map((arr, i) => (
                   <div key={arr.id} className={hasMultiple ? 'border-l-2 border-amber-200 pl-3 ml-1' : ''}>
