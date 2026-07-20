@@ -1488,7 +1488,7 @@ function ArrangementTab({
 
       {/* Generate report CTA */}
       <button onClick={onGenerateReport}
-        className="w-full py-4 rounded-2xl font-extrabold text-white text-sm mb-4 transition-all hover:opacity-95 active:scale-[0.99] tracking-wide"
+        className="w-full py-4 rounded-2xl font-extrabold text-white text-sm mb-4 transition-all hover:opacity-95 active:scale-[0.99] tracking-wide flex items-center justify-center gap-2"
         style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB, #3B82F6)', boxShadow: '0 6px 20px rgba(37,99,235,.35)' }}>
         <Icon name="clipboard" className="w-4 h-4" /> Finalise &amp; Generate Report
       </button>
