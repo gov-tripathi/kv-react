@@ -1323,7 +1323,7 @@ function ArrangementTab({
 }: ArrProps) {
   const [copied, setCopied] = useState(false);
   const [reportNote, setReportNote] = useState('');
-  const [includeNotes, setIncludeNotes] = useState(true);
+  const [includeNotes, setIncludeNotes] = useState(false);
   const [newVersionMode, setNewVersionMode] = useState(false);
   const [newVersionTitle, setNewVersionTitle] = useState('');
 
