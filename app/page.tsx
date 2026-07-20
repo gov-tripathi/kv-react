@@ -113,11 +113,37 @@ function SelectField({ className = '', children, ...props }: React.SelectHTMLAtt
 
 // ── Sidebar nav items (shared by desktop sidebar + mobile bottom nav) ─────────
 const NAV_ITEMS = [
-  { id: 'arrangement' as const, icon: '⚡', label: 'Arrange',  desc: 'Assign substitutes' },
-  { id: 'status'      as const, icon: '👥', label: 'Status',   desc: 'Teacher overview'   },
-  { id: 'history'     as const, icon: '☁',  label: 'History',  desc: 'Cloud records'      },
-  { id: 'settings'    as const, icon: '⚙',  label: 'Settings', desc: 'Accounts & config'  },
+  { id: 'arrangement' as const, label: 'Arrange',  desc: 'Assign substitutes' },
+  { id: 'status'      as const, label: 'Status',   desc: 'Teacher overview'   },
+  { id: 'history'     as const, label: 'History',  desc: 'Cloud records'      },
+  { id: 'settings'    as const, label: 'Settings', desc: 'Accounts & config'  },
 ] as const;
+
+function NavIcon({ id, className = 'w-[18px] h-[18px]' }: { id: string; className?: string }) {
+  const props = { fill: 'none', viewBox: '0 0 24 24', strokeWidth: 1.75, stroke: 'currentColor', className };
+  if (id === 'arrangement') return (
+    <svg {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+    </svg>
+  );
+  if (id === 'status') return (
+    <svg {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+    </svg>
+  );
+  if (id === 'history') return (
+    <svg {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    </svg>
+  );
+  if (id === 'settings') return (
+    <svg {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    </svg>
+  );
+  return null;
+}
 
 // ── Desktop sidebar ───────────────────────────────────────────────────────────
 function AppSidebar({
@@ -214,7 +240,7 @@ function AppSidebar({
       {/* Navigation */}
       <nav className="relative flex-1 px-3 pt-3 overflow-y-auto">
         <p className="text-[8px] font-bold text-white/20 tracking-[0.2em] uppercase px-3 mb-1.5">Workspace</p>
-        {NAV_ITEMS.map(({ id, icon, label, desc }) => {
+        {NAV_ITEMS.map(({ id, label, desc }) => {
           const isActive = activeTab === id;
           return (
             <button key={id} onClick={() => setActiveTab(id)}
@@ -228,8 +254,8 @@ function AppSidebar({
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
                   style={{ background: 'linear-gradient(180deg, #93C5FD, #3B82F6)' }} />
               )}
-              <span className={`text-lg leading-none flex-shrink-0 transition-transform duration-150 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
-                {icon}
+              <span className={`flex-shrink-0 transition-transform duration-150 ${isActive ? 'scale-110 text-white' : 'text-white/40 group-hover:text-white/70 group-hover:scale-105'}`}>
+                <NavIcon id={id} />
               </span>
               <div className="flex-1 min-w-0">
                 <div className={`text-sm font-bold leading-none ${isActive ? 'text-white' : 'text-white/45 group-hover:text-white/70'}`}>
@@ -282,16 +308,16 @@ function MobileBottomNav({
     <nav className="kv-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40"
       style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(16px)', borderTop: '1px solid rgba(148,163,184,0.2)' }}>
       <div className="flex">
-        {NAV_ITEMS.map(({ id, icon, label }) => {
+        {NAV_ITEMS.map(({ id, label }) => {
           const isActive = activeTab === id;
           return (
             <button key={id} onClick={() => setActiveTab(id)}
-              className="flex-1 flex flex-col items-center gap-0.5 py-2.5 relative transition-all">
+              className="flex-1 flex flex-col items-center gap-1 py-2.5 relative transition-all">
               {isActive && (
                 <span className="absolute top-0 left-[25%] right-[25%] h-[2px] rounded-b-full bg-blue-600" />
               )}
-              <span className={`text-xl leading-none transition-transform duration-150 ${isActive ? 'scale-110' : ''}`}>
-                {icon}
+              <span className={`transition-all duration-150 ${isActive ? 'scale-110 text-blue-600' : 'text-slate-400'}`}>
+                <NavIcon id={id} className="w-5 h-5" />
               </span>
               <span className={`text-[10px] font-bold tracking-wide ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
                 {label}
