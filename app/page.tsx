@@ -119,6 +119,37 @@ const NAV_ITEMS = [
   { id: 'settings'    as const, label: 'Settings', desc: 'Accounts & config'  },
 ] as const;
 
+function Icon({ name, className = 'w-4 h-4' }: { name: string; className?: string }) {
+  const s = { fill: 'none', viewBox: '0 0 24 24', strokeWidth: 1.75, stroke: 'currentColor', className };
+  const d: Record<string, string | string[]> = {
+    check:        'M4.5 12.75l6 6 9-13.5',
+    'check-circle': 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+    plus:         'M12 4.5v15m7.5-7.5h-15',
+    trash:        'M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0',
+    pencil:       'M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125',
+    clipboard:    'M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184',
+    link:         'M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244',
+    star:         'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z',
+    warning:      ['M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z', 'M12 15.75h.007v.008H12v-.008z'],
+    key:          'M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z',
+    cloud:        'M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z',
+    'cloud-up':   'M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z',
+    refresh:      'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99',
+    share:        'M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25',
+    shuffle:      'M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5',
+    'arrow-left': 'M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3',
+    document:     'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z',
+    'doc-text':   'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z',
+    download:     'M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3',
+    phone:        'M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 8.25h3',
+    bell:         ['M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0'],
+  };
+  const paths = d[name];
+  if (!paths) return null;
+  const arr = Array.isArray(paths) ? paths : [paths];
+  return <svg {...s}>{arr.map((dp, i) => <path key={i} strokeLinecap="round" strokeLinejoin="round" d={dp} />)}</svg>;
+}
+
 function NavIcon({ id, className = 'w-[18px] h-[18px]' }: { id: string; className?: string }) {
   const props = { fill: 'none', viewBox: '0 0 24 24', strokeWidth: 1.75, stroke: 'currentColor', className };
   if (id === 'arrangement') return (
@@ -840,7 +871,7 @@ export default function App() {
           onClick={handleNewSchedule}
           className="w-full flex items-center justify-center gap-2 py-2.5 mb-4 rounded-xl text-sm font-bold border-2 border-dashed border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all active:scale-[0.99]"
         >
-          <span className="text-base leading-none">＋</span> New Arrangement
+          <Icon name="plus" className="w-4 h-4" /> New Arrangement
         </button>
         {/* ── Morning Setup ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
@@ -1089,7 +1120,7 @@ export default function App() {
 
           {/* Lunch Duty */}
           <div className="mt-4 pt-4 border-t border-slate-100">
-            <label className="block text-sm font-semibold text-slate-600 mb-2">🍱 Lunch Duty</label>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 mb-2"><Icon name="bell" className="w-4 h-4 text-amber-500" /> Lunch Duty</label>
             <div className="flex gap-2">
               <input type="text" list="kv-teacher-names" value={lunchTeacher}
                 onChange={e => setLunchTeacher(e.target.value)}
@@ -1124,7 +1155,7 @@ export default function App() {
 
           {/* Attendance Duty */}
           <div className="mt-4 pt-4 border-t border-slate-100">
-            <label className="block text-sm font-semibold text-slate-600 mb-2">📝 Attendance Duty</label>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 mb-2"><Icon name="doc-text" className="w-4 h-4 text-purple-500" /> Attendance Duty</label>
             <div className="flex gap-2">
               <input type="text" list="kv-teacher-names" value={attendanceTeacher}
                 onChange={e => setAttendanceTeacher(e.target.value)}
@@ -1415,7 +1446,7 @@ function ArrangementTab({
                 <div className="text-xs text-slate-400 mt-0.5">{tPeriods.length} periods · {tCov}/{tPeriods.length} assigned</div>
               </div>
               {allDone && (
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0">✓ Done</span>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0"><Icon name="check" className="w-3 h-3" /> Done</span>
               )}
             </div>
             {tPeriods.map(e => (
@@ -1438,7 +1469,7 @@ function ArrangementTab({
           <SectionLabel>Duties</SectionLabel>
           {registerDuties.map(d => (
             <div key={d.cls} className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
-              <span className="text-xl flex-shrink-0">📋</span>
+              <span className="flex-shrink-0 text-slate-400"><Icon name="clipboard" className="w-5 h-5" /></span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-700">
                   Register Duty <span className="font-normal text-slate-400 text-xs">· {d.cls}</span>
@@ -1459,7 +1490,7 @@ function ArrangementTab({
       <button onClick={onGenerateReport}
         className="w-full py-4 rounded-2xl font-extrabold text-white text-sm mb-4 transition-all hover:opacity-95 active:scale-[0.99] tracking-wide"
         style={{ background: 'linear-gradient(135deg, #1E40AF, #2563EB, #3B82F6)', boxShadow: '0 6px 20px rgba(37,99,235,.35)' }}>
-        📋 Finalise &amp; Generate Report
+        <Icon name="clipboard" className="w-4 h-4" /> Finalise &amp; Generate Report
       </button>
 
       {/* Report */}
@@ -1493,7 +1524,7 @@ function ArrangementTab({
                           <td className="px-3 py-2.5 font-medium text-slate-700">{r.Class}</td>
                           <td className="px-3 py-2.5">
                             {r.Type === 'CLUBBED'
-                              ? <span className="text-amber-700 font-semibold">🔀 {shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
+                              ? <span className="inline-flex items-center gap-1 text-amber-700 font-semibold"><Icon name="shuffle" className="w-3 h-3" />{shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
                               : <span className="font-semibold text-slate-800">{shortName(r.Substitute)}</span>
                             }
                           </td>
@@ -1532,7 +1563,7 @@ function ArrangementTab({
           {/* Lunch & Attendance Duty sections */}
           {lunchDuties.length > 0 && (
             <div className="mt-2 mb-4 pt-3 border-t border-slate-100">
-              <SectionLabel>🍱 Lunch Duty</SectionLabel>
+              <SectionLabel><span className="inline-flex items-center gap-1"><Icon name="bell" className="w-3.5 h-3.5" /> Lunch Duty</span></SectionLabel>
               {lunchDuties.map((d, i) => (
                 <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
                   <span className="text-sm font-bold text-amber-700 w-16 flex-shrink-0">{d.cls}</span>
@@ -1544,7 +1575,7 @@ function ArrangementTab({
           )}
           {attendanceDuties.length > 0 && (
             <div className="mt-2 mb-4 pt-3 border-t border-slate-100">
-              <SectionLabel>📝 Attendance Duty</SectionLabel>
+              <SectionLabel><span className="inline-flex items-center gap-1"><Icon name="doc-text" className="w-3.5 h-3.5" /> Attendance Duty</span></SectionLabel>
               {attendanceDuties.map((d, i) => (
                 <div key={i} className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
                   <span className="text-sm font-bold text-purple-700 w-16 flex-shrink-0">{d.cls}</span>
@@ -1563,7 +1594,7 @@ function ArrangementTab({
                 className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
                   copied ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'
                 }`}>
-                {copied ? '✓ Copied!' : '📋 Copy'}
+                <span className="inline-flex items-center gap-1">{copied ? <><Icon name="check" className="w-3 h-3" /> Copied!</> : <><Icon name="clipboard" className="w-3 h-3" /> Copy</>}</span>
               </button>
             </div>
             <textarea readOnly value={whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties)}
@@ -1602,11 +1633,11 @@ function ArrangementTab({
           <div className="grid grid-cols-3 gap-2">
             <button onClick={() => onDownloadPDF(includeNotes ? reportNote : null)} disabled={pdfLoading}
               className="py-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all disabled:opacity-60 flex items-center justify-center gap-1.5">
-              {pdfLoading ? <LoadingSpinner size="sm" /> : '📄'} PDF
+              {pdfLoading ? <LoadingSpinner size="sm" /> : <Icon name="document" className="w-4 h-4" />} PDF
             </button>
             <button onClick={onDownloadCSV}
               className="py-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5">
-              ⬇ CSV
+              <Icon name="download" className="w-4 h-4" /> CSV
             </button>
             <button onClick={() => {
               const wa = whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties);
@@ -1614,7 +1645,7 @@ function ArrangementTab({
               const url = URL.createObjectURL(blob); const a = document.createElement('a');
               a.href = url; a.download = `arrangement_${dateVal}.txt`; a.click(); URL.revokeObjectURL(url);
             }} className="py-3 rounded-xl text-xs font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-all flex items-center justify-center gap-1.5">
-              📱 Text
+              <Icon name="phone" className="w-4 h-4" /> Text
             </button>
           </div>
 
@@ -1635,7 +1666,7 @@ function ArrangementTab({
           {/* Save actions */}
           {isSaved ? (
             <div className="mt-3 w-full py-3 rounded-xl font-bold text-sm bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center gap-2">
-              ✓ Saved to History
+              <Icon name="check-circle" className="w-4 h-4" /> Saved to History
             </div>
           ) : loadedArrangementId && !newVersionMode ? (
             /* Loaded arrangement — ask update or new version */
@@ -1646,11 +1677,11 @@ function ArrangementTab({
               <div className="flex divide-x divide-slate-100">
                 <button onClick={onUpdateVersion} disabled={saving}
                   className="flex-1 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
-                  {saving ? <LoadingSpinner size="sm" /> : '↺'} Update same version
+                  {saving ? <LoadingSpinner size="sm" /> : <Icon name="refresh" className="w-3.5 h-3.5" />} Update same version
                 </button>
                 <button onClick={() => { setNewVersionMode(true); setNewVersionTitle(arrangementTitle ? arrangementTitle + ' (v2)' : ''); }} disabled={saving}
                   className="flex-1 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
-                  ＋ New version
+                  <Icon name="plus" className="w-3.5 h-3.5" /> New version
                 </button>
               </div>
             </div>
@@ -1668,7 +1699,7 @@ function ArrangementTab({
                 </button>
                 <button onClick={() => { onSave(newVersionTitle || undefined); setNewVersionMode(false); }} disabled={saving}
                   className="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
-                  {saving ? <LoadingSpinner size="sm" /> : '☁ Save New Version'}
+                  {saving ? <LoadingSpinner size="sm" /> : <><Icon name="cloud-up" className="w-3.5 h-3.5" /> Save New Version</>}
                 </button>
               </div>
             </div>
@@ -1676,7 +1707,7 @@ function ArrangementTab({
             /* Fresh arrangement — normal save */
             <button onClick={() => onSave()} disabled={saving}
               className="mt-3 w-full py-3 rounded-xl font-bold text-sm bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-              {saving ? <LoadingSpinner size="sm" /> : '☁ Save to History'}
+              {saving ? <LoadingSpinner size="sm" /> : <><Icon name="cloud-up" className="w-4 h-4" /> Save to History</>}
             </button>
           )}
         </div>
@@ -1792,11 +1823,11 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
                 className="w-full border border-blue-300 rounded-lg px-2 py-1 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400" />
             ) : (
               <div className="flex items-center gap-1.5 flex-wrap">
-                {isConcluded && <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">★ Final</span>}
+                {isConcluded && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0"><Icon name="star" className="w-3 h-3" /> Final</span>}
                 <span className="font-bold text-slate-800 text-sm leading-snug">{arr.title || `${arr.day} · ${fmtDate(arr.date)}`}</span>
                 {isOwn && (
                   <button onClick={() => { setEditingId(arr.id); setEditTitle(arr.title || ''); }}
-                    className="text-slate-300 hover:text-blue-500 transition-colors flex-shrink-0 text-xs leading-none">✏</button>
+                    className="text-slate-300 hover:text-blue-500 transition-colors flex-shrink-0"><Icon name="pencil" className="w-3.5 h-3.5" /></button>
                 )}
               </div>
             )}
@@ -1808,7 +1839,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
           {/* Shared status badge */}
           {arr.is_shared && (
             <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0 mt-0.5">
-              🔗 Shared
+              <Icon name="link" className="w-3 h-3" /> Shared
             </span>
           )}
         </div>
@@ -1837,8 +1868,8 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
           </button>
           {isOwn && (
             <button onClick={() => handleDelete(arr.id)} disabled={busy}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 hover:text-red-700 transition-all disabled:opacity-50">
-              🗑
+              className="p-2 rounded-xl bg-red-50 text-red-400 border border-red-100 hover:bg-red-100 hover:text-red-600 transition-all disabled:opacity-50">
+              <Icon name="trash" className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -1850,7 +1881,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
               ${isConcluded
                 ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                 : 'border-dashed border-slate-200 text-slate-400 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
-            {isConcluded ? '★ Final — Shared with Teachers' : '☆ Mark Final & Share with Teachers'}
+            <span className="inline-flex items-center gap-1.5"><Icon name="star" className="w-3.5 h-3.5" />{isConcluded ? 'Final — Shared with Teachers' : 'Mark Final & Share with Teachers'}</span>
           </button>
         )}
 
@@ -1861,7 +1892,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
               ${arr.is_shared
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                 : 'border-dashed border-slate-200 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'}`}>
-            {arr.is_shared ? '🔗 Visible to Teachers' : '↗ Share with Teachers'}
+            <span className="inline-flex items-center gap-1.5"><Icon name="link" className="w-3.5 h-3.5" />{arr.is_shared ? 'Visible to Teachers' : 'Share with Teachers'}</span>
           </button>
         )}
       </div>
@@ -1892,7 +1923,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
 
       {err && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm flex items-center gap-2">
-          ⚠ {err}
+          <Icon name="warning" className="w-4 h-4 flex-shrink-0" /> {err}
           <button onClick={load} className="ml-auto text-xs font-bold underline">Retry</button>
         </div>
       )}
@@ -1900,7 +1931,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
       {!loading && !err && (
         list.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
-            <div className="text-4xl mb-3">☁</div>
+            <div className="flex justify-center mb-3 text-slate-300"><Icon name="cloud" className="w-10 h-10" /></div>
             <div className="font-bold text-slate-600 text-sm">No saved arrangements</div>
             <div className="text-xs text-slate-400 mt-1">Generate a report and tap Save to History</div>
           </div>
@@ -1932,7 +1963,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
                       {arrs.length} versions
                     </span>
                     {arrs.some(a => a.is_concluded) && (
-                      <span className="text-[10px] font-bold text-amber-700">★ concluded</span>
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700"><Icon name="star" className="w-3 h-3" /> concluded</span>
                     )}
                   </button>
                 )}
@@ -1962,7 +1993,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
       {!loading && (
         <div className="flex justify-center mt-2">
           <button onClick={load} className="text-xs font-semibold text-slate-400 hover:text-blue-600 border border-slate-200 hover:border-blue-200 px-4 py-2 rounded-full transition-all">
-            ↻ Refresh
+            <span className="inline-flex items-center gap-1.5"><Icon name="refresh" className="w-3.5 h-3.5" /> Refresh</span>
           </button>
         </div>
       )}
@@ -2052,7 +2083,7 @@ function PeriodRow({
       if (e2.period === e.period && e2.teacher !== teacher) {
         if ((subs[subKey(e2.teacher, e2.period)] ?? '') === t) {
           const isAlreadyClub = clubs[subKey(e2.teacher, e2.period)] ?? false;
-          return isAlreadyClub ? `${shortName(t)}  🔀 clubbing ${e2.cls}` : `${shortName(t)}  🔀 subbing ${e2.cls}`;
+          return isAlreadyClub ? `${shortName(t)}  · clubbing ${e2.cls}` : `${shortName(t)}  · subbing ${e2.cls}`;
         }
       }
     }
@@ -2062,12 +2093,12 @@ function PeriodRow({
   // Status badge
   let statusBadge: React.ReactNode;
   if (clubMode && !isAssigned) {
-    statusBadge = <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 Select to club</span>;
+    statusBadge = <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0"><Icon name="shuffle" className="w-3 h-3" /> Select to club</span>;
   } else if (!isAssigned) {
     statusBadge = <span className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 flex-shrink-0">Unassigned</span>;
   } else if (clubMode) {
     const [tc] = teacherPeriodInfo(df, currentSub, selectedDay, e.period);
-    statusBadge = <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">🔀 {shortName(currentSub)}{tc ? ` (${tc})` : ''}</span>;
+    statusBadge = <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0"><Icon name="shuffle" className="w-3 h-3" />{shortName(currentSub)}{tc ? ` (${tc})` : ''}</span>;
   } else {
     statusBadge = (
       <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full pl-1 pr-2 py-0.5 flex-shrink-0 flex items-center gap-1">
@@ -2106,7 +2137,7 @@ function PeriodRow({
                 />
                 <button onClick={() => { setCustomMode(false); onSetSub(teacher, e.period, ''); }}
                   className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-all whitespace-nowrap flex-shrink-0">
-                  ↩ List
+                  <Icon name="arrow-left" className="w-3.5 h-3.5" /> List
                 </button>
               </>
             ) : (
@@ -2122,11 +2153,11 @@ function PeriodRow({
                 </SelectField>
                 <button onClick={() => setCustomMode(true)}
                   className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 transition-all whitespace-nowrap flex-shrink-0">
-                  ✏
+                  <Icon name="pencil" className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => onSetClub(teacher, e.period, true)}
                   className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all whitespace-nowrap flex-shrink-0">
-                  🔀 Club
+                  <Icon name="shuffle" className="w-3.5 h-3.5" /> Club
                 </button>
               </>
             )}
@@ -2141,7 +2172,7 @@ function PeriodRow({
             </SelectField>
             <button onClick={() => onSetClub(teacher, e.period, false)}
               className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-all whitespace-nowrap flex-shrink-0">
-              ↩ Back
+              <Icon name="arrow-left" className="w-3.5 h-3.5" /> Back
             </button>
           </>
         )}
@@ -2435,7 +2466,7 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
           }
         </div>
         {hasIssue && (
-          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">⚠ Issues</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5"><Icon name="warning" className="w-3 h-3" /> Issues</span>
         )}
       </div>
 
@@ -2466,7 +2497,7 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
                             {shortName(p.substitute)}
                           </span>
                           {p.isClub && <span className="font-bold text-orange-500 flex-shrink-0 text-[10px]">CLUB</span>}</>
-                      : <span className="font-semibold text-red-600 flex-shrink-0">⚠ Unassigned</span>
+                      : <span className="inline-flex items-center gap-1 font-semibold text-red-600 flex-shrink-0"><Icon name="warning" className="w-3.5 h-3.5" /> Unassigned</span>
                     }
                   </>
                 ) : (
@@ -2558,7 +2589,7 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
         <div className="flex justify-center py-8"><LoadingSpinner size="lg" /></div>
       ) : accounts.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
-          <div className="text-3xl mb-2">🔑</div>
+          <div className="flex justify-center mb-3 text-slate-300"><Icon name="key" className="w-10 h-10" /></div>
           <div className="font-bold text-slate-600 text-sm">No teacher accounts yet</div>
           <div className="text-xs text-slate-400 mt-1">Create one above to get started</div>
         </div>
@@ -2576,7 +2607,7 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
                   </div>
                   <button onClick={() => handleDelete(acc.id)} disabled={busy}
                     className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition-all disabled:opacity-50 flex-shrink-0">
-                    {busy ? '…' : '🗑'}
+                    {busy ? '…' : <Icon name="trash" className="w-3.5 h-3.5" />}
                   </button>
                 </div>
 
@@ -2600,7 +2631,7 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
                 <button onClick={() => {
                   navigator.clipboard.writeText(`KV Burhanpur — Teacher Login\nUsername: ${acc.username}\nPassword: ${acc.password}`);
                 }} className="mt-2 w-full py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 transition-all">
-                  📋 Copy credentials to share
+                  <span className="inline-flex items-center gap-1.5"><Icon name="clipboard" className="w-3.5 h-3.5" /> Copy credentials to share</span>
                 </button>
               </div>
             );
@@ -2725,7 +2756,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
           </div>
         ) : arrangement ? (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-xs text-emerald-700 font-semibold mb-4 flex items-center gap-2">
-            <span>✓</span> Today's arrangement is shared — your duties are shown below
+            <Icon name="check-circle" className="w-4 h-4 flex-shrink-0" /> Today's arrangement is shared — your duties are shown below
           </div>
         ) : (
           <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700 font-medium mb-4">
@@ -2775,7 +2806,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Today's Duties</p>
             {lunchDuty && (
               <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
-                <span className="text-xl">🍱</span>
+                <span className="text-amber-500"><Icon name="bell" className="w-5 h-5" /></span>
                 <div>
                   <p className="text-sm font-semibold text-slate-700">Lunch Duty</p>
                   <p className="text-xs text-slate-400">{lunchDuty.cls}</p>
@@ -2784,7 +2815,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
             )}
             {attendanceDuty && (
               <div className="flex items-center gap-3 py-2.5 last:border-0">
-                <span className="text-xl">📝</span>
+                <span className="text-purple-500"><Icon name="doc-text" className="w-5 h-5" /></span>
                 <div>
                   <p className="text-sm font-semibold text-slate-700">Attendance Duty</p>
                   <p className="text-xs text-slate-400">{attendanceDuty.cls}</p>
