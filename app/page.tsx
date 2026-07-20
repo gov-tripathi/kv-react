@@ -225,19 +225,6 @@ function AppSidebar({
 
       {/* Date + coverage widgets */}
       <div className="relative px-4 space-y-2 mb-2">
-        {/* Date chip */}
-        <div className="rounded-xl px-3.5 py-2.5 flex items-center justify-between"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <div>
-            <p className="text-[9px] font-bold text-white/25 tracking-widest uppercase">Date</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: 'rgba(255,255,255,0.82)' }}>{fmtShort(dateVal)}</p>
-          </div>
-          <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg"
-            style={{ background: 'rgba(37,99,235,0.3)', color: 'rgba(147,197,253,0.9)', border: '1px solid rgba(37,99,235,0.25)' }}>
-            {selectedDay}
-          </span>
-        </div>
-
         {/* Coverage widget — only when arrangement is active */}
         {absentCount > 0 && (
           <div className="rounded-xl px-3.5 py-3"
