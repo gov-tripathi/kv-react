@@ -1579,15 +1579,6 @@ function ArrangementTab({
             </div>
           )}
 
-          {/* WhatsApp text */}
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Time-Table In-Charge</p>
-            </div>
-            <textarea readOnly value={whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties)}
-              className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono bg-slate-50 resize-none h-40 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          </div>
-
           {/* Note for PDF */}
           <div className="mb-4 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between mb-1.5">
