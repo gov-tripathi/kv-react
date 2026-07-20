@@ -1233,7 +1233,14 @@ export default function App() {
               </button>
             </div>
 
-            <div className="mb-4">
+            {/* Statistics */}
+            <div className="mb-6">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Analytics</p>
+              <h2 className="text-lg font-extrabold text-slate-800 mb-4">Statistics</h2>
+              <StatsPanel currentUser={currentUser} />
+            </div>
+
+            <div className="mb-4 pt-4 border-t border-slate-100">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Admin</p>
               <h2 className="text-lg font-extrabold text-slate-800">Teacher Accounts</h2>
               <p className="text-xs text-slate-400 mt-0.5">Create and manage teacher login credentials.</p>
@@ -1679,6 +1686,181 @@ function ArrangementTab({
       )}
 
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stats Panel
+// ─────────────────────────────────────────────────────────────────────────────
+function StatsPanel({ currentUser }: { currentUser: string }) {
+  const [arrangements, setArrangements] = useState<Arrangement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getMyArrangements(currentUser).then(setArrangements).finally(() => setLoading(false));
+  }, [currentUser]);
+
+  const stats = useMemo(() => {
+    if (!arrangements.length) return null;
+    const subByTeacher: Record<string, number> = {};
+    const absentByTeacher: Record<string, number> = {};
+    const subByDate: Record<string, number> = {};
+    let totalSub = 0, totalClubbed = 0, totalCancelled = 0;
+    for (const arr of arrangements) {
+      let dayCount = 0;
+      for (const row of arr.report_rows) {
+        if (row.Type === 'SUBSTITUTE') {
+          totalSub++; dayCount++;
+          if (row.Substitute) subByTeacher[row.Substitute] = (subByTeacher[row.Substitute] || 0) + 1;
+        } else if (row.Type === 'CLUBBED') totalClubbed++;
+        else if (row.Type === 'CANCELLED') totalCancelled++;
+      }
+      for (const t of arr.form_state.absentTeachers)
+        absentByTeacher[t] = (absentByTeacher[t] || 0) + 1;
+      subByDate[arr.date] = (subByDate[arr.date] || 0) + dayCount;
+    }
+    const topSub = Object.entries(subByTeacher).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    const topAbsent = Object.entries(absentByTeacher).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const lineData = Object.entries(subByDate).sort((a, b) => a[0].localeCompare(b[0])).slice(-24);
+    const uniqueDays = new Set(arrangements.map(a => a.date)).size;
+    return { totalSub, totalClubbed, totalCancelled, topSub, topAbsent, lineData, uniqueDays };
+  }, [arrangements]);
+
+  if (loading) return <div className="flex justify-center py-8"><LoadingSpinner /></div>;
+  if (!stats) return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-6 text-center text-sm text-slate-400">
+      No arrangement data yet. Save some arrangements to see stats.
+    </div>
+  );
+
+  const { totalSub, totalClubbed, totalCancelled, topSub, topAbsent, lineData, uniqueDays } = stats;
+
+  // Line chart geometry
+  const lW = 480, lH = 160, lPt = 12, lPr = 12, lPb = 32, lPl = 32;
+  const lPW = lW - lPl - lPr, lPH = lH - lPt - lPb;
+  const lMax = Math.max(...lineData.map(d => d[1]), 1);
+  const linePoints = lineData.map((d, i) => {
+    const x = lPl + (i / Math.max(lineData.length - 1, 1)) * lPW;
+    const y = lPt + lPH - (d[1] / lMax) * lPH;
+    return `${x},${y}`;
+  }).join(' ');
+  const areaPoints = lineData.length ? [
+    `${lPl},${lPt + lPH}`,
+    ...lineData.map((d, i) => {
+      const x = lPl + (i / Math.max(lineData.length - 1, 1)) * lPW;
+      const y = lPt + lPH - (d[1] / lMax) * lPH;
+      return `${x},${y}`;
+    }),
+    `${lPl + lPW},${lPt + lPH}`,
+  ].join(' ') : '';
+
+  // Bar chart geometry
+  const bW = 460, bLbl = 110, bBarMax = bW - bLbl - 50;
+  const bH = 26, bGap = 5;
+  const subMax = topSub[0]?.[1] ?? 1;
+  const absentMax = topAbsent[0]?.[1] ?? 1;
+  const subChartH = topSub.length * (bH + bGap) + 8;
+  const absentChartH = topAbsent.length * (bH + bGap) + 8;
+
+  const xLabel = (i: number) => {
+    const step = Math.max(1, Math.floor(lineData.length / 5));
+    return (i % step === 0 || i === lineData.length - 1);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { label: 'Arrangements', value: arrangements.length, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Days Covered', value: uniqueDays, color: 'text-violet-600', bg: 'bg-violet-50' },
+          { label: 'Substitutions', value: totalSub, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Clubbed / Cancelled', value: `${totalClubbed} / ${totalCancelled}`, color: 'text-amber-600', bg: 'bg-amber-50' },
+        ].map(c => (
+          <div key={c.label} className={`rounded-2xl border border-slate-100 shadow-sm p-4 ${c.bg}`}>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{c.label}</p>
+            <p className={`text-2xl font-extrabold mt-1 ${c.color}`}>{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Line chart */}
+      {lineData.length > 1 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Substitute Periods Per Day</p>
+          <div className="overflow-x-auto">
+            <svg viewBox={`0 0 ${lW} ${lH}`} className="w-full min-w-[280px]">
+              {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+                const y = lPt + lPH - pct * lPH;
+                return (
+                  <g key={pct}>
+                    <line x1={lPl} y1={y} x2={lPl + lPW} y2={y} stroke="#f1f5f9" strokeWidth="1" />
+                    <text x={lPl - 4} y={y + 4} textAnchor="end" fontSize="8" fill="#94a3b8">{Math.round(pct * lMax)}</text>
+                  </g>
+                );
+              })}
+              {areaPoints && <polygon points={areaPoints} fill="rgba(59,130,246,0.07)" />}
+              <polyline points={linePoints} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              {lineData.map((d, i) => {
+                const x = lPl + (i / Math.max(lineData.length - 1, 1)) * lPW;
+                const y = lPt + lPH - (d[1] / lMax) * lPH;
+                return <circle key={i} cx={x} cy={y} r="3" fill="#3b82f6" stroke="white" strokeWidth="1.5" />;
+              })}
+              {lineData.map((d, i) => {
+                if (!xLabel(i)) return null;
+                const x = lPl + (i / Math.max(lineData.length - 1, 1)) * lPW;
+                const lbl = new Date(d[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+                return <text key={i} x={x} y={lH - 4} textAnchor="middle" fontSize="8" fill="#94a3b8">{lbl}</text>;
+              })}
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Sub periods per teacher bar chart */}
+      {topSub.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Substitute Periods Per Teacher</p>
+          <div className="overflow-x-auto">
+            <svg viewBox={`0 0 ${bW} ${subChartH}`} className="w-full min-w-[260px]">
+              {topSub.map(([name, count], i) => {
+                const y = i * (bH + bGap);
+                const bw = (count / subMax) * bBarMax;
+                return (
+                  <g key={name}>
+                    <text x={bLbl - 6} y={y + bH / 2 + 4} textAnchor="end" fontSize="10" fill="#475569" fontWeight="600">{shortName(name)}</text>
+                    <rect x={bLbl} y={y + 3} width={Math.max(bw, 2)} height={bH - 6} rx="4" fill="#3b82f6" opacity="0.8" />
+                    <text x={bLbl + bw + 6} y={y + bH / 2 + 4} fontSize="10" fill="#64748b" fontWeight="700">{count}</text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Absence count per teacher */}
+      {topAbsent.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Absence Count Per Teacher</p>
+          <div className="overflow-x-auto">
+            <svg viewBox={`0 0 ${bW} ${absentChartH}`} className="w-full min-w-[260px]">
+              {topAbsent.map(([name, count], i) => {
+                const y = i * (bH + bGap);
+                const bw = (count / absentMax) * bBarMax;
+                return (
+                  <g key={name}>
+                    <text x={bLbl - 6} y={y + bH / 2 + 4} textAnchor="end" fontSize="10" fill="#475569" fontWeight="600">{shortName(name)}</text>
+                    <rect x={bLbl} y={y + 3} width={Math.max(bw, 2)} height={bH - 6} rx="4" fill="#f59e0b" opacity="0.75" />
+                    <text x={bLbl + bw + 6} y={y + bH / 2 + 4} fontSize="10" fill="#64748b" fontWeight="700">{count}</text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
