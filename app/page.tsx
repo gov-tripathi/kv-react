@@ -1321,7 +1321,6 @@ function ArrangementTab({
   onSave, onUpdateVersion, saving, isSaved,
   arrangementTitle, onTitleChange, titleLocked, loadedArrangementId,
 }: ArrProps) {
-  const [copied, setCopied] = useState(false);
   const [reportNote, setReportNote] = useState('');
   const [includeNotes, setIncludeNotes] = useState(false);
   const [newVersionMode, setNewVersionMode] = useState(false);
@@ -1336,12 +1335,6 @@ function ArrangementTab({
     if (countWords(val) <= 75) setReportNote(val);
   }
 
-  function handleCopyWA() {
-    if (!report) return;
-    navigator.clipboard.writeText(whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties)).then(() => {
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
-    });
-  }
 
   if (!absentTeachers.length && !cancelledClasses.length) return (
     <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-slate-100">
@@ -1590,12 +1583,6 @@ function ArrangementTab({
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Time-Table In-Charge</p>
-              <button onClick={handleCopyWA}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
-                  copied ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'
-                }`}>
-                <span className="inline-flex items-center gap-1">{copied ? <><Icon name="check" className="w-3 h-3" /> Copied!</> : <><Icon name="clipboard" className="w-3 h-3" /> Copy</>}</span>
-              </button>
             </div>
             <textarea readOnly value={whatsappText(report, selectedDay, dateVal, lunchDuties, attendanceDuties)}
               className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono bg-slate-50 resize-none h-40 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400" />
