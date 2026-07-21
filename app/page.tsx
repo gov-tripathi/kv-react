@@ -79,6 +79,9 @@ import {
   getPeriods, createPeriod, updatePeriod, deletePeriod, bulkCreatePeriods,
 } from '@/lib/db';
 
+// Prevents concurrent double-seed when PeriodsPanel mounts/unmounts rapidly
+let _periodSeedDone = false;
+
 const KV_DEFAULT_PERIODS = [
   { name: 'School Reporting Time',        start: '07:20 AM', end: '07:20 AM' },
   { name: 'Morning Assembly Warning Bell', start: '07:25 AM', end: '07:25 AM' },
@@ -2750,17 +2753,35 @@ function PeriodsPanel() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Auto-seed KV defaults when DB is empty
+  // Auto-seed KV defaults when DB is empty, auto-dedup on every load
   useEffect(() => {
     setLoading(true);
     (async () => {
       try {
         let data = await getPeriods();
-        if (data.length === 0) {
+
+        // Seed only once per page-load session
+        if (data.length === 0 && !_periodSeedDone) {
+          _periodSeedDone = true;
           data = await bulkCreatePeriods(
             KV_DEFAULT_PERIODS.map((d, i) => ({ name: d.name, start_time: d.start, end_time: d.end, sort_order: i }))
           );
+        } else {
+          _periodSeedDone = true;
         }
+
+        // Auto-remove duplicates (keep earliest by created_at per name)
+        const seen = new Map<string, SchoolPeriod>();
+        const toDelete: string[] = [];
+        for (const p of data) {
+          if (!seen.has(p.name)) { seen.set(p.name, p); }
+          else { toDelete.push(p.id); }
+        }
+        if (toDelete.length > 0) {
+          await Promise.all(toDelete.map(id => deletePeriod(id)));
+          data = data.filter(p => !toDelete.includes(p.id));
+        }
+
         setPeriods(data);
       } catch {}
       finally { setLoading(false); }
