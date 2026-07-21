@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase';
-import type { Arrangement, FormState, ReportRow, TeacherAccount } from './types';
+import type { Arrangement, FormState, ReportRow, TeacherAccount, SchoolPeriod } from './types';
 
 export async function getMyArrangements(email: string): Promise<Arrangement[]> {
   const { data, error } = await getSupabase()
@@ -109,6 +109,54 @@ export async function getSharedArrangementForDate(date: string): Promise<Arrange
   const concluded = arr.find(a => a.is_concluded);
   if (concluded) return concluded;
   return arr.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+}
+
+// ── School periods ─────────────────────────────────────────────────────────────
+
+export async function getPeriods(): Promise<SchoolPeriod[]> {
+  const { data, error } = await getSupabase()
+    .from('school_periods')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SchoolPeriod[];
+}
+
+export async function createPeriod(name: string, startTime: string, endTime: string, sortOrder: number): Promise<SchoolPeriod> {
+  const { data, error } = await getSupabase()
+    .from('school_periods')
+    .insert({ name, start_time: startTime, end_time: endTime, sort_order: sortOrder })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SchoolPeriod;
+}
+
+export async function updatePeriod(id: string, updates: { name?: string; start_time?: string; end_time?: string }): Promise<SchoolPeriod> {
+  const { data, error } = await getSupabase()
+    .from('school_periods')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SchoolPeriod;
+}
+
+export async function deletePeriod(id: string): Promise<void> {
+  const { error } = await getSupabase().from('school_periods').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function bulkCreatePeriods(items: { name: string; start_time: string; end_time: string; sort_order: number }[]): Promise<SchoolPeriod[]> {
+  const { data, error } = await getSupabase()
+    .from('school_periods')
+    .insert(items)
+    .select()
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SchoolPeriod[];
 }
 
 // Set is_concluded on a batch of arrangement IDs

@@ -68,7 +68,7 @@ import {
   buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod,
   getNotReqTeachersForPeriod, priorityIdx, isNotReq,
 } from '@/lib/timetable';
-import type { AbsenceConfig, FormState, Arrangement, TeacherAccount } from '@/lib/types';
+import type { AbsenceConfig, FormState, Arrangement, TeacherAccount, SchoolPeriod } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
 import { computeRegisterDuties } from '@/lib/duties';
 import type { RegisterDuty } from '@/lib/duties';
@@ -76,7 +76,40 @@ import {
   getMyArrangements,
   saveArrangement, updateArrangement, deleteArrangement, saveDraft, loadDraft,
   loginTeacher, getTeacherAccounts, createTeacherAccount, deleteTeacherAccount, getSharedArrangementForDate,
+  getPeriods, createPeriod, updatePeriod, deletePeriod, bulkCreatePeriods,
 } from '@/lib/db';
+
+const KV_DEFAULT_PERIODS = [
+  { name: 'School Reporting Time',        start: '07:20 AM', end: '07:20 AM' },
+  { name: 'Morning Assembly Warning Bell', start: '07:25 AM', end: '07:25 AM' },
+  { name: 'Morning Assembly',              start: '07:30 AM', end: '07:50 AM' },
+  { name: 'Period I',                      start: '07:50 AM', end: '08:30 AM' },
+  { name: 'Period II',                     start: '08:30 AM', end: '09:10 AM' },
+  { name: 'Snacks Break',                  start: '09:10 AM', end: '09:20 AM' },
+  { name: 'Period III',                    start: '09:20 AM', end: '10:00 AM' },
+  { name: 'Period IV',                     start: '10:00 AM', end: '10:40 AM' },
+  { name: 'Recess',                        start: '10:40 AM', end: '11:00 AM' },
+  { name: 'Period V',                      start: '11:00 AM', end: '11:40 AM' },
+  { name: 'Period VI',                     start: '11:40 AM', end: '12:20 PM' },
+  { name: 'Period VII',                    start: '12:20 PM', end: '01:00 PM' },
+  { name: 'Period VIII',                   start: '01:00 PM', end: '01:40 PM' },
+];
+
+function parsePeriodMins(t: string): number {
+  const [time, ap] = t.split(' ');
+  const [hStr, mStr] = time.split(':');
+  let h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+function parseTimeStr(t: string): { h: string; m: string; ap: 'AM' | 'PM' } {
+  const [time, ap] = t.split(' ');
+  const [hStr, mStr] = time.split(':');
+  return { h: String(parseInt(hStr, 10)), m: mStr, ap: ap as 'AM' | 'PM' };
+}
 
 const USERS: Record<string, string> = {
   'iamgovind560@gmail.com': 'govind@kv2025',
@@ -91,6 +124,32 @@ function Toggle({ on, onToggle, accent = 'blue' }: { on: boolean; onToggle: () =
       className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${on ? colors[accent] : 'bg-slate-200'}`}>
       <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
     </button>
+  );
+}
+
+// ── Collapsible settings section ─────────────────────────────────────────────
+function CollapsibleSection({ label, title, subtitle, children, defaultOpen = false, noBorderTop = false }: {
+  label: string; title: string; subtitle?: string; children: React.ReactNode; defaultOpen?: boolean; noBorderTop?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`mb-2 ${noBorderTop ? '' : 'border-t border-slate-100'}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full pt-4 pb-3 flex items-center justify-between text-left group">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
+          <h2 className="text-base font-extrabold text-slate-800">{title}</h2>
+          {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+        </div>
+        <svg className={`w-4.5 h-4.5 w-5 h-5 text-slate-400 flex-shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && <div className="pb-4">{children}</div>}
+    </div>
   );
 }
 
@@ -1233,19 +1292,21 @@ export default function App() {
               </button>
             </div>
 
-            {/* Statistics */}
-            <div className="mb-6">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Analytics</p>
-              <h2 className="text-lg font-extrabold text-slate-800 mb-4">Statistics</h2>
+            <CollapsibleSection label="Analytics" title="Statistics" noBorderTop>
               <StatsPanel currentUser={currentUser} />
-            </div>
+            </CollapsibleSection>
 
-            <div className="mb-4 pt-4 border-t border-slate-100">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Admin</p>
-              <h2 className="text-lg font-extrabold text-slate-800">Teacher Accounts</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Create and manage teacher login credentials.</p>
-            </div>
-            <TeachersPanel allTeachers={allTeachers} />
+            <CollapsibleSection
+              label="Admin" title="School Periods"
+              subtitle="Define periods with start and end times. Visible to teachers on login.">
+              <PeriodsPanel />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              label="Admin" title="Teacher Accounts"
+              subtitle="Create and manage teacher login credentials.">
+              <TeachersPanel allTeachers={allTeachers} />
+            </CollapsibleSection>
           </div>
         )}
 
@@ -2660,6 +2721,215 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// School Periods Panel (admin only, inside Settings tab)
+// ─────────────────────────────────────────────────────────────────────────────
+function PeriodsPanel() {
+  const [periods, setPeriods] = useState<SchoolPeriod[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Add-new form state
+  const [name, setName] = useState('');
+  const [startH, setStartH] = useState('8');
+  const [startM, setStartM] = useState('00');
+  const [startAmPm, setStartAmPm] = useState<'AM' | 'PM'>('AM');
+  const [endH, setEndH] = useState('8');
+  const [endM, setEndM] = useState('45');
+  const [endAmPm, setEndAmPm] = useState<'AM' | 'PM'>('AM');
+  const [saving, setSaving] = useState(false);
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editStartH, setEditStartH] = useState('8');
+  const [editStartM, setEditStartM] = useState('00');
+  const [editStartAmPm, setEditStartAmPm] = useState<'AM' | 'PM'>('AM');
+  const [editEndH, setEditEndH] = useState('8');
+  const [editEndM, setEditEndM] = useState('45');
+  const [editEndAmPm, setEditEndAmPm] = useState<'AM' | 'PM'>('AM');
+  const [updating, setUpdating] = useState(false);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Auto-seed KV defaults when DB is empty
+  useEffect(() => {
+    setLoading(true);
+    (async () => {
+      try {
+        let data = await getPeriods();
+        if (data.length === 0) {
+          data = await bulkCreatePeriods(
+            KV_DEFAULT_PERIODS.map((d, i) => ({ name: d.name, start_time: d.start, end_time: d.end, sort_order: i }))
+          );
+        }
+        setPeriods(data);
+      } catch {}
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  const fmtTime = (h: string, m: string, ap: 'AM' | 'PM') => `${h.padStart(2, '0')}:${m} ${ap}`;
+
+  const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
+  const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+  const selCls = 'border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+  function TimeSelects({ h, m, ap, onH, onM, onAp }: {
+    h: string; m: string; ap: 'AM' | 'PM';
+    onH: (v: string) => void; onM: (v: string) => void; onAp: (v: 'AM' | 'PM') => void;
+  }) {
+    return (
+      <div className="flex items-center gap-1">
+        <select value={h} onChange={e => onH(e.target.value)} className={selCls}>
+          {hours.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <span className="text-slate-400 text-xs">:</span>
+        <select value={m} onChange={e => onM(e.target.value)} className={selCls}>
+          {minutes.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <select value={ap} onChange={e => onAp(e.target.value as 'AM' | 'PM')} className={selCls}>
+          <option>AM</option><option>PM</option>
+        </select>
+      </div>
+    );
+  }
+
+  async function handleAdd() {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const p = await createPeriod(name.trim(), fmtTime(startH, startM, startAmPm), fmtTime(endH, endM, endAmPm), periods.length);
+      setPeriods(prev => [...prev, p]);
+      setName('');
+    } catch (e) { alert('Failed to save: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setSaving(false); }
+  }
+
+  function startEdit(p: SchoolPeriod) {
+    const s = parseTimeStr(p.start_time);
+    const e = parseTimeStr(p.end_time);
+    setEditingId(p.id);
+    setEditName(p.name);
+    setEditStartH(s.h); setEditStartM(s.m); setEditStartAmPm(s.ap);
+    setEditEndH(e.h); setEditEndM(e.m); setEditEndAmPm(e.ap);
+  }
+
+  async function handleUpdate(id: string) {
+    setUpdating(true);
+    try {
+      const updated = await updatePeriod(id, {
+        name: editName.trim(),
+        start_time: fmtTime(editStartH, editStartM, editStartAmPm),
+        end_time: fmtTime(editEndH, editEndM, editEndAmPm),
+      });
+      setPeriods(prev => prev.map(p => p.id === id ? updated : p));
+      setEditingId(null);
+    } catch (e) { alert('Failed to update: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setUpdating(false); }
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    try {
+      await deletePeriod(id);
+      setPeriods(prev => prev.filter(p => p.id !== id));
+      if (editingId === id) setEditingId(null);
+    } catch (e) { alert('Failed to delete: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setDeletingId(null); }
+  }
+
+  return (
+    <div>
+      {/* Add form */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4">
+        <p className="text-xs font-bold text-slate-600 mb-3">Add New Period</p>
+        <input
+          type="text" placeholder="Period name (e.g. Period IX, Lunch)"
+          value={name} onChange={e => setName(e.target.value)}
+          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+        />
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Start</p>
+            <TimeSelects h={startH} m={startM} ap={startAmPm} onH={setStartH} onM={setStartM} onAp={setStartAmPm} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">End</p>
+            <TimeSelects h={endH} m={endM} ap={endAmPm} onH={setEndH} onM={setEndM} onAp={setEndAmPm} />
+          </div>
+        </div>
+        <button onClick={handleAdd} disabled={saving || !name.trim()}
+          className="w-full py-2.5 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+          {saving ? 'Saving…' : '+ Add Period'}
+        </button>
+      </div>
+
+      {/* List */}
+      {loading ? (
+        <div className="flex justify-center py-6"><LoadingSpinner size="sm" /></div>
+      ) : (
+        <div className="space-y-2">
+          {periods.map(p => (
+            <div key={p.id} className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+              {editingId === p.id ? (
+                /* ── Edit mode ── */
+                <div className="p-4">
+                  <input
+                    value={editName} onChange={e => setEditName(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                  />
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Start</p>
+                      <TimeSelects h={editStartH} m={editStartM} ap={editStartAmPm} onH={setEditStartH} onM={setEditStartM} onAp={setEditStartAmPm} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">End</p>
+                      <TimeSelects h={editEndH} m={editEndM} ap={editEndAmPm} onH={setEditEndH} onM={setEditEndM} onAp={setEditEndAmPm} />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleUpdate(p.id)} disabled={updating || !editName.trim()}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-all">
+                      {updating ? 'Saving…' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditingId(null)}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── View mode ── */
+                <div className="px-4 py-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {p.start_time === p.end_time ? p.start_time : `${p.start_time} – ${p.end_time}`}
+                    </p>
+                  </div>
+                  <button onClick={() => startEdit(p)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-blue-600 transition-all flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button onClick={() => handleDelete(p.id)} disabled={deletingId === p.id}
+                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 transition-all flex-shrink-0">
+                    {deletingId === p.id
+                      ? <LoadingSpinner size="sm" />
+                      : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Manage Teachers Panel (admin only, inside HistoryTab)
 // ─────────────────────────────────────────────────────────────────────────────
 function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
@@ -2796,6 +3066,27 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
   const [dateVal, setDateVal] = useState<string>(todayDate());
   const [arrangement, setArrangement] = useState<Arrangement | null>(null);
   const [loadingArr, setLoadingArr] = useState(false);
+  const [schoolPeriods, setSchoolPeriods] = useState<SchoolPeriod[]>([]);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    getPeriods().then(setSchoolPeriods).catch(() => {});
+  }, []);
+
+  // Tick every minute so current-period highlight stays live
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const currentPeriodId = useMemo(() => {
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    return schoolPeriods.find(p => {
+      const s = parsePeriodMins(p.start_time);
+      const e = parsePeriodMins(p.end_time);
+      return s !== e && nowMins >= s && nowMins < e;
+    })?.id ?? null;
+  }, [schoolPeriods, now]);
 
   const selectedDay = useMemo(() => {
     const d = new Date(dateVal + 'T00:00:00');
@@ -2884,6 +3175,38 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
           </button>
         </div>
       </div>
+
+      {/* Period timing bar */}
+      {schoolPeriods.length > 0 && (
+        <div style={{ background: 'rgba(15,23,42,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="max-w-2xl mx-auto px-4 py-2 overflow-x-auto">
+            <div className="flex items-center gap-2 min-w-max">
+              {schoolPeriods.map(p => {
+                const isCurrent = p.id === currentPeriodId;
+                return (
+                  <div key={p.id}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 flex-shrink-0 border transition-all ${
+                      isCurrent
+                        ? 'bg-blue-500 border-blue-400'
+                        : 'bg-white/8 border-white/10'
+                    }`}>
+                    {isCurrent && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse flex-shrink-0" />
+                    )}
+                    <span className={`text-[10px] font-bold whitespace-nowrap ${isCurrent ? 'text-white' : 'text-white/90'}`}>
+                      {p.name}
+                    </span>
+                    <span className={`text-[9px] ${isCurrent ? 'text-blue-200' : 'text-white/40'}`}>·</span>
+                    <span className={`text-[10px] whitespace-nowrap ${isCurrent ? 'text-blue-100' : 'text-white/55'}`}>
+                      {p.start_time === p.end_time ? p.start_time : `${p.start_time}–${p.end_time}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-2xl mx-auto px-4 py-5 pb-10">
         {/* Date picker */}

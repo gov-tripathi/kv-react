@@ -86,3 +86,12 @@ export interface TeacherAccount {
   teacher_name: string;
   created_at: string;
 }
+
+export interface SchoolPeriod {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  sort_order: number;
+  created_at: string;
+}
