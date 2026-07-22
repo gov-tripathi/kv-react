@@ -3089,6 +3089,8 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
   const [loadingArr, setLoadingArr] = useState(false);
   const [schoolPeriods, setSchoolPeriods] = useState<SchoolPeriod[]>([]);
   const [now, setNow] = useState(() => new Date());
+  const currentChipRef = useRef<HTMLDivElement>(null);
+  const periodBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getPeriods().then(setSchoolPeriods).catch(() => {});
@@ -3108,6 +3110,14 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
       return s !== e && nowMins >= s && nowMins < e;
     })?.id ?? null;
   }, [schoolPeriods, now]);
+
+  // Auto-scroll period bar so current chip is visible on load
+  useEffect(() => {
+    if (!currentChipRef.current || !periodBarRef.current) return;
+    const bar = periodBarRef.current;
+    const chip = currentChipRef.current;
+    bar.scrollLeft = chip.offsetLeft - bar.clientWidth / 2 + chip.clientWidth / 2;
+  }, [currentPeriodId]);
 
   const selectedDay = useMemo(() => {
     const d = new Date(dateVal + 'T00:00:00');
@@ -3197,21 +3207,33 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
         </div>
       </div>
 
-      {/* Current period — fixed corner badge */}
-      {currentPeriodId && (() => {
-        const cur = schoolPeriods.find(p => p.id === currentPeriodId)!;
-        return (
-          <div className="fixed bottom-6 right-4 z-50 pointer-events-none">
-            <div className="flex items-center gap-2 bg-blue-600 text-white rounded-2xl px-3.5 py-2.5 shadow-lg shadow-blue-900/40">
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse flex-shrink-0" />
-              <div className="leading-tight">
-                <p className="text-[11px] font-extrabold whitespace-nowrap">{cur.name}</p>
-                <p className="text-[10px] text-blue-200 whitespace-nowrap">{cur.start_time} – {cur.end_time}</p>
-              </div>
+      {/* Period timing bar — auto-scrolls to current period */}
+      {schoolPeriods.length > 0 && (
+        <div style={{ background: 'rgba(15,23,42,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div ref={periodBarRef} className="max-w-2xl mx-auto px-4 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            <div className="flex items-center gap-2 min-w-max">
+              {schoolPeriods.map(p => {
+                const isCurrent = p.id === currentPeriodId;
+                return (
+                  <div key={p.id} ref={isCurrent ? currentChipRef : null}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 flex-shrink-0 border transition-all ${
+                      isCurrent ? 'bg-blue-500 border-blue-400' : 'bg-white/8 border-white/10'
+                    }`}>
+                    {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse flex-shrink-0" />}
+                    <span className={`text-[10px] font-bold whitespace-nowrap ${isCurrent ? 'text-white' : 'text-white/90'}`}>
+                      {p.name}
+                    </span>
+                    <span className={`text-[9px] ${isCurrent ? 'text-blue-200' : 'text-white/40'}`}>·</span>
+                    <span className={`text-[10px] whitespace-nowrap ${isCurrent ? 'text-blue-100' : 'text-white/55'}`}>
+                      {p.start_time === p.end_time ? p.start_time : `${p.start_time}–${p.end_time}`}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       <div className="max-w-2xl mx-auto px-4 py-5 pb-10">
         {/* Date picker */}
