@@ -82,6 +82,17 @@ export async function createTeacherAccount(username: string, password: string, t
   return data as TeacherAccount;
 }
 
+export async function updateTeacherAccount(id: string, teacherName: string): Promise<TeacherAccount> {
+  const { data, error } = await getSupabase()
+    .from('teacher_accounts')
+    .update({ teacher_name: teacherName })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as TeacherAccount;
+}
+
 export async function deleteTeacherAccount(id: string): Promise<void> {
   const { error } = await getSupabase().from('teacher_accounts').delete().eq('id', id);
   if (error) throw error;

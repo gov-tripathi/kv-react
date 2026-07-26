@@ -76,7 +76,7 @@ import type { RegisterDuty } from '@/lib/duties';
 import {
   getMyArrangements,
   saveArrangement, updateArrangement, deleteArrangement, saveDraft, loadDraft,
-  loginTeacher, getTeacherAccounts, createTeacherAccount, deleteTeacherAccount, getSharedArrangementForDate,
+  loginTeacher, getTeacherAccounts, createTeacherAccount, updateTeacherAccount, deleteTeacherAccount, getSharedArrangementForDate,
   getPeriods, createPeriod, updatePeriod, deletePeriod, bulkCreatePeriods,
   getTimetableRows, replaceTimetable, getAssignmentRules, replaceAssignmentRules,
 } from '@/lib/db';
@@ -3002,6 +3002,9 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     setLoadingAccounts(true);
@@ -3018,6 +3021,18 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
     } catch (e) {
       alert('Failed to create account: ' + (e instanceof Error ? e.message : String(e)));
     } finally { setSaving(false); }
+  }
+
+  async function handleEditSave(id: string) {
+    if (!editName) return;
+    setSavingEdit(true);
+    try {
+      const updated = await updateTeacherAccount(id, editName);
+      setAccounts(prev => prev.map(a => a.id === id ? updated : a));
+      setEditingId(null);
+    } catch (e) {
+      alert('Failed to update: ' + (e instanceof Error ? e.message : String(e)));
+    } finally { setSavingEdit(false); }
   }
 
   async function handleDelete(id: string) {
@@ -3076,6 +3091,7 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
           {accounts.map(acc => {
             const showPw = visiblePasswords.has(acc.id);
             const busy = deletingId === acc.id;
+            const isEditing = editingId === acc.id;
             return (
               <div key={acc.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -3083,11 +3099,33 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
                     <div className="font-bold text-slate-800 text-sm">{shortName(acc.teacher_name)}</div>
                     <div className="text-[10px] text-slate-400 mt-0.5 truncate">{acc.teacher_name}</div>
                   </div>
-                  <button onClick={() => handleDelete(acc.id)} disabled={busy}
-                    className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition-all disabled:opacity-50 flex-shrink-0">
-                    {busy ? '…' : <Icon name="trash" className="w-3.5 h-3.5" />}
-                  </button>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => { setEditingId(isEditing ? null : acc.id); setEditName(acc.teacher_name); }}
+                      className="text-blue-400 hover:text-blue-600 text-xs px-2 py-1 rounded-lg hover:bg-blue-50 transition-all">
+                      <Icon name="pencil" className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleDelete(acc.id)} disabled={busy}
+                      className="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition-all disabled:opacity-50">
+                      {busy ? '…' : <Icon name="trash" className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
+
+                {isEditing && (
+                  <div className="mb-3 p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-blue-500">Remap to timetable teacher</p>
+                    <SelectField value={editName} onChange={e => setEditName(e.target.value)}>
+                      <option value="">Select teacher…</option>
+                      {allTeachers.map(t => <option key={t} value={t}>{shortName(t)}</option>)}
+                    </SelectField>
+                    <div className="flex gap-2">
+                      <Btn variant="primary" size="sm" className="flex-1" disabled={!editName || savingEdit} onClick={() => handleEditSave(acc.id)}>
+                        {savingEdit ? 'Saving…' : 'Save'}
+                      </Btn>
+                      <Btn variant="secondary" size="sm" onClick={() => setEditingId(null)}>Cancel</Btn>
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-slate-50 rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-2">
@@ -3124,6 +3162,20 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
 // Teacher View (shown to logged-in teachers instead of admin app)
 // ─────────────────────────────────────────────────────────────────────────────
 function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teacherName: string; onSignOut: () => void }) {
+  // Resolve stored teacher_name to best-matching name in the current timetable.
+  // Falls back through: exact → case-insensitive → shortName match → original.
+  const resolvedName = useMemo(() => {
+    if (!df.length) return teacherName;
+    const all = getAllTeachers(df);
+    if (all.includes(teacherName)) return teacherName;
+    const lower = teacherName.toLowerCase();
+    const ci = all.find(t => t.toLowerCase() === lower);
+    if (ci) return ci;
+    const sn = shortName(teacherName).toLowerCase();
+    const snMatch = all.find(t => shortName(t).toLowerCase() === sn);
+    return snMatch ?? teacherName;
+  }, [df, teacherName]);
+
   const [dateVal, setDateVal] = useState<string>(todayDate());
   const [arrangement, setArrangement] = useState<Arrangement | null>(null);
   const [loadingArr, setLoadingArr] = useState(false);
@@ -3175,23 +3227,23 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
 
   const fs = arrangement?.form_state;
   const schoolMaxPeriod = fs?.schoolHalfDay ? fs.schoolHalfDayPeriod : 8;
-  const isAbsentToday = fs ? fs.absentTeachers.includes(teacherName) : false;
-  const lunchDuty = fs?.lunchDuties.find(d => d.teacher === teacherName);
-  const attendanceDuty = fs?.attendanceDuties.find(d => d.teacher === teacherName);
+  const isAbsentToday = fs ? fs.absentTeachers.includes(resolvedName) : false;
+  const lunchDuty = fs?.lunchDuties.find(d => d.teacher === resolvedName);
+  const attendanceDuty = fs?.attendanceDuties.find(d => d.teacher === resolvedName);
 
   const schedule = useMemo(() => {
     return Array.from({ length: schoolMaxPeriod }, (_, i) => i + 1).map(p => {
-      const regularRow = df.find(r => r.Teacher_Name === teacherName && r.Day === selectedDay && r.Period === p);
+      const regularRow = df.find(r => r.Teacher_Name === resolvedName && r.Day === selectedDay && r.Period === p);
 
       let status: 'teaching' | 'sub' | 'clubbed' | 'absent' | 'free' | 'notReq' = 'free';
       let info = '';
       let subForTeacher = '';
 
-      if (fs && isAbsentToday && isTeacherAbsentInPeriod(teacherName, p, fs.absentTeachers, fs.absenceConfigs)) {
+      if (fs && isAbsentToday && isTeacherAbsentInPeriod(resolvedName, p, fs.absentTeachers, fs.absenceConfigs)) {
         status = 'absent';
       } else {
         const subDuty = arrangement?.report_rows.find(
-          r => r.Substitute === teacherName && r.Period === p && r.Type !== 'CANCELLED',
+          r => r.Substitute === resolvedName && r.Period === p && r.Type !== 'CANCELLED',
         );
         if (subDuty) {
           status = subDuty.Type === 'CLUBBED' ? 'clubbed' : 'sub';
@@ -3212,7 +3264,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
       }
       return { period: p, status, info, subForTeacher };
     });
-  }, [df, teacherName, selectedDay, schoolMaxPeriod, arrangement, fs, isAbsentToday]);
+  }, [df, resolvedName, selectedDay, schoolMaxPeriod, arrangement, fs, isAbsentToday]);
 
   const statusCfg = {
     teaching: { bg: 'bg-blue-50',   border: 'border-l-blue-400',   badge: 'bg-blue-100 text-blue-700',   label: 'Teaching'    },
@@ -3237,7 +3289,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
               style={{ filter: 'brightness(1.1) drop-shadow(0 1px 4px rgba(0,0,0,.4))' }} />
             <div className="min-w-0">
               <p className="text-[9px] font-bold text-white/40 tracking-widest uppercase">Teacher Portal · KV Burhanpur</p>
-              <p className="text-sm font-bold text-white truncate">{shortName(teacherName)}</p>
+              <p className="text-sm font-bold text-white truncate">{shortName(resolvedName)}</p>
             </div>
           </div>
           <button onClick={onSignOut}
