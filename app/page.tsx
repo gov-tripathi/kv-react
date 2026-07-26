@@ -57,6 +57,7 @@ function KvProgressBar({ value, color = 'default' }: { value: number; color?: 'd
     </div>
   );
 }
+import * as XLSX from 'xlsx';
 import {
   TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry, CancelledClassConfig, AssignmentRule,
 } from '@/lib/types';
@@ -3366,14 +3367,27 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
 }
 
 // ─── Timetable Upload Panel ───────────────────────────────────────────────────
-const TIMETABLE_TEMPLATE_CSV = [
-  'Teacher_Name,Day,Period,Class,Subject',
-  'MR. EXAMPLE,MON,1,V A,MATHS',
-  'MR. EXAMPLE,MON,2,V B,MATHS',
-  'MS. EXAMPLE,TUE,3,III A,ENGLISH',
-  // "Not Req" rows mark periods where the teacher should NOT be assigned as sub
-  'MR. EXAMPLE,WED,4,IX A,Not Req',
-].join('\n');
+const TEMPLATE_ROWS = [
+  { Teacher_Name: 'MR. EXAMPLE', Day: 'MON', Period: 1, Class: 'V A',  Subject: 'MATHS'   },
+  { Teacher_Name: 'MR. EXAMPLE', Day: 'MON', Period: 2, Class: 'V B',  Subject: 'MATHS'   },
+  { Teacher_Name: 'MS. EXAMPLE', Day: 'TUE', Period: 3, Class: 'III A',Subject: 'ENGLISH' },
+  { Teacher_Name: 'MR. EXAMPLE', Day: 'WED', Period: 4, Class: 'IX A', Subject: 'Not Req' },
+];
+
+function xlsxBlob(data: object[], sheetName = 'Timetable'): Blob {
+  const ws = XLSX.utils.json_to_sheet(data, { header: ['Teacher_Name','Day','Period','Class','Subject'] });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
 function TimetableUploadPanel({ df, uploaded, onReplaced }: { df: TimetableRow[]; uploaded: boolean; onReplaced: (rows: TimetableRow[]) => void }) {
   const [preview, setPreview] = useState<{ rows: TimetableRow[]; teachers: number } | null>(null);
@@ -3385,35 +3399,50 @@ function TimetableUploadPanel({ df, uploaded, onReplaced }: { df: TimetableRow[]
     return { rows: df.length, teachers };
   }, [df]);
 
-  function handleDownload() {
-    const rows = uploaded ? df : null;
-    const csv = rows
-      ? 'Teacher_Name,Day,Period,Class,Subject\n' + rows.map(r => `${r.Teacher_Name},${r.Day},${r.Period},${r.Class},${r.Subject}`).join('\n')
-      : TIMETABLE_TEMPLATE_CSV;
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = uploaded ? 'timetable.csv' : 'timetable_template.csv'; a.click();
-    URL.revokeObjectURL(url);
+  function downloadXlsx() {
+    const data = uploaded ? df : TEMPLATE_ROWS;
+    const name = uploaded ? 'timetable.xlsx' : 'timetable_template.xlsx';
+    downloadBlob(xlsxBlob(data), name);
+  }
+
+  function downloadCsv() {
+    const data = uploaded ? df : TEMPLATE_ROWS;
+    const header = 'Teacher_Name,Day,Period,Class,Subject';
+    const body = data.map(r => `${r.Teacher_Name},${r.Day},${r.Period},${r.Class},${r.Subject}`).join('\n');
+    const name = uploaded ? 'timetable.csv' : 'timetable_template.csv';
+    downloadBlob(new Blob([header + '\n' + body], { type: 'text/csv' }), name);
+  }
+
+  function processRows(data: Record<string, unknown>[]) {
+    const required = ['Teacher_Name', 'Day', 'Period', 'Class', 'Subject'];
+    const fields = data.length > 0 ? Object.keys(data[0]) : [];
+    const missing = required.filter(c => !fields.includes(c));
+    if (missing.length) { alert(`Missing columns: ${missing.join(', ')}`); return; }
+    const rows = (data as unknown as TimetableRow[]).filter(r => r.Teacher_Name && r.Day && r.Period && r.Class && r.Subject);
+    const teachers = new Set(rows.map(r => r.Teacher_Name)).size;
+    setPreview({ rows, teachers });
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    Papa.parse<TimetableRow>(file, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      complete(result) {
-        const required = ['Teacher_Name', 'Day', 'Period', 'Class', 'Subject'];
-        const cols = result.meta.fields ?? [];
-        const missing = required.filter(c => !cols.includes(c));
-        if (missing.length) { alert(`Missing columns: ${missing.join(', ')}`); return; }
-        const rows = result.data.filter(r => r.Teacher_Name && r.Day && r.Period && r.Class && r.Subject);
-        const teachers = new Set(rows.map(r => r.Teacher_Name)).size;
-        setPreview({ rows, teachers });
-      },
-    });
+    const ext = file.name.split('.').pop()?.toLowerCase();
+
+    if (ext === 'xlsx' || ext === 'xls') {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const data = new Uint8Array(ev.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        processRows(XLSX.utils.sheet_to_json(ws));
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      Papa.parse<Record<string, unknown>>(file, {
+        header: true, dynamicTyping: true, skipEmptyLines: true,
+        complete(result) { processRows(result.data); },
+      });
+    }
   }
 
   async function handleUpload() {
@@ -3429,29 +3458,37 @@ function TimetableUploadPanel({ df, uploaded, onReplaced }: { df: TimetableRow[]
     } finally { setUploading(false); }
   }
 
+  const dlLabel = uploaded ? 'Download Timetable' : 'Download Template';
+  const dlIcon = (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  );
+
   return (
     <div className="space-y-3 pt-1">
       <div className="flex items-center gap-3 px-1 text-xs text-slate-500">
         <span>{currentStats.teachers} teachers</span>
         <span className="text-slate-300">·</span>
         <span>{currentStats.rows} rows</span>
-        {currentStats.rows === 0 && <span className="text-amber-500 font-medium">using bundled CSV</span>}
+        {!uploaded && <span className="text-amber-500 font-medium">using bundled CSV</span>}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={handleDownload}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          {uploaded ? 'Download Timetable' : 'Download Template'}
+        <button onClick={downloadXlsx}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
+          {dlIcon}{dlLabel} (.xlsx)
+        </button>
+        <button onClick={downloadCsv}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
+          {dlIcon}{dlLabel} (.csv)
         </button>
         <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          Choose CSV
-          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+          Choose File (.csv / .xlsx)
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} />
         </label>
       </div>
 
