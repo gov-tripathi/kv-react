@@ -2476,7 +2476,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
         } else if (masterPs.has(p)) {
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
           if (row && isNotReq(row.Subject)) {
-            periodStatus[p] = 'notReq'; periodClass[p] = 'Upper Class';
+            periodStatus[p] = 'notReq'; periodClass[p] = `Upper Class · ${row.Class}`;
           } else if (row && cancelledClasses.includes(row.Class)) {
             const clsCfg = cancelledClassConfigs[row.Class];
             const isPeriodCancelled = !clsCfg?.halfDay || clsCfg.cancelledPeriods.includes(p);
@@ -3198,7 +3198,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
           subForTeacher = shortName(subDuty.Absent_Teacher);
         } else if (regularRow) {
           if (isNotReq(regularRow.Subject)) {
-            status = 'notReq'; info = 'Upper Class';
+            status = 'notReq'; info = `Upper Class · ${regularRow.Class}`;
           } else if (fs?.cancelledClasses.includes(regularRow.Class)) {
             const clsCfg = fs.cancelledClassConfigs[regularRow.Class];
             const cancelled = !clsCfg?.halfDay || clsCfg.cancelledPeriods.includes(p);
