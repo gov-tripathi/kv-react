@@ -3568,6 +3568,23 @@ function AssignmentRulesPanel({
 
   return (
     <div className="space-y-3 pt-1">
+
+      {/* Legend */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 text-xs text-slate-600">
+        <div className="flex gap-2">
+          <span className="font-bold text-slate-700 w-16 shrink-0"># Rank</span>
+          <span>Assigned first (1 = highest priority) · <span className="text-slate-400">पहले सब्स्टिट्यूट मिलता है (1 = सबसे पहले)</span></span>
+        </div>
+        <div className="flex gap-2">
+          <span className="font-bold text-slate-700 w-16 shrink-0">Retain</span>
+          <span>Min free periods to keep · <span className="text-slate-400">कम से कम इतने खाली पीरियड बचाकर रखो</span></span>
+        </div>
+        <div className="flex gap-2">
+          <span className="font-bold text-slate-700 w-16 shrink-0">Force≥</span>
+          <span>If free periods ≥ this, must get ≥1 sub · <span className="text-slate-400">अगर खाली पीरियड इतने या ज़्यादा हों तो कम से कम 1 सब्स्टिट्यूशन ज़रूर मिलेगी</span></span>
+        </div>
+      </div>
+
       <div className="space-y-1">
         <div className="grid grid-cols-[auto_1fr_auto_auto] gap-x-2 px-1 mb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
           <span className="w-10 text-center">#</span>
