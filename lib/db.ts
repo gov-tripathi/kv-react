@@ -164,9 +164,16 @@ export async function bulkCreatePeriods(items: { name: string; start_time: strin
 export async function getTimetableRows(): Promise<TimetableRow[]> {
   const { data, error } = await getSupabase()
     .from('timetable_rows')
-    .select('Teacher_Name,Day,Period,Class,Subject');
+    .select('teacher_name,day,period,class,subject');
   if (error) throw error;
-  return (data ?? []) as TimetableRow[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({
+    Teacher_Name: r.teacher_name,
+    Day: r.day,
+    Period: r.period,
+    Class: r.class,
+    Subject: r.subject,
+  }));
 }
 
 export async function replaceTimetable(rows: TimetableRow[]): Promise<void> {
@@ -174,7 +181,14 @@ export async function replaceTimetable(rows: TimetableRow[]): Promise<void> {
   const { error: delError } = await sb.from('timetable_rows').delete().gt('id', 0);
   if (delError) throw delError;
   if (!rows.length) return;
-  const { error: insError } = await sb.from('timetable_rows').insert(rows);
+  const mapped = rows.map(r => ({
+    teacher_name: r.Teacher_Name,
+    day: r.Day,
+    period: r.Period,
+    class: r.Class,
+    subject: r.Subject,
+  }));
+  const { error: insError } = await sb.from('timetable_rows').insert(mapped);
   if (insError) throw insError;
 }
 
