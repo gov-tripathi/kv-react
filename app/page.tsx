@@ -583,6 +583,7 @@ export default function App() {
   }, []);
   const [df, setDf] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timetableUploaded, setTimetableUploaded] = useState(false);
   const [assignmentRules, setAssignmentRules] = useState<AssignmentRule[]>([]);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status' | 'history' | 'settings'>('arrangement');
 
@@ -648,6 +649,7 @@ export default function App() {
         const rows = await getTimetableRows();
         if (rows.length > 0) {
           setDf(rows);
+          setTimetableUploaded(true);
         } else {
           const csv = await fetch('/timetable_master.csv').then(r => r.text());
           const result = Papa.parse<TimetableRow>(csv, { header: true, dynamicTyping: true, skipEmptyLines: true });
@@ -1327,7 +1329,7 @@ export default function App() {
             <CollapsibleSection
               label="Admin" title="Timetable"
               subtitle="Upload a CSV timetable to replace the current one.">
-              <TimetableUploadPanel df={df} onReplaced={setDf} />
+              <TimetableUploadPanel df={df} uploaded={timetableUploaded} onReplaced={rows => { setDf(rows); setTimetableUploaded(true); }} />
             </CollapsibleSection>
 
             <CollapsibleSection
@@ -3373,7 +3375,7 @@ const TIMETABLE_TEMPLATE_CSV = [
   'MR. EXAMPLE,WED,4,IX A,Not Req',
 ].join('\n');
 
-function TimetableUploadPanel({ df, onReplaced }: { df: TimetableRow[]; onReplaced: (rows: TimetableRow[]) => void }) {
+function TimetableUploadPanel({ df, uploaded, onReplaced }: { df: TimetableRow[]; uploaded: boolean; onReplaced: (rows: TimetableRow[]) => void }) {
   const [preview, setPreview] = useState<{ rows: TimetableRow[]; teachers: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -3383,11 +3385,15 @@ function TimetableUploadPanel({ df, onReplaced }: { df: TimetableRow[]; onReplac
     return { rows: df.length, teachers };
   }, [df]);
 
-  function downloadTemplate() {
-    const blob = new Blob([TIMETABLE_TEMPLATE_CSV], { type: 'text/csv' });
+  function handleDownload() {
+    const rows = uploaded ? df : null;
+    const csv = rows
+      ? 'Teacher_Name,Day,Period,Class,Subject\n' + rows.map(r => `${r.Teacher_Name},${r.Day},${r.Period},${r.Class},${r.Subject}`).join('\n')
+      : TIMETABLE_TEMPLATE_CSV;
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'timetable_template.csv'; a.click();
+    a.href = url; a.download = uploaded ? 'timetable.csv' : 'timetable_template.csv'; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -3433,12 +3439,12 @@ function TimetableUploadPanel({ df, onReplaced }: { df: TimetableRow[]; onReplac
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={downloadTemplate}
+        <button onClick={handleDownload}
           className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          Download Template
+          {uploaded ? 'Download Timetable' : 'Download Template'}
         </button>
         <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -3487,7 +3493,7 @@ const KV_DEFAULT_RULES: Omit<AssignmentRule, 'id'>[] = [
   { teacher_pattern: 'AMIT',       priority_rank: 13, retain_floor: 3, force_assign_min_free: 4    },
 ];
 
-interface RuleRow { teacher_pattern: string; retain_floor: number; force_assign_min_free: number | null }
+interface RuleRow { teacher: string; retain_floor: number; force_assign_min_free: number | null }
 
 function AssignmentRulesPanel({
   allTeachers, rules, onSaved,
@@ -3496,36 +3502,32 @@ function AssignmentRulesPanel({
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  // Sync from parent rules when they load/change
+  // Rebuild rows whenever the timetable teachers or saved rules change.
+  // - Teachers with a matching saved rule are sorted by their saved priority_rank.
+  // - Teachers not yet in any rule fall to the bottom with defaults.
+  // - When no rules are saved yet, KV_DEFAULT_RULES are used to seed order/floors.
   useEffect(() => {
-    if (rules.length > 0) {
-      setRows(rules.map(r => ({
-        teacher_pattern: r.teacher_pattern,
-        retain_floor: r.retain_floor,
-        force_assign_min_free: r.force_assign_min_free,
-      })));
+    if (allTeachers.length === 0) return;
+
+    const useDefaults = rules.length === 0;
+    const ranked: { teacher: string; rank: number; retain_floor: number; force_assign_min_free: number | null }[] = [];
+    const unranked: RuleRow[] = [];
+
+    for (const teacher of allTeachers) {
+      const sn = shortName(teacher).toUpperCase();
+      const source = useDefaults ? KV_DEFAULT_RULES : rules;
+      const match = source.find(r => sn.includes(r.teacher_pattern.toUpperCase()));
+      if (match) {
+        ranked.push({ teacher, rank: match.priority_rank, retain_floor: match.retain_floor, force_assign_min_free: match.force_assign_min_free });
+      } else {
+        unranked.push({ teacher, retain_floor: 1, force_assign_min_free: null });
+      }
     }
-  }, [rules]);
 
-  function seedDefaults() {
-    setRows(KV_DEFAULT_RULES.map(r => ({
-      teacher_pattern: r.teacher_pattern,
-      retain_floor: r.retain_floor,
-      force_assign_min_free: r.force_assign_min_free,
-    })));
-    setDirty(true);
-  }
-
-  function addFromTimetable() {
-    const existing = new Set(rows.map(r => r.teacher_pattern.toUpperCase()));
-    const newRows: RuleRow[] = allTeachers
-      .filter(t => !rows.some(r => shortName(t).toUpperCase().includes(r.teacher_pattern.toUpperCase())))
-      .filter(t => !existing.has(shortName(t).toUpperCase()))
-      .map(t => ({ teacher_pattern: shortName(t), retain_floor: 1, force_assign_min_free: null }));
-    if (newRows.length === 0) return;
-    setRows(prev => [...prev, ...newRows]);
-    setDirty(true);
-  }
+    ranked.sort((a, b) => a.rank - b.rank);
+    setRows([...ranked.map(({ teacher, retain_floor, force_assign_min_free }) => ({ teacher, retain_floor, force_assign_min_free })), ...unranked]);
+    setDirty(false);
+  }, [allTeachers, rules]);
 
   function move(i: number, dir: -1 | 1) {
     const j = i + dir;
@@ -3541,15 +3543,15 @@ function AssignmentRulesPanel({
     setDirty(true);
   }
 
-  function remove(i: number) {
-    setRows(prev => prev.filter((_, idx) => idx !== i));
-    setDirty(true);
-  }
-
   async function handleSave() {
     setSaving(true);
     try {
-      const toSave = rows.map((r, i) => ({ ...r, priority_rank: i }));
+      const toSave = rows.map((r, i) => ({
+        teacher_pattern: shortName(r.teacher),
+        priority_rank: i,
+        retain_floor: r.retain_floor,
+        force_assign_min_free: r.force_assign_min_free,
+      }));
       await replaceAssignmentRules(toSave);
       onSaved(toSave as AssignmentRule[]);
       setDirty(false);
@@ -3560,63 +3562,49 @@ function AssignmentRulesPanel({
 
   const inputCls = 'w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-center';
 
+  if (allTeachers.length === 0) {
+    return <p className="text-xs text-slate-400 pt-1">Upload a timetable first to configure assignment rules.</p>;
+  }
+
   return (
     <div className="space-y-3 pt-1">
-      {rows.length === 0 ? (
-        <div className="text-xs text-slate-500 space-y-2">
-          <p>No rules configured yet.</p>
-          <button onClick={seedDefaults} className="px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors">
-            Load KV Defaults
-          </button>
+      <div className="space-y-1">
+        <div className="grid grid-cols-[auto_1fr_auto_auto] gap-x-2 px-1 mb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+          <span className="w-10 text-center">#</span>
+          <span>Teacher</span>
+          <span className="w-14 text-center">Retain</span>
+          <span className="w-14 text-center">Force≥</span>
         </div>
-      ) : (
-        <>
-          <div className="space-y-1">
-            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2 px-1 mb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-              <span className="w-10 text-center">#</span>
-              <span>Teacher pattern</span>
-              <span className="w-14 text-center">Retain</span>
-              <span className="w-14 text-center">Force≥</span>
-              <span className="w-8" />
+        {rows.map((r, i) => (
+          <div key={r.teacher} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-2 px-1 py-1 rounded-lg hover:bg-slate-50">
+            <div className="flex flex-col items-center gap-0.5 w-10">
+              <button onClick={() => move(i, -1)} disabled={i === 0}
+                className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none text-xs">▲</button>
+              <span className="text-[10px] text-slate-400 leading-none">{i + 1}</span>
+              <button onClick={() => move(i, 1)} disabled={i === rows.length - 1}
+                className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none text-xs">▼</button>
             </div>
-            {rows.map((r, i) => (
-              <div key={i} className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-x-2 px-1 py-1 rounded-lg hover:bg-slate-50">
-                <div className="flex flex-col items-center gap-0.5 w-10">
-                  <button onClick={() => move(i, -1)} disabled={i === 0}
-                    className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none text-xs">▲</button>
-                  <span className="text-[10px] text-slate-400 leading-none">{i + 1}</span>
-                  <button onClick={() => move(i, 1)} disabled={i === rows.length - 1}
-                    className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none text-xs">▼</button>
-                </div>
-                <span className="text-xs text-slate-700 font-medium truncate">{r.teacher_pattern}</span>
-                <input
-                  type="number" min={0} max={8} value={r.retain_floor}
-                  onChange={e => update(i, { retain_floor: Math.max(0, Math.min(8, Number(e.target.value))) })}
-                  className={inputCls} title="Min free periods to retain"
-                />
-                <input
-                  type="number" min={0} max={8}
-                  value={r.force_assign_min_free ?? ''}
-                  placeholder="—"
-                  onChange={e => update(i, { force_assign_min_free: e.target.value === '' ? null : Math.max(0, Math.min(8, Number(e.target.value))) })}
-                  className={inputCls} title="Force ≥1 assignment when free periods ≥ this"
-                />
-                <button onClick={() => remove(i)} className="w-8 text-center text-slate-300 hover:text-red-400 text-xs">✕</button>
-              </div>
-            ))}
+            <span className="text-xs text-slate-700 font-medium truncate">{shortName(r.teacher)}</span>
+            <input
+              type="number" min={0} max={8} value={r.retain_floor}
+              onChange={e => update(i, { retain_floor: Math.max(0, Math.min(8, Number(e.target.value))) })}
+              className={inputCls} title="Min free periods to retain"
+            />
+            <input
+              type="number" min={0} max={8}
+              value={r.force_assign_min_free ?? ''}
+              placeholder="—"
+              onChange={e => update(i, { force_assign_min_free: e.target.value === '' ? null : Math.max(0, Math.min(8, Number(e.target.value))) })}
+              className={inputCls} title="Force ≥1 assignment when free periods ≥ this"
+            />
           </div>
-          <div className="flex items-center gap-2 flex-wrap pt-1">
-            <button onClick={addFromTimetable} className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
-              + Add missing teachers
-            </button>
-            {dirty && (
-              <button onClick={handleSave} disabled={saving}
-                className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            )}
-          </div>
-        </>
+        ))}
+      </div>
+      {dirty && (
+        <button onClick={handleSave} disabled={saving}
+          className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       )}
     </div>
   );
