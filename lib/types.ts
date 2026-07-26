@@ -95,3 +95,11 @@ export interface SchoolPeriod {
   sort_order: number;
   created_at: string;
 }
+
+export interface AssignmentRule {
+  id?: number;
+  teacher_pattern: string;       // substring matched against shortName (case-insensitive)
+  priority_rank: number;         // lower = assigned first
+  retain_floor: number;          // min free periods the teacher must keep
+  force_assign_min_free: number | null; // if origFree >= this value, force ≥1 assignment
+}

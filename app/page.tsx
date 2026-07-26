@@ -58,7 +58,7 @@ function KvProgressBar({ value, color = 'default' }: { value: number; color?: 'd
   );
 }
 import {
-  TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry, CancelledClassConfig,
+  TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry, CancelledClassConfig, AssignmentRule,
 } from '@/lib/types';
 import {
   ALL_PERIODS, DAY_MAP,
@@ -77,6 +77,7 @@ import {
   saveArrangement, updateArrangement, deleteArrangement, saveDraft, loadDraft,
   loginTeacher, getTeacherAccounts, createTeacherAccount, deleteTeacherAccount, getSharedArrangementForDate,
   getPeriods, createPeriod, updatePeriod, deletePeriod, bulkCreatePeriods,
+  getTimetableRows, replaceTimetable, getAssignmentRules, replaceAssignmentRules,
 } from '@/lib/db';
 
 // Prevents concurrent double-seed when PeriodsPanel mounts/unmounts rapidly
@@ -582,6 +583,7 @@ export default function App() {
   }, []);
   const [df, setDf] = useState<TimetableRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assignmentRules, setAssignmentRules] = useState<AssignmentRule[]>([]);
   const [activeTab, setActiveTab] = useState<'arrangement' | 'status' | 'history' | 'settings'>('arrangement');
 
   const [dateVal, setDateVal] = useState<string>(todayDate());
@@ -641,11 +643,28 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
-    fetch('/timetable_master.csv').then(r => r.text()).then(csv => {
-      const result = Papa.parse<TimetableRow>(csv, { header: true, dynamicTyping: true, skipEmptyLines: true });
-      setDf(result.data);
-      setLoading(false);
-    });
+    (async () => {
+      try {
+        const rows = await getTimetableRows();
+        if (rows.length > 0) {
+          setDf(rows);
+        } else {
+          const csv = await fetch('/timetable_master.csv').then(r => r.text());
+          const result = Papa.parse<TimetableRow>(csv, { header: true, dynamicTyping: true, skipEmptyLines: true });
+          setDf(result.data);
+        }
+      } catch {
+        const csv = await fetch('/timetable_master.csv').then(r => r.text());
+        const result = Papa.parse<TimetableRow>(csv, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        setDf(result.data);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    getAssignmentRules().then(setAssignmentRules).catch(() => {});
   }, []);
 
 
@@ -717,7 +736,7 @@ export default function App() {
   );
 
   const handleAutoFill = useCallback(() => {
-    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs, cancelledClassConfigs);
+    const newSubs = autoFillAll(df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs, cancelledClassConfigs, assignmentRules);
     setSubs(newSubs); setReport(null);
   }, [df, absentPeriods, absentTeachers, selectedDay, subs, cancelledClasses, useCancelledTeachers, absenceConfigs]);
 
@@ -1306,6 +1325,22 @@ export default function App() {
             </CollapsibleSection>
 
             <CollapsibleSection
+              label="Admin" title="Timetable"
+              subtitle="Upload a CSV timetable to replace the current one.">
+              <TimetableUploadPanel df={df} onReplaced={setDf} />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              label="Admin" title="Assignment Rules"
+              subtitle="Set teacher priority order and minimum free periods to retain.">
+              <AssignmentRulesPanel
+                allTeachers={allTeachers}
+                rules={assignmentRules}
+                onSaved={setAssignmentRules}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
               label="Admin" title="Teacher Accounts"
               subtitle="Create and manage teacher login credentials.">
               <TeachersPanel allTeachers={allTeachers} />
@@ -1324,6 +1359,7 @@ export default function App() {
             cancelledClasses={cancelledClasses}
             cancelledClassConfigs={cancelledClassConfigs}
             schoolMaxPeriod={schoolMaxPeriod}
+            rules={assignmentRules}
           />
           </div>
         )}
@@ -2402,9 +2438,10 @@ interface StatusProps {
   selectedDay: string; subs: Record<string, string>; clubs: Record<string, boolean>;
   cancelledClasses: string[]; cancelledClassConfigs: Record<string, CancelledClassConfig>;
   schoolMaxPeriod: number;
+  rules: AssignmentRule[];
 }
 
-function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, clubs, cancelledClasses, cancelledClassConfigs, schoolMaxPeriod }: StatusProps) {
+function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, absenceConfigs, selectedDay, subs, clubs, cancelledClasses, cancelledClassConfigs, schoolMaxPeriod, rules }: StatusProps) {
   const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher');
   const activePeriods = ALL_PERIODS.filter(p => p <= schoolMaxPeriod);
 
@@ -2460,9 +2497,9 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       const freeCount = Object.values(periodStatus).filter(s => s === 'free').length;
       return { name: t, periodStatus, periodClass, masterCount: masterPs.size, subCount: subPs.size, freeCount };
     }).sort((a, b) => {
-      const TOTAL = 14;
-      const pa = priorityIdx(a.name), pb = priorityIdx(b.name);
-      const sa = pa >= TOTAL ? -1 : pa; const sb = pb >= TOTAL ? -1 : pb;
+      const total = rules.length;
+      const pa = priorityIdx(a.name, rules), pb = priorityIdx(b.name, rules);
+      const sa = pa >= total ? -1 : pa; const sb = pb >= total ? -1 : pb;
       if (sa !== sb) return sb - sa;
       return a.name.localeCompare(b.name);
     });
@@ -3322,6 +3359,265 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Timetable Upload Panel ───────────────────────────────────────────────────
+const TIMETABLE_TEMPLATE_CSV = [
+  'Teacher_Name,Day,Period,Class,Subject',
+  'MR. EXAMPLE,MON,1,V A,MATHS',
+  'MR. EXAMPLE,MON,2,V B,MATHS',
+  'MS. EXAMPLE,TUE,3,III A,ENGLISH',
+  // "Not Req" rows mark periods where the teacher should NOT be assigned as sub
+  'MR. EXAMPLE,WED,4,IX A,Not Req',
+].join('\n');
+
+function TimetableUploadPanel({ df, onReplaced }: { df: TimetableRow[]; onReplaced: (rows: TimetableRow[]) => void }) {
+  const [preview, setPreview] = useState<{ rows: TimetableRow[]; teachers: number } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const currentStats = useMemo(() => {
+    const teachers = new Set(df.map(r => r.Teacher_Name)).size;
+    return { rows: df.length, teachers };
+  }, [df]);
+
+  function downloadTemplate() {
+    const blob = new Blob([TIMETABLE_TEMPLATE_CSV], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'timetable_template.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    Papa.parse<TimetableRow>(file, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete(result) {
+        const required = ['Teacher_Name', 'Day', 'Period', 'Class', 'Subject'];
+        const cols = result.meta.fields ?? [];
+        const missing = required.filter(c => !cols.includes(c));
+        if (missing.length) { alert(`Missing columns: ${missing.join(', ')}`); return; }
+        const rows = result.data.filter(r => r.Teacher_Name && r.Day && r.Period && r.Class && r.Subject);
+        const teachers = new Set(rows.map(r => r.Teacher_Name)).size;
+        setPreview({ rows, teachers });
+      },
+    });
+  }
+
+  async function handleUpload() {
+    if (!preview) return;
+    setUploading(true);
+    try {
+      await replaceTimetable(preview.rows);
+      onReplaced(preview.rows);
+      setPreview(null);
+      if (fileRef.current) fileRef.current.value = '';
+    } catch (err) {
+      alert('Upload failed: ' + (err instanceof Error ? err.message : String(err)));
+    } finally { setUploading(false); }
+  }
+
+  return (
+    <div className="space-y-3 pt-1">
+      <div className="flex items-center gap-3 px-1 text-xs text-slate-500">
+        <span>{currentStats.teachers} teachers</span>
+        <span className="text-slate-300">·</span>
+        <span>{currentStats.rows} rows</span>
+        {currentStats.rows === 0 && <span className="text-amber-500 font-medium">using bundled CSV</span>}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={downloadTemplate}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download Template
+        </button>
+        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          Choose CSV
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+        </label>
+      </div>
+
+      {preview && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <p className="text-xs text-slate-600">
+            <span className="font-semibold text-slate-800">{preview.teachers} teachers</span>
+            {' · '}{preview.rows.length} rows parsed
+          </p>
+          <p className="text-xs text-amber-600 font-medium">This will replace the current timetable.</p>
+          <button
+            onClick={handleUpload}
+            disabled={uploading}
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            {uploading ? 'Uploading…' : 'Upload & Replace'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Assignment Rules Panel ───────────────────────────────────────────────────
+// KV Burhanpur default priority order used to seed empty rules tables.
+const KV_DEFAULT_RULES: Omit<AssignmentRule, 'id'>[] = [
+  { teacher_pattern: 'MOHIT',      priority_rank: 0,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'RACHNA',     priority_rank: 1,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'MADHUBALA',  priority_rank: 2,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'SAKSHI',     priority_rank: 3,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'RUPESH',     priority_rank: 4,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'PRATIKSHA',  priority_rank: 5,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'ARPIT',      priority_rank: 6,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'DEEKSHA',    priority_rank: 7,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'SHUBHAM',    priority_rank: 8,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'SHIVA KANT', priority_rank: 9,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'DIVYANSHU',  priority_rank: 10, retain_floor: 2, force_assign_min_free: null },
+  { teacher_pattern: 'JITENDRA',   priority_rank: 11, retain_floor: 2, force_assign_min_free: null },
+  { teacher_pattern: 'STENDER',    priority_rank: 12, retain_floor: 2, force_assign_min_free: null },
+  { teacher_pattern: 'AMIT',       priority_rank: 13, retain_floor: 3, force_assign_min_free: 4    },
+];
+
+interface RuleRow { teacher_pattern: string; retain_floor: number; force_assign_min_free: number | null }
+
+function AssignmentRulesPanel({
+  allTeachers, rules, onSaved,
+}: { allTeachers: string[]; rules: AssignmentRule[]; onSaved: (r: AssignmentRule[]) => void }) {
+  const [rows, setRows] = useState<RuleRow[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  // Sync from parent rules when they load/change
+  useEffect(() => {
+    if (rules.length > 0) {
+      setRows(rules.map(r => ({
+        teacher_pattern: r.teacher_pattern,
+        retain_floor: r.retain_floor,
+        force_assign_min_free: r.force_assign_min_free,
+      })));
+    }
+  }, [rules]);
+
+  function seedDefaults() {
+    setRows(KV_DEFAULT_RULES.map(r => ({
+      teacher_pattern: r.teacher_pattern,
+      retain_floor: r.retain_floor,
+      force_assign_min_free: r.force_assign_min_free,
+    })));
+    setDirty(true);
+  }
+
+  function addFromTimetable() {
+    const existing = new Set(rows.map(r => r.teacher_pattern.toUpperCase()));
+    const newRows: RuleRow[] = allTeachers
+      .filter(t => !rows.some(r => shortName(t).toUpperCase().includes(r.teacher_pattern.toUpperCase())))
+      .filter(t => !existing.has(shortName(t).toUpperCase()))
+      .map(t => ({ teacher_pattern: shortName(t), retain_floor: 1, force_assign_min_free: null }));
+    if (newRows.length === 0) return;
+    setRows(prev => [...prev, ...newRows]);
+    setDirty(true);
+  }
+
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    setRows(next);
+    setDirty(true);
+  }
+
+  function update(i: number, patch: Partial<RuleRow>) {
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+    setDirty(true);
+  }
+
+  function remove(i: number) {
+    setRows(prev => prev.filter((_, idx) => idx !== i));
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const toSave = rows.map((r, i) => ({ ...r, priority_rank: i }));
+      await replaceAssignmentRules(toSave);
+      onSaved(toSave as AssignmentRule[]);
+      setDirty(false);
+    } catch (err) {
+      alert('Save failed: ' + (err instanceof Error ? err.message : String(err)));
+    } finally { setSaving(false); }
+  }
+
+  const inputCls = 'w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-center';
+
+  return (
+    <div className="space-y-3 pt-1">
+      {rows.length === 0 ? (
+        <div className="text-xs text-slate-500 space-y-2">
+          <p>No rules configured yet.</p>
+          <button onClick={seedDefaults} className="px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors">
+            Load KV Defaults
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-1">
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2 px-1 mb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+              <span className="w-10 text-center">#</span>
+              <span>Teacher pattern</span>
+              <span className="w-14 text-center">Retain</span>
+              <span className="w-14 text-center">Force≥</span>
+              <span className="w-8" />
+            </div>
+            {rows.map((r, i) => (
+              <div key={i} className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-x-2 px-1 py-1 rounded-lg hover:bg-slate-50">
+                <div className="flex flex-col items-center gap-0.5 w-10">
+                  <button onClick={() => move(i, -1)} disabled={i === 0}
+                    className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none text-xs">▲</button>
+                  <span className="text-[10px] text-slate-400 leading-none">{i + 1}</span>
+                  <button onClick={() => move(i, 1)} disabled={i === rows.length - 1}
+                    className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none text-xs">▼</button>
+                </div>
+                <span className="text-xs text-slate-700 font-medium truncate">{r.teacher_pattern}</span>
+                <input
+                  type="number" min={0} max={8} value={r.retain_floor}
+                  onChange={e => update(i, { retain_floor: Math.max(0, Math.min(8, Number(e.target.value))) })}
+                  className={inputCls} title="Min free periods to retain"
+                />
+                <input
+                  type="number" min={0} max={8}
+                  value={r.force_assign_min_free ?? ''}
+                  placeholder="—"
+                  onChange={e => update(i, { force_assign_min_free: e.target.value === '' ? null : Math.max(0, Math.min(8, Number(e.target.value))) })}
+                  className={inputCls} title="Force ≥1 assignment when free periods ≥ this"
+                />
+                <button onClick={() => remove(i)} className="w-8 text-center text-slate-300 hover:text-red-400 text-xs">✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <button onClick={addFromTimetable} className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors">
+              + Add missing teachers
+            </button>
+            {dirty && (
+              <button onClick={handleSave} disabled={saving}
+                className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

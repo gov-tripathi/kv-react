@@ -1,5 +1,5 @@
 import { getSupabase } from './supabase';
-import type { Arrangement, FormState, ReportRow, TeacherAccount, SchoolPeriod } from './types';
+import type { Arrangement, FormState, ReportRow, TeacherAccount, SchoolPeriod, AssignmentRule, TimetableRow } from './types';
 
 export async function getMyArrangements(email: string): Promise<Arrangement[]> {
   const { data, error } = await getSupabase()
@@ -157,6 +157,45 @@ export async function bulkCreatePeriods(items: { name: string; start_time: strin
     .order('sort_order', { ascending: true });
   if (error) throw error;
   return (data ?? []) as SchoolPeriod[];
+}
+
+// ── Timetable rows ─────────────────────────────────────────────────────────────
+
+export async function getTimetableRows(): Promise<TimetableRow[]> {
+  const { data, error } = await getSupabase()
+    .from('timetable_rows')
+    .select('Teacher_Name,Day,Period,Class,Subject');
+  if (error) throw error;
+  return (data ?? []) as TimetableRow[];
+}
+
+export async function replaceTimetable(rows: TimetableRow[]): Promise<void> {
+  const sb = getSupabase();
+  const { error: delError } = await sb.from('timetable_rows').delete().gt('id', 0);
+  if (delError) throw delError;
+  if (!rows.length) return;
+  const { error: insError } = await sb.from('timetable_rows').insert(rows);
+  if (insError) throw insError;
+}
+
+// ── Assignment rules ───────────────────────────────────────────────────────────
+
+export async function getAssignmentRules(): Promise<AssignmentRule[]> {
+  const { data, error } = await getSupabase()
+    .from('assignment_rules')
+    .select('*')
+    .order('priority_rank', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as AssignmentRule[];
+}
+
+export async function replaceAssignmentRules(rules: Omit<AssignmentRule, 'id'>[]): Promise<void> {
+  const sb = getSupabase();
+  const { error: delError } = await sb.from('assignment_rules').delete().gt('id', 0);
+  if (delError) throw delError;
+  if (!rules.length) return;
+  const { error: insError } = await sb.from('assignment_rules').insert(rules);
+  if (insError) throw insError;
 }
 
 // Set is_concluded on a batch of arrangement IDs
