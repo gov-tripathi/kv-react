@@ -766,63 +766,197 @@ function LoginScreen({ onLogin }: {
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 60%, #1D4ED8 100%)' }}>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+  const DEMO_URL = 'https://calendly.com/gointoolabs/30min';
 
-      <div className="w-full max-w-sm relative z-10">
-        <div className="flex flex-col items-center mb-7">
-          <div className="flex items-center gap-4 mb-4">
-            <img src="/2023042075.png" alt="KV Logo"
-              className="h-14 w-auto drop-shadow-2xl"
-              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,.5)) brightness(1.15)' }} />
-            <img src="/2025021137.png" alt="PM SHRI Logo"
-              className="h-11 w-auto drop-shadow-2xl"
-              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,.5)) brightness(1.15)' }} />
+  const features = [
+    { icon: '⚡', title: 'Instant Arrangements', desc: 'Full substitute assignments generated in one click' },
+    { icon: '🧠', title: 'Smart Priority Rules', desc: 'Auto-assigns based on workload, rules & free periods' },
+    { icon: '📱', title: 'WhatsApp Reports', desc: 'Share formatted arrangement reports instantly' },
+    { icon: '👩‍🏫', title: 'Teacher Portal', desc: 'Real-time schedule & duty view for every teacher' },
+    { icon: '🏫', title: 'Multi-School Ready', desc: 'Manage multiple schools from one dashboard' },
+  ];
+
+  return (
+    <div className="min-h-screen flex relative overflow-hidden"
+      style={{ background: 'linear-gradient(140deg, #06091a 0%, #0f1e4a 50%, #1a2f80 100%)' }}>
+
+      {/* Background grid */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
+        backgroundSize: '48px 48px',
+      }} />
+
+      {/* Ambient glows */}
+      <div className="absolute top-0 left-1/3 w-[700px] h-[700px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.12), transparent 65%)', transform: 'translate(-50%, -40%)' }} />
+      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.14), transparent 65%)', transform: 'translate(30%, 30%)' }} />
+
+      {/* ── LEFT: Marketing panel (desktop only) ── */}
+      <div className="hidden lg:flex flex-col justify-between w-[54%] px-14 py-12 relative z-10">
+        {/* Top section */}
+        <div>
+          {/* Logos + brand */}
+          <div className="flex items-center gap-4 mb-12">
+            <img src="/2023042075.png" alt="KV" className="h-12 w-auto"
+              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 16px rgba(0,0,0,.6))' }} />
+            <img src="/2025021137.png" alt="PM SHRI" className="h-10 w-auto"
+              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 16px rgba(0,0,0,.6))' }} />
+            <div className="h-8 w-px mx-1" style={{ background: 'rgba(255,255,255,0.12)' }} />
+            <div>
+              <p className="text-[9px] font-bold tracking-[0.2em] uppercase" style={{ color: 'rgba(147,197,253,0.45)' }}>Powered by</p>
+              <p className="text-sm font-extrabold text-white leading-none">GoIntoLabs</p>
+            </div>
           </div>
-          <h1 className="text-base font-extrabold text-white tracking-widest uppercase text-center">PM SHRI KENDRIYA VIDYALAYA BURHANPUR</h1>
-          <p className="text-blue-300/80 text-sm mt-1 font-medium">Teacher Arrangement System</p>
-          <p className="text-blue-400/50 text-xs mt-0.5">2026–27</p>
+
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-6"
+            style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)' }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
+            <span className="text-xs font-bold text-indigo-300 tracking-wide">AI-Powered School Management</span>
+          </div>
+
+          {/* Hero headline */}
+          <h1 className="text-5xl font-black text-white leading-[1.1] mb-5">
+            Smart Teacher<br />
+            <span style={{ background: 'linear-gradient(135deg, #60A5FA 0%, #A78BFA 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Arrangement System
+            </span>
+          </h1>
+          <p className="text-base leading-relaxed mb-10 max-w-md" style={{ color: 'rgba(186,215,255,0.6)' }}>
+            Automate daily substitute assignments, track coverage in real-time, and keep every PM SHRI Kendriya Vidyalaya running smoothly.
+          </p>
+
+          {/* Features */}
+          <div className="space-y-4 mb-12">
+            {features.map(f => (
+              <div key={f.title} className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                  {f.icon}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white/90">{f.title}</div>
+                  <div className="text-xs mt-0.5" style={{ color: 'rgba(147,197,253,0.45)' }}>{f.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 px-7 py-4 rounded-2xl font-bold text-sm text-white transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 8px 40px rgba(79,70,229,0.45), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Book a Free Demo
+            <svg className="w-4 h-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </a>
         </div>
 
-        <div className="rounded-2xl border border-white/10 shadow-2xl p-6"
-          style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(24px)' }}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Email or Username</label>
-              <input type="text" value={email} placeholder="Email or username" autoComplete="username"
-                onChange={e => { setEmail(e.target.value); setError(''); }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-white/15 bg-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:border-transparent transition-all" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-blue-200/80 mb-1.5 tracking-wide">Password</label>
-              <div className="relative">
-                <input type={showPw ? 'text' : 'password'} value={password} placeholder="••••••••" autoComplete="current-password"
-                  onChange={e => { setPassword(e.target.value); setError(''); }}
-                  className="w-full px-3.5 py-2.5 pr-16 rounded-xl border border-white/15 bg-white/8 text-white placeholder:text-white/25 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/60 focus:border-transparent transition-all" />
-                <button type="button" onClick={() => setShowPw(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-300/70 hover:text-blue-200 transition-colors">
-                  {showPw ? 'hide' : 'show'}
-                </button>
+        {/* Bottom */}
+        <p className="text-xs pt-6" style={{ color: 'rgba(147,197,253,0.25)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          Trusted by PM SHRI Kendriya Vidyalayas · GoIntoLabs © 2026
+        </p>
+      </div>
+
+      {/* ── RIGHT: Login form ── */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 relative z-10">
+
+        {/* Mobile-only branding */}
+        <div className="lg:hidden flex flex-col items-center mb-8 w-full max-w-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <img src="/2023042075.png" alt="KV" className="h-10 w-auto"
+              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 12px rgba(0,0,0,.5))' }} />
+            <img src="/2025021137.png" alt="PM SHRI" className="h-8 w-auto"
+              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 12px rgba(0,0,0,.5))' }} />
+          </div>
+          <h1 className="text-sm font-extrabold text-white tracking-widest uppercase text-center mb-0.5">PM SHRI KV BURHANPUR</h1>
+          <p className="text-xs mb-5" style={{ color: 'rgba(147,197,253,0.5)' }}>Teacher Arrangement System · 2026–27</p>
+          <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 4px 20px rgba(79,70,229,0.4)' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Book a Free Demo
+          </a>
+        </div>
+
+        {/* Form card */}
+        <div className="w-full max-w-sm">
+          <div className="hidden lg:block mb-7">
+            <h2 className="text-2xl font-black text-white">Welcome back</h2>
+            <p className="text-sm mt-1" style={{ color: 'rgba(147,197,253,0.5)' }}>Sign in to your school account</p>
+          </div>
+          <div className="lg:hidden mb-4 text-center">
+            <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Sign in to your account</p>
+          </div>
+
+          <div className="rounded-3xl p-7 shadow-2xl"
+            style={{ background: 'rgba(255,255,255,0.055)', backdropFilter: 'blur(32px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold mb-2 tracking-wide" style={{ color: 'rgba(186,215,255,0.7)' }}>
+                  Email or Username
+                </label>
+                <input type="text" value={email} placeholder="admin@school.edu" autoComplete="username"
+                  onChange={e => { setEmail(e.target.value); setError(''); }}
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white transition-all focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)' }}
+                  onFocus={e => { e.target.style.border = '1px solid rgba(99,102,241,0.6)'; e.target.style.background = 'rgba(255,255,255,0.09)'; }}
+                  onBlur={e => { e.target.style.border = '1px solid rgba(255,255,255,0.13)'; e.target.style.background = 'rgba(255,255,255,0.07)'; }} />
               </div>
-            </div>
-            {error && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-red-500/15 border border-red-400/30 rounded-lg">
-                <span className="text-red-400 text-xs">●</span>
-                <span className="text-red-300 text-xs font-medium">{error}</span>
+              <div>
+                <label className="block text-xs font-bold mb-2 tracking-wide" style={{ color: 'rgba(186,215,255,0.7)' }}>
+                  Password
+                </label>
+                <div className="relative">
+                  <input type={showPw ? 'text' : 'password'} value={password} placeholder="••••••••" autoComplete="current-password"
+                    onChange={e => { setPassword(e.target.value); setError(''); }}
+                    className="w-full px-4 py-3 pr-16 rounded-xl text-sm text-white transition-all focus:outline-none"
+                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)' }}
+                    onFocus={e => { e.target.style.border = '1px solid rgba(99,102,241,0.6)'; e.target.style.background = 'rgba(255,255,255,0.09)'; }}
+                    onBlur={e => { e.target.style.border = '1px solid rgba(255,255,255,0.13)'; e.target.style.background = 'rgba(255,255,255,0.07)'; }} />
+                  <button type="button" onClick={() => setShowPw(v => !v)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold transition-colors"
+                    style={{ color: 'rgba(147,197,253,0.55)' }}>
+                    {showPw ? 'hide' : 'show'}
+                  </button>
+                </div>
               </div>
-            )}
-            <Btn type="submit" variant="primary" className="w-full mt-1 h-11" disabled={loading}>
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <LoadingSpinner size="sm" className="border-white/70 border-t-transparent" />
-                  Signing in…
-                </span>
-              ) : 'Sign In'}
-            </Btn>
-          </form>
+              {error && (
+                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
+                  style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                  <span className="text-red-300 text-xs font-medium">{error}</span>
+                </div>
+              )}
+              <button type="submit" disabled={loading}
+                className="w-full h-12 rounded-xl font-bold text-sm text-white transition-all duration-200 disabled:opacity-60 hover:scale-[1.01] active:scale-[0.99]"
+                style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', boxShadow: '0 6px 24px rgba(37,99,235,0.45)', marginTop: '4px' }}>
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <LoadingSpinner size="sm" className="border-white/70 border-t-transparent" />
+                    Signing in…
+                  </span>
+                ) : 'Sign In'}
+              </button>
+            </form>
+          </div>
+
+          {/* Footer link */}
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <span className="text-[11px]" style={{ color: 'rgba(147,197,253,0.3)' }}>Not a user yet?</span>
+            <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
+              className="text-[11px] font-bold transition-colors"
+              style={{ color: 'rgba(129,140,248,0.7)' }}>
+              Request a demo →
+            </a>
+          </div>
         </div>
       </div>
     </div>
