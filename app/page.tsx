@@ -835,10 +835,19 @@ function LoginScreen({ onLogin }: {
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600&display=swap');
         .kv-marketing { display: block; }
         @media (min-width: 1040px) { .kv-mob-hdr { display: none !important; } }
-        .kv-main-grid { display: grid; grid-template-columns: 1fr; align-items: start; gap: clamp(28px,4vw,64px); padding: clamp(34px,5vw,64px) clamp(20px,4vw,56px) 0; }
-        @media (min-width: 1040px) { .kv-main-grid { grid-template-columns: minmax(0,1fr) 392px; } }
+        .kv-main-grid { display: block; padding: clamp(34px,5vw,64px) clamp(20px,4vw,56px) 0; }
+        @media (min-width: 1040px) { .kv-main-grid { padding-right: 476px; } }
         .kv-aside { position: static; }
-        @media (min-width: 1040px) { .kv-aside { position: sticky; top: 34px; } }
+        @media (min-width: 1040px) {
+          .kv-aside {
+            position: fixed; right: 0; top: 0; bottom: 0; width: 440px; z-index: 20;
+            display: flex; flex-direction: column; justify-content: center;
+            padding: 40px 36px; overflow-y: auto;
+            border-left: 1px solid rgba(126,158,214,.18);
+            background: rgba(10,16,28,0.92); backdrop-filter: blur(24px);
+          }
+          .kv-mob-hdr { display: none !important; }
+        }
         @keyframes kvPing { 0%{box-shadow:0 0 0 0 rgba(55,217,160,.5)} 70%{box-shadow:0 0 0 9px rgba(55,217,160,0)} 100%{box-shadow:0 0 0 0 rgba(55,217,160,0)} }
         .kv-pulse-dot { animation: kvPing 2.4s infinite; }
         @keyframes kvHot { 50%{ background: rgba(255,107,74,.04) !important; } }
