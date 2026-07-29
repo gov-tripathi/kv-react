@@ -701,6 +701,26 @@ function SuperAdminDashboard({ currentUser, onEnterSchool, onSignOut }: {
   );
 }
 
+// ── Login demo data ───────────────────────────────────────────────────────────
+const DEMO_STAFF: { n: string; s: string; absent: boolean; row: (string | null)[] }[] = [
+  { n: 'A. VERMA',   s: 'MATHS',   absent: true,  row: ['VI A', null, 'VII A', null, 'VIII B', null, 'IX A', null] },
+  { n: 'S. NEGI',    s: 'SCIENCE', absent: false, row: [null, 'VII B', null, 'VI A', null, 'X A', null, 'VIII A'] },
+  { n: 'M. RATHORE', s: 'ENGLISH', absent: false, row: ['VIII A', null, 'VI B', null, 'IX B', null, null, 'VII A'] },
+  { n: 'P. IYER',    s: 'SOC.SCI', absent: false, row: ['VII A', null, null, 'IX A', null, 'VI B', 'VIII B', null] },
+  { n: 'R. KHAN',    s: 'HINDI',   absent: true,  row: [null, 'VI A', 'VIII A', null, 'VII B', null, 'X B', null] },
+  { n: 'D. JOSHI',   s: 'COMP.SC', absent: false, row: [null, 'IX B', null, 'VII B', null, null, 'VI A', null] },
+];
+const DEMO_PLAN: { t: number; p: number; by: string }[] = [
+  { t: 0, p: 0, by: 'D. JOSHI' },
+  { t: 4, p: 1, by: 'M. RATHORE' },
+  { t: 0, p: 2, by: 'S. NEGI' },
+  { t: 0, p: 4, by: 'P. IYER' },
+  { t: 4, p: 4, by: 'D. JOSHI' },
+  { t: 0, p: 6, by: 'M. RATHORE' },
+  { t: 4, p: 6, by: 'S. NEGI' },
+];
+
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }: {
   onLogin: (role: 'super_admin' | 'admin' | 'teacher', user: string, teacherName: string, schoolId: number | null, schoolName: string) => void;
@@ -768,307 +788,341 @@ function LoginScreen({ onLogin }: {
 
   const DEMO_URL = 'https://calendly.com/gointoolabs/30min';
 
-  const features = [
-    {
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      ),
-      title: 'Instant Arrangements', desc: '1-click substitute generation', color: '#F59E0B',
-    },
-    {
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18" />
-        </svg>
-      ),
-      title: 'Smart Priority Rules', desc: 'Workload-balanced auto-assign', color: '#6366F1',
-    },
-    {
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-      ),
-      title: 'WhatsApp Reports', desc: 'Share formatted reports instantly', color: '#10B981',
-    },
-    {
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      ),
-      title: 'Teacher Portal', desc: 'Real-time duty view per teacher', color: '#60A5FA',
-    },
-    {
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-      ),
-      title: 'Multi-School Ready', desc: 'One dashboard, many campuses', color: '#A78BFA',
-    },
-    {
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-      title: 'Coverage Analytics', desc: 'Track and export daily reports', color: '#F472B6',
-    },
-  ];
+  const [coveredCount, setCoveredCount] = useState(0);
+  const [hotIdx, setHotIdx] = useState(-1);
+  const [tickerPre, setTickerPre] = useState("Reading today's leave register…");
+  const [tickerTo, setTickerTo] = useState<string | null>(null);
 
-  const stats = [
-    { value: '< 1 min', label: 'Setup time' },
-    { value: '100%', label: 'Automated' },
-    { value: 'Real-time', label: 'Coverage track' },
-  ];
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let cancelled = false;
+    function run() {
+      if (cancelled) return;
+      setCoveredCount(0); setHotIdx(-1);
+      setTickerPre("Reading today's leave register…"); setTickerTo(null);
+      DEMO_PLAN.forEach((step, i) => {
+        const at = 900 + i * 680;
+        timers.push(setTimeout(() => { if (!cancelled) setHotIdx(i); }, at - 260));
+        timers.push(setTimeout(() => {
+          if (!cancelled) {
+            setCoveredCount(c => Math.max(c, i + 1));
+            setHotIdx(-1);
+            setTickerPre(`P${step.p + 1} · ${DEMO_STAFF[step.t].s} · ${DEMO_STAFF[step.t].row[step.p] ?? ''}  —  ${DEMO_STAFF[step.t].n} `);
+            setTickerTo(`→ ${step.by}`);
+          }
+        }, at));
+      });
+      const end = 900 + DEMO_PLAN.length * 680;
+      timers.push(setTimeout(() => {
+        if (!cancelled) { setTickerPre('7 arrangements set in 41s · '); setTickerTo('sent to staff group ✓'); }
+      }, end + 300));
+      timers.push(setTimeout(run, end + 6200));
+    }
+    run();
+    return () => { cancelled = true; timers.forEach(clearTimeout); };
+  }, []);
+
+  const meterPct = Math.round((coveredCount / DEMO_PLAN.length) * 100);
+  const _now = new Date();
+  const _DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const eyebrowDate = `Today · ${_DAYS[_now.getDay()]}, ${_now.getDate()} ${_MONTHS[_now.getMonth()]} · ${String(_now.getHours()).padStart(2,'0')}:${String(_now.getMinutes()).padStart(2,'0')} IST`;
 
   return (
-    <div className="min-h-screen flex relative overflow-hidden"
-      style={{ background: 'linear-gradient(140deg, #05071a 0%, #0d1a3e 45%, #0f2060 100%)' }}>
+    <div style={{ background: '#05080F', color: '#E9EFFA', fontFamily: "'Inter Tight', system-ui, sans-serif", minHeight: '100vh', overflowX: 'hidden' as const, position: 'relative' as const }}>
 
       <style>{`
-        @keyframes floatA { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-14px) rotate(-2deg)} }
-        @keyframes floatB { 0%,100%{transform:translateY(0) rotate(1.5deg)} 50%{transform:translateY(-10px) rotate(1.5deg)} }
-        @keyframes floatC { 0%,100%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(-18px) rotate(-1deg)} }
-        @keyframes shimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
-        @keyframes blobPulse { 0%,100%{transform:scale(1) translate(-50%,-40%)} 50%{transform:scale(1.08) translate(-50%,-40%)} }
-        .float-a{animation:floatA 6s ease-in-out infinite}
-        .float-b{animation:floatB 8s ease-in-out infinite 1.5s}
-        .float-c{animation:floatC 7s ease-in-out infinite 3s}
-        .shimmer-text{background:linear-gradient(90deg,#60A5FA,#A78BFA,#60A5FA);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 4s linear infinite}
-        .blob-pulse{animation:blobPulse 8s ease-in-out infinite}
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600&display=swap');
+        .kv-marketing { display: none; }
+        @media (min-width: 1040px) { .kv-marketing { display: block; } .kv-mob-hdr { display: none !important; } }
+        .kv-main-grid { display: grid; grid-template-columns: 1fr; align-items: start; gap: clamp(28px,4vw,64px); padding: clamp(34px,5vw,64px) clamp(20px,4vw,56px) 0; }
+        @media (min-width: 1040px) { .kv-main-grid { grid-template-columns: minmax(0,1fr) 392px; } }
+        .kv-aside { position: static; }
+        @media (min-width: 1040px) { .kv-aside { position: sticky; top: 34px; } }
+        @keyframes kvPing { 0%{box-shadow:0 0 0 0 rgba(55,217,160,.5)} 70%{box-shadow:0 0 0 9px rgba(55,217,160,0)} 100%{box-shadow:0 0 0 0 rgba(55,217,160,0)} }
+        .kv-pulse-dot { animation: kvPing 2.4s infinite; }
+        @keyframes kvHot { 50%{ background: rgba(255,107,74,.04) !important; } }
+        .kv-cell-hot { background: rgba(255,107,74,.16) !important; animation: kvHot 1s ease-in-out infinite; }
+        @keyframes kvGrow { from{transform:scaleY(0)} to{transform:scaleY(1)} }
+        @keyframes kvPop { from{opacity:0;transform:translateY(4px) scale(.94)} to{opacity:1;transform:none} }
+        .kv-pop { animation: kvPop .42s cubic-bezier(.34,1.56,.64,1); }
+        .kv-input-f { width:100%; background:rgba(255,255,255,.03); border:1px solid rgba(126,158,214,.28); border-radius:3px; padding:13px 14px; color:#E9EFFA; font-family:'Inter Tight',system-ui,sans-serif; font-size:14.5px; transition:border-color .2s,background .2s; }
+        .kv-input-f::placeholder { color:#56657F; }
+        .kv-input-f:hover { border-color:rgba(126,158,214,.5); }
+        .kv-input-f:focus { outline:none; border-color:#F6A623; background:rgba(246,166,35,.05); }
+        .kv-sign-btn { width:100%; margin-top:8px; padding:14px; border:0; border-radius:3px; cursor:pointer; background:#F6A623; color:#1A1200; font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:15px; letter-spacing:.01em; transition:transform .15s ease,box-shadow .2s ease,background .2s; }
+        .kv-sign-btn:hover:not(:disabled) { background:#FFC15E; box-shadow:0 10px 30px -12px rgba(246,166,35,.7); }
+        .kv-sign-btn:active { transform:translateY(1px); }
+        .kv-sign-btn:disabled { opacity:.65; cursor:not-allowed; }
+        .kv-card-top::before { content:''; position:absolute; top:-1px; left:0; right:0; height:2px; background:linear-gradient(90deg,#F6A623,rgba(246,166,35,0) 70%); }
+        .kv-link { color:#7E8FAD; text-decoration:none; border-bottom:1px solid transparent; transition:color .2s,border-color .2s; font-size:13px; }
+        .kv-link:hover { color:#F6A623; border-bottom-color:rgba(246,166,35,.5); }
+        .kv-scroller { overflow-x:auto; scrollbar-width:thin; scrollbar-color:rgba(126,158,214,.2) transparent; }
+        .kv-scroller::-webkit-scrollbar { height:4px; }
+        .kv-scroller::-webkit-scrollbar-thumb { background:rgba(126,158,214,.2); border-radius:2px; }
+        @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
       `}</style>
 
-      {/* Background grid */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)',
-        backgroundSize: '60px 60px',
-      }} />
+      {/* Blueprint grid overlay */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, backgroundImage: 'linear-gradient(rgba(126,158,214,.13) 1px,transparent 1px),linear-gradient(90deg,rgba(126,158,214,.13) 1px,transparent 1px)', backgroundSize: '100% 46px, 92px 100%', WebkitMaskImage: 'radial-gradient(120% 90% at 30% 0%,#000 35%,transparent 78%)', maskImage: 'radial-gradient(120% 90% at 30% 0%,#000 35%,transparent 78%)', opacity: .55 }} />
+      {/* Ambient glows */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(60% 50% at 8% 4%,rgba(246,166,35,.10),transparent 62%),radial-gradient(50% 45% at 72% 68%,rgba(55,217,160,.07),transparent 65%)' }} />
 
-      {/* Ambient blobs */}
-      <div className="blob-pulse absolute top-0 left-1/3 w-[800px] h-[800px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.1), transparent 65%)', transform: 'translate(-50%, -40%)' }} />
-      <div className="absolute bottom-0 right-0 w-[700px] h-[700px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12), transparent 65%)', transform: 'translate(30%, 35%)' }} />
-      <div className="absolute top-1/2 left-1/2 w-[500px] h-[500px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.07), transparent 65%)', transform: 'translate(-50%, -50%)' }} />
+      <div style={{ position: 'relative', zIndex: 1 }}>
 
-      {/* ── LEFT: Marketing panel ── */}
-      <div className="hidden lg:flex flex-col w-[54%] px-14 py-10 relative z-10 overflow-hidden">
-
-        {/* Floating preview cards — positioned absolutely */}
-        <div className="float-a absolute right-6 top-16 w-52 rounded-2xl p-3.5 pointer-events-none select-none"
-          style={{ background: 'rgba(15,25,65,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-          <div className="flex items-center gap-2 mb-2.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] font-bold text-emerald-400 tracking-wide uppercase">Coverage Today</span>
-          </div>
-          <div className="flex items-baseline gap-1 mb-1.5">
-            <span className="text-2xl font-black text-white">8</span>
-            <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.35)' }}>/10 periods</span>
-          </div>
-          <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
-            <div className="h-full rounded-full" style={{ width: '80%', background: 'linear-gradient(90deg,#10B981,#6EE7B7)' }} />
-          </div>
-          <span className="text-[10px]" style={{ color: 'rgba(110,231,183,0.6)' }}>80% covered · 2 pending</span>
-        </div>
-
-        <div className="float-b absolute right-14 top-[250px] w-48 rounded-2xl p-3.5 pointer-events-none select-none"
-          style={{ background: 'rgba(15,25,65,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(59,130,246,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-          <div className="text-[9px] font-bold text-blue-400 tracking-widest uppercase mb-2">Period 3 · Auto-assigned</div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-6 h-6 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-[9px] font-black text-blue-300">M</div>
-            <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-            <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-[9px] font-black text-indigo-300">S</div>
-          </div>
-          <div className="text-[10px]" style={{ color: 'rgba(147,197,253,0.5)' }}>MOHIT → SHARMA · V A</div>
-        </div>
-
-        <div className="float-c absolute right-4 top-[430px] w-44 rounded-2xl p-3.5 pointer-events-none select-none"
-          style={{ background: 'rgba(15,25,65,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(16,185,129,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-          <div className="flex items-center gap-1.5 mb-2">
-            <svg className="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.5 2A9.5 9.5 0 002 11.5c0 1.673.437 3.243 1.2 4.608L2 22l6.064-1.183A9.5 9.5 0 1011.5 2zm0 17.5a7.984 7.984 0 01-4.042-1.098l-.29-.172-3.004.587.604-2.927-.19-.3A7.986 7.986 0 013.5 11.5c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>
-            <span className="text-[10px] font-bold text-emerald-400">Report Sent</span>
-          </div>
-          <div className="text-[10px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>WhatsApp arrangement shared to all staff ✓</div>
-        </div>
-
-        {/* Content */}
-        <div className="flex flex-col flex-1">
-          {/* Logos + brand */}
-          <div className="flex items-center gap-4 mb-10">
-            <img src="/2023042075.png" alt="KV" className="h-11 w-auto"
-              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 16px rgba(0,0,0,.6))' }} />
-            <img src="/2025021137.png" alt="PM SHRI" className="h-9 w-auto"
-              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 16px rgba(0,0,0,.6))' }} />
-            <div className="h-7 w-px mx-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
-            <div>
-              <p className="text-[9px] font-bold tracking-[0.2em] uppercase" style={{ color: 'rgba(147,197,253,0.4)' }}>Powered by</p>
-              <p className="text-sm font-extrabold text-white leading-none">GoIntoLabs</p>
+        {/* ── Masthead ── */}
+        <header style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' as const, padding: '22px clamp(20px,4vw,56px)', borderBottom: '1px solid rgba(126,158,214,.13)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 38, height: 38, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, border: '1px solid rgba(246,166,35,.45)', background: 'radial-gradient(circle at 50% 120%,rgba(246,166,35,.35),rgba(246,166,35,.04))', fontSize: 15, fontWeight: 600, color: '#FFC15E', lineHeight: 1, userSelect: 'none' as const }}>
+              {'कें'}
+            </div>
+            <div style={{ lineHeight: 1.25 }}>
+              <b style={{ display: 'block', fontFamily: "'Space Grotesk',system-ui,sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: '.02em', color: '#E9EFFA' }}>PM SHRI Kendriya Vidyalaya</b>
+              <span style={{ display: 'block', fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase' as const, color: '#56657F' }}>Arrangement Desk</span>
             </div>
           </div>
-
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-5 self-start"
-            style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
-            <span className="text-[11px] font-bold text-indigo-300 tracking-wide">AI-Powered School Management</span>
+          <div style={{ width: 1, height: 30, background: 'rgba(126,158,214,.28)', flexShrink: 0 }} />
+          <div style={{ fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase' as const, color: '#56657F' }}>
+            Built by<b style={{ display: 'block', color: '#7E8FAD', fontWeight: 500, letterSpacing: '.06em', fontSize: 12 }}>GoIntoLabs</b>
           </div>
-
-          {/* Headline */}
-          <h1 className="text-[42px] font-black text-white leading-[1.1] mb-4 max-w-[380px]">
-            Smart Teacher<br />
-            <span className="shimmer-text">Arrangement System</span>
-          </h1>
-          <p className="text-[13px] leading-relaxed mb-8 max-w-[360px]" style={{ color: 'rgba(186,215,255,0.55)' }}>
-            Automate substitute assignments, track real-time coverage, and keep every PM SHRI KV running without disruption.
-          </p>
-
-          {/* 2-col feature grid */}
-          <div className="grid grid-cols-2 gap-3 mb-8 max-w-[400px]">
-            {features.map(f => (
-              <div key={f.title} className="flex items-start gap-3 p-3 rounded-2xl transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: `${f.color}18`, border: `1px solid ${f.color}30`, color: f.color }}>
-                  {f.icon}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-bold text-white/90 leading-none mb-0.5">{f.title}</div>
-                  <div className="text-[10px] leading-snug" style={{ color: 'rgba(147,197,253,0.4)' }}>{f.desc}</div>
-                </div>
-              </div>
-            ))}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 11, color: '#7E8FAD' }}>
+            <span className="kv-pulse-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: '#37D9A0', display: 'inline-block', flexShrink: 0 }} />
+            4 campuses live &middot; session 2026&ndash;27
           </div>
+        </header>
 
-          {/* Stats row */}
-          <div className="flex items-center gap-6 mb-8">
-            {stats.map((s, i) => (
-              <div key={i}>
-                <div className="text-lg font-black text-white">{s.value}</div>
-                <div className="text-[10px] font-semibold" style={{ color: 'rgba(147,197,253,0.4)' }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
+        {/* ── Main split ── */}
+        <div className="kv-main-grid">
 
-          {/* CTA */}
-          <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl font-bold text-sm text-white self-start transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
-            style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 8px 40px rgba(79,70,229,0.5), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Book a Free Demo
-            <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-          </a>
-
-          <p className="text-[10px] mt-auto pt-8" style={{ color: 'rgba(147,197,253,0.2)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            Trusted by PM SHRI Kendriya Vidyalayas · GoIntoLabs © 2026
-          </p>
-        </div>
-      </div>
-
-      {/* ── RIGHT: Login form ── */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 relative z-10">
-
-        {/* Mobile branding */}
-        <div className="lg:hidden flex flex-col items-center mb-8 w-full max-w-sm">
-          <div className="flex items-center gap-3 mb-3">
-            <img src="/2023042075.png" alt="KV" className="h-10 w-auto"
-              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 12px rgba(0,0,0,.5))' }} />
-            <img src="/2025021137.png" alt="PM SHRI" className="h-8 w-auto"
-              style={{ filter: 'brightness(1.2) drop-shadow(0 4px 12px rgba(0,0,0,.5))' }} />
-          </div>
-          <h1 className="text-sm font-extrabold text-white tracking-widest uppercase text-center mb-0.5">PM SHRI KV BURHANPUR</h1>
-          <p className="text-xs mb-5" style={{ color: 'rgba(147,197,253,0.5)' }}>Teacher Arrangement System · 2026–27</p>
-          <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.97]"
-            style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 4px 20px rgba(79,70,229,0.4)' }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Book a Free Demo
-          </a>
-        </div>
-
-        {/* Form */}
-        <div className="w-full max-w-sm">
-          <div className="hidden lg:block mb-7">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg mb-3"
-              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              <span className="text-[10px] font-bold text-indigo-300 tracking-wide">SECURE LOGIN</span>
+          {/* ── Left: Marketing (desktop only) ── */}
+          <section className="kv-marketing">
+            {/* Eyebrow */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontFamily: "'IBM Plex Mono',monospace", fontSize: 10.5, letterSpacing: '.19em', textTransform: 'uppercase' as const, color: '#F6A623', border: '1px solid rgba(246,166,35,.28)', background: 'rgba(246,166,35,.06)', padding: '6px 12px', borderRadius: 2 }}>
+              {eyebrowDate}
             </div>
-            <h2 className="text-2xl font-black text-white">Welcome back</h2>
-            <p className="text-sm mt-1" style={{ color: 'rgba(147,197,253,0.45)' }}>Sign in to your school account</p>
-          </div>
 
-          <div className="rounded-3xl p-7"
-            style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(40px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-[11px] font-bold mb-2 tracking-widest uppercase" style={{ color: 'rgba(186,215,255,0.6)' }}>
-                  Email or Username
-                </label>
-                <input type="text" value={email} placeholder="admin@school.edu" autoComplete="username"
-                  onChange={e => { setEmail(e.target.value); setError(''); }}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white transition-all duration-200 focus:outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.7)'; e.target.style.background = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.boxShadow = 'none'; }} />
+            {/* Headline */}
+            <h1 style={{ fontFamily: "'Space Grotesk',system-ui,sans-serif", fontWeight: 700, fontSize: 'clamp(38px,5.4vw,68px)', lineHeight: .98, letterSpacing: '-.035em', margin: '22px 0 0', maxWidth: '15ch', color: '#E9EFFA' }}>
+              Cover every absent period{' '}
+              <em style={{ fontStyle: 'normal', color: '#F6A623', position: 'relative', whiteSpace: 'nowrap' as const }}>
+                before the first bell.
+                <span style={{ position: 'absolute', left: 0, right: 0, bottom: '.06em', height: 3, background: 'linear-gradient(90deg,#F6A623,transparent)', display: 'block' }} />
+              </em>
+            </h1>
+
+            {/* Lede */}
+            <p style={{ marginTop: 20, maxWidth: '52ch', color: '#7E8FAD', fontSize: 16.5, lineHeight: 1.62 }}>
+              Mark who&apos;s on leave. The desk fills their periods with free teachers,{' '}
+              <b style={{ color: '#E9EFFA', fontWeight: 500 }}>spreading duties by workload</b>, and sends the day&apos;s arrangement to the staff group. Watch it run below.
+            </p>
+
+            {/* ── LIVE TIMETABLE BOARD ── */}
+            <div style={{ marginTop: 38, border: '1px solid rgba(126,158,214,.28)', background: 'linear-gradient(180deg,#0E1626 0%,#0A101C 100%)', borderRadius: 4, overflow: 'hidden', boxShadow: '0 40px 90px -50px rgba(0,0,0,.9)' }}>
+
+              {/* Board top bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' as const, padding: '12px 16px', borderBottom: '1px solid rgba(126,158,214,.13)', fontFamily: "'IBM Plex Mono',monospace", fontSize: 10.5, letterSpacing: '.15em', textTransform: 'uppercase' as const, color: '#56657F' }}>
+                <span style={{ color: '#7E8FAD' }}>Wed 29 Jul &middot; Senior wing</span>
+                <span>2 teachers on leave</span>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ color: '#37D9A0', letterSpacing: '.1em' }}>{coveredCount} / {DEMO_PLAN.length} covered</span>
+                  <div style={{ width: 110, height: 4, background: 'rgba(255,255,255,.07)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${meterPct}%`, background: 'linear-gradient(90deg,#F6A623,#37D9A0)', transition: 'width .5s cubic-bezier(.4,0,.2,1)' }} />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-[11px] font-bold mb-2 tracking-widest uppercase" style={{ color: 'rgba(186,215,255,0.6)' }}>
-                  Password
-                </label>
-                <div className="relative">
-                  <input type={showPw ? 'text' : 'password'} value={password} placeholder="••••••••" autoComplete="current-password"
+
+              {/* Timetable grid */}
+              <div className="kv-scroller">
+                <div style={{ display: 'grid', gridTemplateColumns: '152px repeat(8,minmax(58px,1fr))', minWidth: 640 }}>
+                  {/* Column headers */}
+                  <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.12em', color: '#56657F', padding: '9px 0 9px 16px', background: 'rgba(255,255,255,.015)', borderRight: '1px solid rgba(126,158,214,.13)', borderBottom: '1px solid rgba(126,158,214,.13)' }}>TEACHER</div>
+                  {Array.from({ length: 8 }, (_, pi) => (
+                    <div key={pi} style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.12em', color: '#56657F', padding: 9, textAlign: 'center' as const, background: 'rgba(255,255,255,.015)', borderRight: '1px solid rgba(126,158,214,.13)', borderBottom: '1px solid rgba(126,158,214,.13)' }}>P{pi + 1}</div>
+                  ))}
+                  {/* Teacher rows */}
+                  {DEMO_STAFF.map((teacher, ti) => (
+                    <>
+                      <div key={`w${ti}`} style={{ padding: '11px 14px', display: 'flex', flexDirection: 'column' as const, gap: 2, justifyContent: 'center', background: 'rgba(255,255,255,.012)', borderRight: '1px solid rgba(126,158,214,.13)', borderBottom: '1px solid rgba(126,158,214,.13)' }}>
+                        <span style={{ fontFamily: "'Space Grotesk',system-ui,sans-serif", fontWeight: 600, fontSize: 13, letterSpacing: '-.01em', color: '#E9EFFA' }}>{teacher.n}</span>
+                        <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9.5, letterSpacing: '.13em', color: '#56657F' }}>{teacher.s}</span>
+                        {teacher.absent && (
+                          <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, letterSpacing: '.13em', color: '#FF6B4A', display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#FF6B4A', display: 'inline-block', flexShrink: 0 }} />
+                            ON LEAVE
+                          </span>
+                        )}
+                      </div>
+                      {Array.from({ length: 8 }, (_, pi) => {
+                        const stepIdx = DEMO_PLAN.findIndex(s => s.t === ti && s.p === pi);
+                        const isFilled = stepIdx >= 0 && stepIdx < coveredCount;
+                        const isHot = stepIdx >= 0 && stepIdx === hotIdx;
+                        const cls = teacher.row[pi];
+                        const isFree = cls === null;
+                        const isGap = teacher.absent && cls !== null && !isFilled;
+                        return (
+                          <div key={`c${ti}-${pi}`}
+                            className={isHot ? 'kv-cell-hot' : ''}
+                            style={{
+                              minHeight: 52, display: 'grid', placeItems: 'center',
+                              fontFamily: "'IBM Plex Mono',monospace", fontSize: 10.5, letterSpacing: '.04em', color: '#7E8FAD',
+                              position: 'relative', borderRight: '1px solid rgba(126,158,214,.13)', borderBottom: '1px solid rgba(126,158,214,.13)',
+                              background: isFilled ? 'rgba(55,217,160,.09)' : isGap ? 'rgba(255,107,74,.07)' : undefined,
+                              transition: 'background .35s ease',
+                            }}>
+                            {isFilled && <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: '#37D9A0', animation: 'kvGrow .4s ease-out' }} />}
+                            {isFree
+                              ? <span style={{ color: '#56657F', opacity: .35 }}>&middot;</span>
+                              : isFilled
+                                ? <div style={{ textAlign: 'center' as const }}>
+                                    <div className="kv-pop" style={{ fontWeight: 500, color: '#37D9A0', fontSize: 10.5 }}>{cls}</div>
+                                    <div className="kv-pop" style={{ fontSize: 8.5, letterSpacing: '.11em', color: 'rgba(55,217,160,.72)', marginTop: 2 }}>{stepIdx >= 0 ? DEMO_PLAN[stepIdx].by.replace('. ','.') : ''}</div>
+                                  </div>
+                                : (isGap || isHot)
+                                  ? <span style={{ fontSize: 9, letterSpacing: '.14em', color: '#FF6B4A', border: '1px dashed rgba(255,107,74,.5)', padding: '3px 7px', borderRadius: 2 }}>OPEN</span>
+                                  : <span style={{ fontWeight: 500 }}>{cls}</span>
+                            }
+                          </div>
+                        );
+                      })}
+                    </>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ticker log */}
+              <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, fontFamily: "'IBM Plex Mono',monospace", fontSize: 11.5, color: '#7E8FAD', borderTop: '1px solid rgba(126,158,214,.13)', background: 'rgba(255,255,255,.015)', minHeight: 44 }}>
+                <span style={{ color: '#F6A623', letterSpacing: '.14em', fontSize: 10, flexShrink: 0 }}>LOG</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                  {tickerPre}{tickerTo && <span style={{ color: '#37D9A0' }}>{tickerTo}</span>}
+                </span>
+              </div>
+            </div>
+
+            {/* ── The morning in four moves ── */}
+            <div style={{ marginTop: 44, borderTop: '1px solid rgba(126,158,214,.13)', paddingTop: 6 }}>
+              {[
+                { t: '07:40', h: 'Mark the absences', p: 'Tap the two teachers who called in. Nothing else to fill in — the desk already knows the timetable.' },
+                { t: '07:41', h: 'Fill the open periods', p: 'Only teachers who are actually free that period are offered, and whoever has covered least comes first.' },
+                { t: '07:42', h: 'Send it to the staff group', p: "A formatted WhatsApp message goes out. Each teacher can also open their own duty list for the day." },
+                { t: 'Monthly', h: 'Export the register', p: "Who covered what, per teacher, per campus — ready for the principal's record." },
+              ].map(step => (
+                <div key={step.t} style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 18, padding: '15px 0', borderBottom: '1px solid rgba(126,158,214,.13)' }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: '#F6A623', letterSpacing: '.08em', paddingTop: 2 }}>{step.t}</span>
+                  <div>
+                    <h3 style={{ fontFamily: "'Space Grotesk',system-ui,sans-serif", fontWeight: 600, fontSize: 14.5, letterSpacing: '-.01em', marginBottom: 3, color: '#E9EFFA' }}>{step.h}</h3>
+                    <p style={{ color: '#7E8FAD', fontSize: 13.5, maxWidth: '56ch', margin: 0 }}>{step.p}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Stats numbers ── */}
+            <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' as const, margin: '34px 0 64px' }}>
+              {[
+                { b: '41s', s: 'Median time to fill' },
+                { b: '7', s: 'Periods covered today' },
+                { b: '62', s: 'Teachers on the desk' },
+                { b: '4', s: 'KV campuses' },
+              ].map(n => (
+                <div key={n.b}>
+                  <b style={{ display: 'block', fontFamily: "'Space Grotesk',system-ui,sans-serif", fontWeight: 700, fontSize: 26, letterSpacing: '-.02em', color: '#E9EFFA' }}>{n.b}</b>
+                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase' as const, color: '#56657F' }}>{n.s}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ── Right: Sign in ── */}
+          <aside className="kv-aside">
+
+            {/* Mobile header (hidden on desktop) */}
+            <div className="kv-mob-hdr" style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid rgba(126,158,214,.13)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <img src="/2023042075.png" alt="KV" style={{ height: 40, width: 'auto', filter: 'brightness(1.15)' }} />
+                <img src="/2025021137.png" alt="PM SHRI" style={{ height: 32, width: 'auto', filter: 'brightness(1.15)' }} />
+              </div>
+              <p style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase' as const, color: '#56657F', marginBottom: 14, textAlign: 'center' as const, margin: '0 0 14px' }}>
+                PM SHRI Kendriya Vidyalayas &middot; Arrangement Desk
+              </p>
+              <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#F6A623', color: '#1A1200', borderRadius: 3, fontFamily: "'Space Grotesk',system-ui,sans-serif", fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+                Book a Free Demo &rarr;
+              </a>
+            </div>
+
+            {/* Sign-in card */}
+            <div className="kv-card-top" style={{ border: '1px solid rgba(126,158,214,.28)', background: '#121C2E', borderRadius: 4, padding: '30px 28px 26px', boxShadow: '0 40px 80px -46px rgba(0,0,0,.95)', position: 'relative' }}>
+              <h2 style={{ fontFamily: "'Space Grotesk',system-ui,sans-serif", fontWeight: 700, fontSize: 24, letterSpacing: '-.02em', color: '#E9EFFA', margin: 0 }}>Sign in</h2>
+              <p style={{ color: '#7E8FAD', fontSize: 14, marginTop: 5, marginBottom: 26 }}>Use your school account.</p>
+
+              <form onSubmit={handleSubmit}>
+                {/* Email */}
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase' as const, color: '#56657F', marginBottom: 8 }}>
+                    Email or username
+                  </label>
+                  <input
+                    type="text" value={email} placeholder="you@kvschool.edu.in" autoComplete="username"
+                    className="kv-input-f"
+                    onChange={e => { setEmail(e.target.value); setError(''); }}
+                  />
+                </div>
+
+                {/* Password */}
+                <div style={{ position: 'relative', marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase' as const, color: '#56657F', marginBottom: 8 }}>
+                    Password
+                  </label>
+                  <input
+                    type={showPw ? 'text' : 'password'} value={password} placeholder="••••••••••" autoComplete="current-password"
+                    className="kv-input-f"
+                    style={{ paddingRight: 56 }}
                     onChange={e => { setPassword(e.target.value); setError(''); }}
-                    className="w-full px-4 py-3 pr-16 rounded-xl text-sm text-white transition-all duration-200 focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
-                    onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.7)'; e.target.style.background = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
-                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.boxShadow = 'none'; }} />
+                  />
                   <button type="button" onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-bold transition-colors"
-                    style={{ color: 'rgba(147,197,253,0.5)' }}>
-                    {showPw ? 'hide' : 'show'}
+                    style={{ position: 'absolute', right: 10, top: 36, background: 'none', border: 0, cursor: 'pointer', fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.12em', color: '#56657F', padding: 6, transition: 'color .2s' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#F6A623')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '#56657F')}>
+                    {showPw ? 'HIDE' : 'SHOW'}
                   </button>
                 </div>
-              </div>
-              {error && (
-                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
-                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)' }}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                  <span className="text-red-300 text-xs font-medium">{error}</span>
-                </div>
-              )}
-              <button type="submit" disabled={loading}
-                className="w-full h-12 rounded-xl font-bold text-sm text-white transition-all duration-200 disabled:opacity-60 hover:brightness-110 active:scale-[0.99]"
-                style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', boxShadow: '0 6px 28px rgba(37,99,235,0.5)', marginTop: '2px' }}>
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <LoadingSpinner size="sm" className="border-white/70 border-t-transparent" />
-                    Signing in…
-                  </span>
-                ) : 'Sign In'}
-              </button>
-            </form>
-          </div>
 
-          <div className="flex items-center justify-center gap-2 mt-5">
-            <span className="text-[11px]" style={{ color: 'rgba(147,197,253,0.3)' }}>Not a user yet?</span>
-            <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
-              className="text-[11px] font-bold transition-colors hover:text-indigo-300"
-              style={{ color: 'rgba(129,140,248,0.65)' }}>
-              Request a demo →
-            </a>
-          </div>
+                {/* Error */}
+                {error && (
+                  <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(255,107,74,.08)', border: '1px solid rgba(255,107,74,.3)', borderRadius: 3, fontSize: 13, color: '#FF6B4A' }}>
+                    {error}
+                  </div>
+                )}
+
+                <button type="submit" disabled={loading} className="kv-sign-btn">
+                  {loading ? 'Checking…' : 'Sign in'}
+                </button>
+              </form>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                <a href="#" className="kv-link">Forgot password</a>
+                <a href={DEMO_URL} target="_blank" rel="noopener noreferrer" className="kv-link">Request access &rarr;</a>
+              </div>
+
+              <div style={{ marginTop: 16, border: '1px solid rgba(126,158,214,.13)', borderRadius: 3, padding: '13px 15px', fontSize: 12.5, color: '#7E8FAD', background: 'rgba(255,255,255,.015)' }}>
+                <b style={{ color: '#E9EFFA', fontWeight: 500, display: 'block', marginBottom: 3, fontFamily: "'Space Grotesk',system-ui,sans-serif", fontSize: 13 }}>New school?</b>
+                Send your timetable sheet once. The desk is ready to use the same day.
+              </div>
+            </div>
+
+            {/* Live schools */}
+            <div style={{ marginTop: 14, fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.13em', color: '#56657F', textTransform: 'uppercase' as const, lineHeight: 2 }}>
+              <span style={{ color: '#37D9A0' }}>&bull;</span> KV Burhanpur &nbsp; <span style={{ color: '#37D9A0' }}>&bull;</span> KV Khandwa<br />
+              <span style={{ color: '#37D9A0' }}>&bull;</span> KV Itarsi No.1 &nbsp; <span style={{ color: '#37D9A0' }}>&bull;</span> KV Nepanagar
+            </div>
+          </aside>
         </div>
+
+        {/* ── Footer ── */}
+        <footer style={{ marginTop: 64, padding: '20px clamp(20px,4vw,56px)', borderTop: '1px solid rgba(126,158,214,.13)', display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' as const, fontFamily: "'IBM Plex Mono',monospace", fontSize: 10.5, letterSpacing: '.11em', textTransform: 'uppercase' as const, color: '#56657F' }}>
+          <span>PM SHRI Kendriya Vidyalayas &middot; Arrangement Desk</span>
+          <span>GoIntoLabs &copy; 2026</span>
+        </footer>
       </div>
     </div>
   );
