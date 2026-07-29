@@ -1334,7 +1334,7 @@ export default function App() {
                 <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
                   {filteredTeachers.map(t => (
                     <button key={t}
-                      onPointerDown={e => { e.preventDefault(); setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
+                      onPointerDown={e => { e.preventDefault(); e.stopPropagation(); setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-slate-50 last:border-0 flex items-center gap-2.5">
                       <span className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0"
                         style={{ background: avColor(t) }}>
