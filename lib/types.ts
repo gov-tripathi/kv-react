@@ -4,6 +4,7 @@ export interface TimetableRow {
   Period: number;
   Class: string;
   Subject: string;
+  Use_For_Arrangement?: boolean;
 }
 
 export interface AbsentPeriod {

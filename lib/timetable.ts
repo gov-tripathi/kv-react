@@ -32,29 +32,47 @@ export function shortName(name: string): string {
   return name.trim();
 }
 
-// Subject field can have corrupt values like "Not ReqMR. MOHIT" — treat any
-// value starting with "Not Req" as an upper-class free period.
+// True when this timetable row represents a period that needs arrangement if the teacher is absent.
+// Uses explicit Use_For_Arrangement field when present; falls back to old "Not Req" subject hack.
+export function needsArrangement(row: TimetableRow): boolean {
+  if (row.Use_For_Arrangement !== undefined && row.Use_For_Arrangement !== null) {
+    return Boolean(row.Use_For_Arrangement);
+  }
+  // backward compat: old data stores upper-class periods with subject starting "Not Req"
+  return !row.Subject.startsWith('Not Req');
+}
+
+// True when this row is an explicit free period (no class assigned).
+export function isFreeRow(row: TimetableRow): boolean {
+  return !row.Class;
+}
+
+// Legacy export kept for any remaining call-sites.
 export const isNotReq = (subject: string) => subject.startsWith('Not Req');
 
 export function getAllTeachers(df: TimetableRow[]): string[] {
   return [...new Set(df.map(r => r.Teacher_Name))].sort();
 }
 
+// A teacher is "not req" in a period when they have a class assigned but it doesn't need arrangement.
 export function getNotReqTeachers(df: TimetableRow[]): Set<string> {
-  return new Set(df.filter(r => isNotReq(r.Subject)).map(r => r.Teacher_Name));
+  return new Set(df.filter(r => !isFreeRow(r) && !needsArrangement(r)).map(r => r.Teacher_Name));
 }
 
 export function getNotReqTeachersForPeriod(df: TimetableRow[], day: string, period: number): Set<string> {
-  return new Set(df.filter(r => r.Day === day && r.Period === period && isNotReq(r.Subject)).map(r => r.Teacher_Name));
+  return new Set(
+    df.filter(r => r.Day === day && r.Period === period && !isFreeRow(r) && !needsArrangement(r))
+      .map(r => r.Teacher_Name),
+  );
 }
 
 export function getAllClasses(df: TimetableRow[]): string[] {
   const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
   return [...new Set(
     df
-      .filter(r => !isNotReq(r.Subject))
+      .filter(r => !isFreeRow(r) && needsArrangement(r))
       .map(r => r.Class)
-      .filter(cls => order.includes(cls.split(' ')[0])), // only valid Roman-numeral classes
+      .filter(cls => order.includes(cls.split(' ')[0])),
   )].sort((a, b) => {
     const [aNum, aSec = ''] = a.split(' ');
     const [bNum, bSec = ''] = b.split(' ');
@@ -86,7 +104,8 @@ export function busySetExcludingCancelled(
   cancelledClasses: string[], useCancelledTeachers: boolean,
   cancelledClassConfigs: Record<string, CancelledClassConfig> = {},
 ): Set<string> {
-  const rows = df.filter(r => r.Day === day && r.Period === period);
+  // Free period rows never make a teacher busy.
+  const rows = df.filter(r => r.Day === day && r.Period === period && !isFreeRow(r));
   if (!useCancelledTeachers || !cancelledClasses.length) {
     return new Set(rows.map(r => r.Teacher_Name));
   }
@@ -110,8 +129,9 @@ export function getSchedule(df: TimetableRow[], teacher: string, day: string): T
     .sort((a, b) => a.Period - b.Period);
 }
 
+// Free period rows (empty Class) mean the teacher is available — exclude them from busy.
 export function busySet(df: TimetableRow[], day: string, period: number): Set<string> {
-  return new Set(df.filter(r => r.Day === day && r.Period === period).map(r => r.Teacher_Name));
+  return new Set(df.filter(r => r.Day === day && r.Period === period && !isFreeRow(r)).map(r => r.Teacher_Name));
 }
 
 export function teacherPeriodInfo(
@@ -121,18 +141,19 @@ export function teacherPeriodInfo(
   return row ? [row.Class, row.Subject] : ['', ''];
 }
 
+// Count actual teaching/upper-class periods; exclude explicit free period rows.
 export function masterLoad(df: TimetableRow[], teacher: string, day: string): number {
-  return df.filter(r => r.Teacher_Name === teacher && r.Day === day).length;
+  return df.filter(r => r.Teacher_Name === teacher && r.Day === day && !isFreeRow(r)).length;
 }
 
-// Busy periods today: primary teaching + upper-class (Not Req), minus cancelled classes.
+// Busy periods today: teaching + upper-class (not req), excluding free rows and cancelled classes.
 export function effectiveLoad(
   df: TimetableRow[], teacher: string, day: string,
   cancelledClasses: string[] = [],
   cancelledClassConfigs: Record<string, CancelledClassConfig> = {},
 ): number {
   return df.filter(r => {
-    if (r.Teacher_Name !== teacher || r.Day !== day) return false;
+    if (r.Teacher_Name !== teacher || r.Day !== day || isFreeRow(r)) return false;
     if (!cancelledClasses.includes(r.Class)) return true;
     const cfg = cancelledClassConfigs[r.Class];
     if (cfg?.halfDay) return !cfg.cancelledPeriods.includes(r.Period);
@@ -160,7 +181,7 @@ export function buildAbsentPeriods(
   const periods: AbsentPeriod[] = [];
   for (const t of teachers) {
     for (const row of getSchedule(df, t, day)) {
-      if (isNotReq(row.Subject)) continue;
+      if (isFreeRow(row) || !needsArrangement(row)) continue;
       if (row.Period > maxPeriod) continue;
       if (cancelledClasses.includes(row.Class)) {
         const cfg = cancelledClassConfigs[row.Class];

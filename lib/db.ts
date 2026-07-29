@@ -191,7 +191,7 @@ export async function bulkCreatePeriods(items: { name: string; start_time: strin
 export async function getTimetableRows(schoolId: number): Promise<TimetableRow[]> {
   const { data, error } = await getSupabase()
     .from('timetable_rows')
-    .select('teacher_name,day,period,class,subject')
+    .select('teacher_name,day,period,class,subject,use_for_arrangement')
     .eq('school_id', schoolId);
   if (error) throw error;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -199,8 +199,9 @@ export async function getTimetableRows(schoolId: number): Promise<TimetableRow[]
     Teacher_Name: r.teacher_name,
     Day: r.day,
     Period: r.period,
-    Class: r.class,
-    Subject: r.subject,
+    Class: r.class ?? '',
+    Subject: r.subject ?? '',
+    Use_For_Arrangement: r.use_for_arrangement ?? true,
   }));
 }
 
@@ -215,6 +216,7 @@ export async function replaceTimetable(rows: TimetableRow[], schoolId: number): 
     period: r.Period,
     class: r.Class,
     subject: r.Subject,
+    use_for_arrangement: r.Use_For_Arrangement ?? true,
     school_id: schoolId,
   }));
   const { error: insError } = await sb.from('timetable_rows').insert(mapped);

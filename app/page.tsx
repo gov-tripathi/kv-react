@@ -67,7 +67,7 @@ import {
   getSchedule, busySetExcludingCancelled, teacherPeriodInfo, effectiveLoad,
   buildAbsentPeriods, getCancelledPeriods, computeSubWorkload, autoFillAll,
   buildReportRowsWithCancelled, whatsappText, isTeacherAbsentInPeriod,
-  getNotReqTeachersForPeriod, priorityIdx, isNotReq,
+  getNotReqTeachersForPeriod, priorityIdx, needsArrangement, isFreeRow,
 } from '@/lib/timetable';
 import type { AbsenceConfig, FormState, Arrangement, TeacherAccount, SchoolPeriod } from '@/lib/types';
 import { generatePDF } from '@/lib/pdf';
@@ -1334,7 +1334,7 @@ export default function App() {
                 <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
                   {filteredTeachers.map(t => (
                     <button key={t}
-                      onPointerDown={e => { e.preventDefault(); setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); setShowTeacherDropdown(false); }}
+                      onPointerDown={e => { e.preventDefault(); setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-slate-50 last:border-0 flex items-center gap-2.5">
                       <span className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0"
                         style={{ background: avColor(t) }}>
@@ -1394,7 +1394,7 @@ export default function App() {
                         <div className="flex flex-wrap gap-1.5">
                           {allPeriods.map(p => {
                             const row = schedule.find(r => r.Period === p);
-                            const isTeaching = row && !isNotReq(row.Subject);
+                            const isTeaching = row && !isFreeRow(row) && needsArrangement(row);
                             const label = isTeaching ? row.Class : 'Free';
                             const isAbsent = cfg.absentPeriods?.includes(p) ?? false;
                             return (
@@ -1477,7 +1477,7 @@ export default function App() {
                   {cancelledClasses.map(c => {
                     const cfg: CancelledClassConfig = cancelledClassConfigs[c] ?? { halfDay: false, cancelledPeriods: [] };
                     const classPeriods = new Set(
-                      df.filter(r => r.Class === c && r.Day === selectedDay && !isNotReq(r.Subject) && r.Period <= schoolMaxPeriod).map(r => r.Period)
+                      df.filter(r => r.Class === c && r.Day === selectedDay && needsArrangement(r) && !isFreeRow(r) && r.Period <= schoolMaxPeriod).map(r => r.Period)
                     );
                     const allPeriods = Array.from({ length: schoolMaxPeriod }, (_, i) => i + 1);
                     return (
@@ -2666,7 +2666,7 @@ function PeriodRow({
   const teacherSubjMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const t of freeTeachers) {
-      const subjs = [...new Set(df.filter(r => r.Teacher_Name === t && !isNotReq(r.Subject)).map(r => r.Subject))];
+      const subjs = [...new Set(df.filter(r => r.Teacher_Name === t && !isFreeRow(r) && needsArrangement(r)).map(r => r.Subject))];
       map[t] = subjs.slice(0, 2).join('/');
     }
     return map;
@@ -2824,7 +2824,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
           periodStatus[p] = 'clubbed'; periodClass[p] = `${subForCls[p]} · Clubbing ${shortName(subFor[p])}`;
         } else if (masterPs.has(p)) {
           const row = df.find(r => r.Teacher_Name === t && r.Day === selectedDay && r.Period === p);
-          if (row && isNotReq(row.Subject)) {
+          if (row && !isFreeRow(row) && !needsArrangement(row)) {
             periodStatus[p] = 'notReq'; periodClass[p] = `Upper Class · ${row.Class}`;
           } else if (row && cancelledClasses.includes(row.Class)) {
             const clsCfg = cancelledClassConfigs[row.Class];
@@ -2859,7 +2859,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
   const classData = useMemo(() => {
     const order = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
     const classes = [...new Set(
-      df.filter(r => r.Day === selectedDay && !isNotReq(r.Subject) && order.includes(r.Class.split(' ')[0]))
+      df.filter(r => r.Day === selectedDay && !isFreeRow(r) && needsArrangement(r) && order.includes(r.Class.split(' ')[0]))
         .map(r => r.Class),
     )].sort((a, b) => {
       const [aNum, aSec = ''] = a.split(' '); const [bNum, bSec = ''] = b.split(' ');
@@ -2872,7 +2872,7 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
       const cancelledPeriodNums: number[] = (inCancelList && cfg!.cancelledPeriods.length > 0) ? cfg!.cancelledPeriods : [];
       const isCancelled = inCancelList && cancelledPeriodNums.length === 0;
       const periods = activePeriods.flatMap(p => {
-        const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && !isNotReq(r.Subject));
+        const row = df.find(r => r.Class === cls && r.Day === selectedDay && r.Period === p && !isFreeRow(r) && needsArrangement(r));
         if (!row) return [];
         const isAbsent = isTeacherAbsentInPeriod(row.Teacher_Name, p, absentTeachers, absenceConfigs);
         const sub = isAbsent ? (subs[`${row.Teacher_Name}__${p}`] || null) : null;
@@ -3599,7 +3599,7 @@ function TeacherView({ df, teacherName, schoolId, onSignOut }: { df: TimetableRo
           info = `${subDuty.Class} · ${subDuty.Subject}`;
           subForTeacher = shortName(subDuty.Absent_Teacher);
         } else if (regularRow) {
-          if (isNotReq(regularRow.Subject)) {
+          if (!needsArrangement(regularRow) && !isFreeRow(regularRow)) {
             status = 'notReq'; info = `Upper Class · ${regularRow.Class}`;
           } else if (fs?.cancelledClasses.includes(regularRow.Class)) {
             const clsCfg = fs.cancelledClassConfigs[regularRow.Class];
@@ -3768,15 +3768,17 @@ function TeacherView({ df, teacherName, schoolId, onSignOut }: { df: TimetableRo
 }
 
 // ─── Timetable Upload Panel ───────────────────────────────────────────────────
+// Use_For_Arrangement: 1 = needs substitution, 0 = upper class or free (no arrangement needed)
 const TEMPLATE_ROWS = [
-  { Teacher_Name: 'MR. EXAMPLE', Day: 'MON', Period: 1, Class: 'V A',  Subject: 'MATHS'   },
-  { Teacher_Name: 'MR. EXAMPLE', Day: 'MON', Period: 2, Class: 'V B',  Subject: 'MATHS'   },
-  { Teacher_Name: 'MS. EXAMPLE', Day: 'TUE', Period: 3, Class: 'III A',Subject: 'ENGLISH' },
-  { Teacher_Name: 'MR. EXAMPLE', Day: 'WED', Period: 4, Class: 'IX A', Subject: 'Not Req' },
+  { Teacher_Name: 'MR. EXAMPLE', Day: 'MON', Period: 1, Class: 'V A',   Subject: 'MATHS',   Use_For_Arrangement: 1 },
+  { Teacher_Name: 'MR. EXAMPLE', Day: 'MON', Period: 2, Class: 'V B',   Subject: 'MATHS',   Use_For_Arrangement: 1 },
+  { Teacher_Name: 'MS. EXAMPLE', Day: 'TUE', Period: 3, Class: 'III A', Subject: 'ENGLISH', Use_For_Arrangement: 1 },
+  { Teacher_Name: 'MR. EXAMPLE', Day: 'WED', Period: 4, Class: 'XI A',  Subject: 'PHYSICS', Use_For_Arrangement: 0 },
+  { Teacher_Name: 'MR. EXAMPLE', Day: 'WED', Period: 5, Class: '',       Subject: '',        Use_For_Arrangement: 0 },
 ];
 
 function xlsxBlob(data: object[], sheetName = 'Timetable'): Blob {
-  const ws = XLSX.utils.json_to_sheet(data, { header: ['Teacher_Name','Day','Period','Class','Subject'] });
+  const ws = XLSX.utils.json_to_sheet(data, { header: ['Teacher_Name','Day','Period','Class','Subject','Use_For_Arrangement'] });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
@@ -3808,18 +3810,39 @@ function TimetableUploadPanel({ df, uploaded, schoolId, onReplaced }: { df: Time
 
   function downloadCsv() {
     const data = uploaded ? df : TEMPLATE_ROWS;
-    const header = 'Teacher_Name,Day,Period,Class,Subject';
-    const body = data.map(r => `${r.Teacher_Name},${r.Day},${r.Period},${r.Class},${r.Subject}`).join('\n');
+    const header = 'Teacher_Name,Day,Period,Class,Subject,Use_For_Arrangement';
+    const body = data.map(r => `${r.Teacher_Name},${r.Day},${r.Period},${r.Class},${r.Subject},${r.Use_For_Arrangement === false || r.Use_For_Arrangement === 0 ? 0 : 1}`).join('\n');
     const name = uploaded ? 'timetable.csv' : 'timetable_template.csv';
     downloadBlob(new Blob([header + '\n' + body], { type: 'text/csv' }), name);
   }
 
   function processRows(data: Record<string, unknown>[]) {
-    const required = ['Teacher_Name', 'Day', 'Period', 'Class', 'Subject'];
+    const required = ['Teacher_Name', 'Day', 'Period'];
     const fields = data.length > 0 ? Object.keys(data[0]) : [];
     const missing = required.filter(c => !fields.includes(c));
     if (missing.length) { alert(`Missing columns: ${missing.join(', ')}`); return; }
-    const rows = (data as unknown as TimetableRow[]).filter(r => r.Teacher_Name && r.Day && r.Period && r.Class && r.Subject);
+    const rows: TimetableRow[] = data
+      .filter(r => r.Teacher_Name && r.Day && r.Period)
+      .map(r => {
+        // Parse Use_For_Arrangement: '0', 0, 'false', false → false; anything else → true
+        let useForArr: boolean;
+        const raw = r['Use_For_Arrangement'];
+        if (raw === undefined || raw === null || raw === '') {
+          // No column: fall back — if subject starts "Not Req", mark false
+          useForArr = !String(r.Subject ?? '').startsWith('Not Req');
+        } else {
+          const s = String(raw).toLowerCase().trim();
+          useForArr = s !== '0' && s !== 'false' && s !== 'no';
+        }
+        return {
+          Teacher_Name: String(r.Teacher_Name),
+          Day: String(r.Day).toUpperCase(),
+          Period: Number(r.Period),
+          Class: String(r.Class ?? ''),
+          Subject: String(r.Subject ?? ''),
+          Use_For_Arrangement: useForArr,
+        };
+      });
     const teachers = new Set(rows.map(r => r.Teacher_Name)).size;
     setPreview({ rows, teachers });
   }
