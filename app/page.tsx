@@ -1110,11 +1110,7 @@ function LoginScreen({ onLogin }: {
               </div>
             </div>
 
-            {/* Live schools */}
-            <div style={{ marginTop: 14, fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.13em', color: '#56657F', textTransform: 'uppercase' as const, lineHeight: 2 }}>
-              <span style={{ color: '#37D9A0' }}>&bull;</span> KV Burhanpur &nbsp; <span style={{ color: '#37D9A0' }}>&bull;</span> KV Khandwa<br />
-              <span style={{ color: '#37D9A0' }}>&bull;</span> KV Itarsi No.1 &nbsp; <span style={{ color: '#37D9A0' }}>&bull;</span> KV Nepanagar
-            </div>
+
           </aside>
         </div>
 
