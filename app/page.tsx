@@ -3825,15 +3825,10 @@ function TimetableUploadPanel({ df, uploaded, schoolId, onReplaced }: { df: Time
       .filter(r => r.Teacher_Name && r.Day && r.Period)
       .map(r => {
         // Parse Use_For_Arrangement: '0', 0, 'false', false → false; anything else → true
-        let useForArr: boolean;
         const raw = r['Use_For_Arrangement'];
-        if (raw === undefined || raw === null || raw === '') {
-          // No column: fall back — if subject starts "Not Req", mark false
-          useForArr = !String(r.Subject ?? '').startsWith('Not Req');
-        } else {
-          const s = String(raw).toLowerCase().trim();
-          useForArr = s !== '0' && s !== 'false' && s !== 'no';
-        }
+        const s = String(raw ?? '').toLowerCase().trim();
+        // missing column or empty → default true; explicit 0/false/no → false
+        const useForArr = s === '' ? true : s !== '0' && s !== 'false' && s !== 'no';
         return {
           Teacher_Name: String(r.Teacher_Name),
           Day: String(r.Day).toUpperCase(),

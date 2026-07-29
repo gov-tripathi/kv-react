@@ -32,23 +32,16 @@ export function shortName(name: string): string {
   return name.trim();
 }
 
-// True when this timetable row represents a period that needs arrangement if the teacher is absent.
-// Uses explicit Use_For_Arrangement field when present; falls back to old "Not Req" subject hack.
+// True when this row needs arrangement if the teacher is absent.
+// Defaults to true when column is absent (DB rows before migration).
 export function needsArrangement(row: TimetableRow): boolean {
-  if (row.Use_For_Arrangement !== undefined && row.Use_For_Arrangement !== null) {
-    return Boolean(row.Use_For_Arrangement);
-  }
-  // backward compat: old data stores upper-class periods with subject starting "Not Req"
-  return !row.Subject.startsWith('Not Req');
+  return row.Use_For_Arrangement !== false;
 }
 
 // True when this row is an explicit free period (no class assigned).
 export function isFreeRow(row: TimetableRow): boolean {
   return !row.Class;
 }
-
-// Legacy export kept for any remaining call-sites.
-export const isNotReq = (subject: string) => subject.startsWith('Not Req');
 
 export function getAllTeachers(df: TimetableRow[]): string[] {
   return [...new Set(df.map(r => r.Teacher_Name))].sort();
