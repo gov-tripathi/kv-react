@@ -850,6 +850,9 @@ function LoginScreen({ onLogin }: {
         .kv-input-f::placeholder { color:#56657F; }
         .kv-input-f:hover { border-color:rgba(126,158,214,.5); }
         .kv-input-f:focus { outline:none; border-color:#F6A623; background:rgba(246,166,35,.05); }
+        .kv-input-f:-webkit-autofill,
+        .kv-input-f:-webkit-autofill:hover,
+        .kv-input-f:-webkit-autofill:focus { -webkit-box-shadow:0 0 0 1000px #121C2E inset !important; -webkit-text-fill-color:#E9EFFA !important; caret-color:#E9EFFA; border-color:rgba(126,158,214,.28) !important; transition:background-color 9999s ease; }
         .kv-sign-btn { width:100%; margin-top:8px; padding:14px; border:0; border-radius:3px; cursor:pointer; background:#F6A623; color:#1A1200; font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:15px; letter-spacing:.01em; transition:transform .15s ease,box-shadow .2s ease,background .2s; }
         .kv-sign-btn:hover:not(:disabled) { background:#FFC15E; box-shadow:0 10px 30px -12px rgba(246,166,35,.7); }
         .kv-sign-btn:active { transform:translateY(1px); }
