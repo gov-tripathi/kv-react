@@ -59,7 +59,7 @@ function KvProgressBar({ value, color = 'default' }: { value: number; color?: 'd
 }
 import * as XLSX from 'xlsx';
 import {
-  TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry, CancelledClassConfig, AssignmentRule,
+  TimetableRow, AbsentPeriod, ReportRow, TeacherData, DutyEntry, CancelledClassConfig, AssignmentRule, School, SchoolAdmin,
 } from '@/lib/types';
 import {
   ALL_PERIODS, DAY_MAP,
@@ -79,10 +79,11 @@ import {
   loginTeacher, getTeacherAccounts, createTeacherAccount, updateTeacherAccount, deleteTeacherAccount, getSharedArrangementForDate,
   getPeriods, createPeriod, updatePeriod, deletePeriod, bulkCreatePeriods,
   getTimetableRows, replaceTimetable, getAssignmentRules, replaceAssignmentRules,
+  getSchools, createSchool, deleteSchool, getSchoolAdmins, createSchoolAdmin, deleteSchoolAdmin, loginSchoolAdmin,
 } from '@/lib/db';
 
-// Prevents concurrent double-seed when PeriodsPanel mounts/unmounts rapidly
-let _periodSeedDone = false;
+// Per-school seed tracking (Set of school IDs that have been seeded)
+const _periodSeedDone = new Set<number>();
 
 const KV_DEFAULT_PERIODS = [
   { name: 'School Reporting Time',        start: '07:20 AM', end: '07:20 AM' },
@@ -116,7 +117,7 @@ function parseTimeStr(t: string): { h: string; m: string; ap: 'AM' | 'PM' } {
   return { h: String(parseInt(hStr, 10)), m: mStr, ap: ap as 'AM' | 'PM' };
 }
 
-const USERS: Record<string, string> = {
+const SUPER_ADMINS: Record<string, string> = {
   'iamgovind560@gmail.com': 'govind@kv2025',
   'nt4472@gmail.com': 'nt4472@6065',
 };
@@ -242,13 +243,15 @@ function NavIcon({ id, className = 'w-[18px] h-[18px]' }: { id: string; classNam
 
 // ── Desktop sidebar ───────────────────────────────────────────────────────────
 function AppSidebar({
-  activeTab, setActiveTab, onSignOut, currentUser,
+  activeTab, setActiveTab, onSignOut, onBackToSchools, currentUser, schoolName,
   absentCount, coveredCount, totalPeriods, dateVal, selectedDay,
 }: {
   activeTab: 'arrangement' | 'status' | 'history' | 'settings';
   setActiveTab: (t: 'arrangement' | 'status' | 'history' | 'settings') => void;
   onSignOut: () => void;
+  onBackToSchools?: () => void;
   currentUser: string;
+  schoolName: string;
   absentCount: number;
   coveredCount: number;
   totalPeriods: number;
@@ -283,7 +286,7 @@ function AppSidebar({
             style={{ filter: 'brightness(1.15) drop-shadow(0 2px 10px rgba(0,0,0,.6))' }} />
         </div>
         <p className="text-[10px] font-extrabold text-white/70 tracking-[0.12em] uppercase leading-snug">PM SHRI Kendriya Vidyalaya</p>
-        <p className="text-[10px] font-bold tracking-wider mt-0.5" style={{ color: 'rgba(147,197,253,0.55)' }}>Burhanpur · 2026–27</p>
+        <p className="text-[10px] font-bold tracking-wider mt-0.5 truncate" style={{ color: 'rgba(147,197,253,0.55)' }}>{schoolName || 'Burhanpur · 2026–27'}</p>
         <div className="mt-4 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.1), transparent)' }} />
       </div>
 
@@ -364,9 +367,18 @@ function AppSidebar({
             <p className="text-xs font-semibold truncate leading-none" style={{ color: 'rgba(255,255,255,0.55)' }}>
               {currentUser.split('@')[0]}
             </p>
-            <p className="text-[9px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>Admin · KV Burhanpur</p>
+            <p className="text-[9px] mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.25)' }}>Admin · {schoolName || 'KV Burhanpur'}</p>
           </div>
         </div>
+        {onBackToSchools && (
+          <button onClick={onBackToSchools}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-blue-300/60 hover:text-blue-300 hover:bg-blue-500/10 transition-all mb-1">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            All Schools
+          </button>
+        )}
         <button onClick={onSignOut}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-all">
           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -412,8 +424,287 @@ function MobileBottomNav({
   );
 }
 
+// ── Super Admin Dashboard ─────────────────────────────────────────────────────
+function SuperAdminDashboard({ currentUser, onEnterSchool, onSignOut }: {
+  currentUser: string;
+  onEnterSchool: (school: School) => void;
+  onSignOut: () => void;
+}) {
+  const [schools, setSchools] = useState<School[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newCode, setNewCode] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [admins, setAdmins] = useState<Record<number, SchoolAdmin[]>>({});
+  const [expandedSchool, setExpandedSchool] = useState<number | null>(null);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPw, setNewAdminPw] = useState('');
+  const [savingAdmin, setSavingAdmin] = useState(false);
+  // Two-step delete: id being confirmed
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteAdminConfirmId, setDeleteAdminConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    getSchools().then(setSchools).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  async function handleAddSchool() {
+    if (!newName.trim() || !newCode.trim()) return;
+    setSaving(true);
+    try {
+      const s = await createSchool(newName.trim(), newCode.trim().toUpperCase());
+      setSchools(prev => [...prev, s]);
+      setNewName(''); setNewCode(''); setShowAddForm(false);
+    } catch (e) { alert('Failed: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDeleteSchool(id: number) {
+    setDeleting(true);
+    try {
+      await deleteSchool(id);
+      setSchools(prev => prev.filter(s => s.id !== id));
+      setDeleteConfirmId(null);
+    } catch (e) { alert('Failed: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setDeleting(false); }
+  }
+
+  async function toggleAdmins(schoolId: number) {
+    if (expandedSchool === schoolId) { setExpandedSchool(null); return; }
+    setExpandedSchool(schoolId);
+    if (!admins[schoolId]) {
+      const list = await getSchoolAdmins(schoolId).catch(() => []);
+      setAdmins(prev => ({ ...prev, [schoolId]: list }));
+    }
+  }
+
+  async function handleAddAdmin(schoolId: number) {
+    if (!newAdminEmail.trim() || !newAdminPw.trim()) return;
+    setSavingAdmin(true);
+    try {
+      const a = await createSchoolAdmin(schoolId, newAdminEmail.trim(), newAdminPw.trim());
+      setAdmins(prev => ({ ...prev, [schoolId]: [...(prev[schoolId] ?? []), a] }));
+      setNewAdminEmail(''); setNewAdminPw('');
+    } catch (e) { alert('Failed: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setSavingAdmin(false); }
+  }
+
+  async function handleDeleteAdmin(schoolId: number, id: string) {
+    try {
+      await deleteSchoolAdmin(id);
+      setAdmins(prev => ({ ...prev, [schoolId]: (prev[schoolId] ?? []).filter(a => a.id !== id) }));
+      setDeleteAdminConfirmId(null);
+    } catch (e) { alert('Failed: ' + (e instanceof Error ? e.message : String(e))); }
+  }
+
+  const inputCls = 'w-full px-4 py-3 rounded-2xl bg-white/8 border border-white/15 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-blue-400/70 focus:border-transparent transition-all';
+
+  return (
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #0F172A 0%, #1a2c6a 55%, #1E3A8A 100%)' }}>
+      {/* Ambient blobs */}
+      <div className="fixed top-0 right-0 w-80 h-80 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.15), transparent 70%)', transform: 'translate(30%, -30%)' }} />
+      <div className="fixed bottom-0 left-0 w-96 h-96 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12), transparent 70%)', transform: 'translate(-30%, 30%)' }} />
+
+      {/* Sticky header */}
+      <div className="sticky top-0 z-20 px-4 py-4" style={{ background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="max-w-lg mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/2023042075.png" alt="KV" className="h-8 w-auto" style={{ filter: 'brightness(1.1) drop-shadow(0 1px 4px rgba(0,0,0,.5))' }} />
+            <div>
+              <p className="text-[9px] font-bold text-blue-300/50 tracking-[0.18em] uppercase">Super Admin</p>
+              <p className="text-sm font-extrabold text-white leading-none">All Schools</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:block text-xs text-white/30 truncate max-w-[140px]">{currentUser}</div>
+            <button onClick={onSignOut}
+              className="text-xs font-semibold text-white/50 hover:text-white border border-white/15 hover:border-white/30 px-3 py-1.5 rounded-xl transition-all">
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-20 space-y-3">
+
+        {/* Add school toggle button */}
+        <button onClick={() => { setShowAddForm(v => !v); setNewName(''); setNewCode(''); }}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm transition-all"
+          style={showAddForm
+            ? { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }
+            : { background: 'linear-gradient(135deg,#2563EB,#1D4ED8)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', boxShadow: '0 4px 20px rgba(37,99,235,0.4)' }
+          }>
+          <svg className={`w-4 h-4 transition-transform duration-200 ${showAddForm ? 'rotate-45' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          {showAddForm ? 'Cancel' : 'Add New School'}
+        </button>
+
+        {/* Add school form */}
+        {showAddForm && (
+          <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)' }}>
+            <p className="text-[10px] font-bold text-blue-200/50 uppercase tracking-widest">New School Details</p>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full school name"
+              className={inputCls} autoFocus />
+            <input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="Short code — e.g. KV_AGRA"
+              className={inputCls} />
+            <button
+              disabled={!newName.trim() || !newCode.trim() || saving}
+              onClick={handleAddSchool}
+              className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg,#10B981,#059669)', boxShadow: '0 4px 16px rgba(16,185,129,0.3)' }}>
+              {saving ? 'Creating…' : '✓ Create School'}
+            </button>
+          </div>
+        )}
+
+        {/* School count */}
+        {!loading && schools.length > 0 && (
+          <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest px-1">
+            {schools.length} school{schools.length !== 1 ? 's' : ''}
+          </p>
+        )}
+
+        {/* School list */}
+        {loading ? (
+          <div className="flex flex-col items-center gap-3 py-16">
+            <LoadingSpinner size="lg" />
+            <p className="text-white/30 text-sm">Loading schools…</p>
+          </div>
+        ) : schools.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-5xl mb-4">🏫</div>
+            <p className="text-white/50 font-semibold">No schools yet</p>
+            <p className="text-white/25 text-sm mt-1">Add one above to get started</p>
+          </div>
+        ) : schools.map(school => {
+          const initials = school.name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+          const isDeleting = deleteConfirmId === school.id;
+          const isExpanded = expandedSchool === school.id;
+          return (
+            <div key={school.id} className="rounded-2xl overflow-hidden" style={{ background: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.12)' }}>
+              {/* School row */}
+              <div className="p-4 flex items-center gap-3">
+                {/* Avatar */}
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-extrabold"
+                  style={{ background: 'linear-gradient(135deg,#1E40AF,#2563EB)' }}>
+                  {initials}
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-slate-800 text-sm leading-tight truncate">{school.name}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{school.code}</div>
+                </div>
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button onClick={() => toggleAdmins(school.id)}
+                    className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition-all ${isExpanded ? 'bg-blue-50 text-blue-600 border-blue-200' : 'text-slate-500 border-slate-200 hover:border-blue-200 hover:text-blue-600'}`}>
+                    Admins
+                  </button>
+                  <button onClick={() => onEnterSchool(school)}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-xl text-white transition-all"
+                    style={{ background: 'linear-gradient(135deg,#2563EB,#1D4ED8)' }}>
+                    Enter
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirmId(isDeleting ? null : school.id)}
+                    className={`p-1.5 rounded-xl transition-all ${isDeleting ? 'bg-red-100 text-red-600' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}>
+                    <Icon name="trash" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Inline delete confirmation */}
+              {isDeleting && (
+                <div className="mx-4 mb-4 rounded-2xl bg-red-50 border border-red-200 p-4">
+                  <p className="text-sm font-bold text-red-700 mb-0.5">Delete "{school.name}"?</p>
+                  <p className="text-xs text-red-500 mb-3">This will permanently remove the school and all its data — arrangements, timetable, teacher accounts, periods, and rules.</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setDeleteConfirmId(null)}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all">
+                      Cancel
+                    </button>
+                    <button onClick={() => handleDeleteSchool(school.id)} disabled={deleting}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg,#DC2626,#B91C1C)' }}>
+                      {deleting ? 'Deleting…' : 'Yes, delete permanently'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Admins panel */}
+              {isExpanded && (
+                <div className="border-t border-slate-100 bg-slate-50/70">
+                  <div className="px-4 pt-3 pb-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Admin Accounts</p>
+                    {(admins[school.id] ?? []).length === 0 ? (
+                      <p className="text-xs text-slate-400 mb-3 italic">No admins yet — add one below</p>
+                    ) : (admins[school.id] ?? []).map(a => (
+                      <div key={a.id} className="flex items-center gap-2 mb-2 bg-white rounded-xl px-3 py-2.5 border border-slate-100">
+                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 text-[10px] font-bold flex-shrink-0">
+                          {a.email.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-slate-700 truncate">{a.email}</div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            {deleteAdminConfirmId === a.id ? (
+                              <span className="text-red-500 font-bold">{a.password}</span>
+                            ) : '••••••••'}
+                          </div>
+                        </div>
+                        {deleteAdminConfirmId === a.id ? (
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={() => setDeleteAdminConfirmId(null)}
+                              className="text-[10px] font-bold text-slate-500 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 transition-all">
+                              Cancel
+                            </button>
+                            <button onClick={() => handleDeleteAdmin(school.id, a.id)}
+                              className="text-[10px] font-bold text-white px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 transition-all">
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setDeleteAdminConfirmId(a.id)}
+                            className="text-slate-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-all flex-shrink-0">
+                            <Icon name="trash" className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Add admin form */}
+                  <div className="px-4 pb-4 space-y-2">
+                    <input value={newAdminEmail} onChange={e => setNewAdminEmail(e.target.value)} placeholder="Admin email"
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-400" />
+                    <div className="flex gap-2">
+                      <input value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} placeholder="Password"
+                        className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-400" />
+                      <button
+                        disabled={!newAdminEmail.trim() || !newAdminPw.trim() || savingAdmin}
+                        onClick={() => handleAddAdmin(school.id)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-40"
+                        style={{ background: 'linear-gradient(135deg,#2563EB,#1D4ED8)' }}>
+                        {savingAdmin ? '…' : '+ Add'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Login ─────────────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }: { onLogin: (role: 'admin' | 'teacher', user: string, teacherName: string) => void }) {
+function LoginScreen({ onLogin }: {
+  onLogin: (role: 'super_admin' | 'admin' | 'teacher', user: string, teacherName: string, schoolId: number | null, schoolName: string) => void;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -423,36 +714,54 @@ function LoginScreen({ onLogin }: { onLogin: (role: 'admin' | 'teacher', user: s
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const input = email.trim();
-    // Admin check (sync, hardcoded)
-    if (USERS[input] === password) {
+
+    // 1. Super admin (hardcoded)
+    if (SUPER_ADMINS[input] === password) {
       setLoading(true);
       setTimeout(() => {
         try {
           localStorage.setItem('kv_auth', input);
-          localStorage.setItem('kv_role', 'admin');
+          localStorage.setItem('kv_role', 'super_admin');
+          localStorage.removeItem('kv_school_id');
+          localStorage.removeItem('kv_school_name');
           localStorage.removeItem('kv_teacher_name');
         } catch {}
-        onLogin('admin', input, '');
+        onLogin('super_admin', input, '', null, '');
       }, 400);
       return;
     }
-    // Teacher check (async, DB)
+
     setLoading(true);
     try {
+      // 2. School admin (DB)
+      const adminResult = await loginSchoolAdmin(input, password);
+      if (adminResult) {
+        try {
+          localStorage.setItem('kv_auth', input);
+          localStorage.setItem('kv_role', 'admin');
+          localStorage.setItem('kv_school_id', String(adminResult.school.id));
+          localStorage.setItem('kv_school_name', adminResult.school.name);
+          localStorage.removeItem('kv_teacher_name');
+        } catch {}
+        onLogin('admin', input, '', adminResult.school.id, adminResult.school.name);
+        return;
+      }
+      // 3. Teacher (DB)
       const account = await loginTeacher(input, password);
       if (account) {
         try {
           localStorage.setItem('kv_auth', input);
           localStorage.setItem('kv_role', 'teacher');
+          localStorage.setItem('kv_school_id', String(account.school_id));
           localStorage.setItem('kv_teacher_name', account.teacher_name);
         } catch {}
-        onLogin('teacher', input, account.teacher_name);
-      } else {
-        setError('Invalid username or password.');
-        setLoading(false);
+        onLogin('teacher', input, account.teacher_name, account.school_id as number, '');
+        return;
       }
+      setError('Invalid username or password.');
     } catch {
       setError('Login failed. Check your connection.');
+    } finally {
       setLoading(false);
     }
   }
@@ -567,18 +876,24 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [currentUser, setCurrentUser] = useState<string>('');
-  const [userRole, setUserRole] = useState<'admin' | 'teacher'>('admin');
+  const [userRole, setUserRole] = useState<'super_admin' | 'admin' | 'teacher'>('admin');
   const [teacherName, setTeacherName] = useState<string>('');
+  const [currentSchoolId, setCurrentSchoolId] = useState<number | null>(null);
+  const [currentSchoolName, setCurrentSchoolName] = useState<string>('');
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem('kv_auth') ?? '';
-      const savedRole = (localStorage.getItem('kv_role') ?? 'admin') as 'admin' | 'teacher';
+      const savedRole = (localStorage.getItem('kv_role') ?? 'admin') as 'super_admin' | 'admin' | 'teacher';
       const savedTeacherName = localStorage.getItem('kv_teacher_name') ?? '';
+      const savedSchoolId = localStorage.getItem('kv_school_id');
+      const savedSchoolName = localStorage.getItem('kv_school_name') ?? '';
       setAuthed(!!savedUser);
       if (savedUser) {
         setCurrentUser(savedUser);
         setUserRole(savedRole);
         setTeacherName(savedTeacherName);
+        if (savedSchoolId) setCurrentSchoolId(Number(savedSchoolId));
+        setCurrentSchoolName(savedSchoolName);
       }
     } catch { setAuthed(false); }
   }, []);
@@ -621,9 +936,9 @@ export default function App() {
 
   // Load draft + arrangements from DB on login
   useEffect(() => {
-    if (!currentUser || userRole === 'teacher') return;
-    getMyArrangements(currentUser).then(setMyArrangements).catch(() => {});
-    loadDraft(currentUser).then(draft => {
+    if (!currentUser || userRole === 'teacher' || !currentSchoolId) return;
+    getMyArrangements(currentUser, currentSchoolId).then(setMyArrangements).catch(() => {});
+    loadDraft(currentUser, currentSchoolId).then(draft => {
       if (!draft?.form_state) return;
       const fs = draft.form_state;
       skipSubsReset.current = true;
@@ -642,47 +957,43 @@ export default function App() {
       setClubs(fs.clubs);
       if (draft.report_rows) setReport(draft.report_rows);
     }).catch(() => {});
-  }, [currentUser]);
+  }, [currentUser, currentSchoolId]);
 
   useEffect(() => {
+    if (!currentSchoolId) { setLoading(false); return; }
     (async () => {
       try {
-        const rows = await getTimetableRows();
+        const rows = await getTimetableRows(currentSchoolId);
         if (rows.length > 0) {
           setDf(rows);
           setTimetableUploaded(true);
-        } else {
-          const csv = await fetch('/timetable_master.csv').then(r => r.text());
-          const result = Papa.parse<TimetableRow>(csv, { header: true, dynamicTyping: true, skipEmptyLines: true });
-          setDf(result.data);
         }
       } catch {
-        const csv = await fetch('/timetable_master.csv').then(r => r.text());
-        const result = Papa.parse<TimetableRow>(csv, { header: true, dynamicTyping: true, skipEmptyLines: true });
-        setDf(result.data);
+        // leave df empty — user must upload a timetable for this school
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [currentSchoolId]);
 
   useEffect(() => {
-    getAssignmentRules().then(setAssignmentRules).catch(() => {});
-  }, []);
+    if (!currentSchoolId) return;
+    getAssignmentRules(currentSchoolId).then(setAssignmentRules).catch(() => {});
+  }, [currentSchoolId]);
 
 
   // Debounced draft save to DB (3 s after last change)
   useEffect(() => {
-    if (!currentUser || userRole === 'teacher') return;
+    if (!currentUser || userRole === 'teacher' || !currentSchoolId) return;
     const timer = setTimeout(() => {
       saveDraft(currentUser, {
         dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
         useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod,
         lunchDuties, attendanceDuties, subs, clubs,
-      }, report).catch(() => {});
+      }, report, currentSchoolId).catch(() => {});
     }, 3000);
     return () => clearTimeout(timer);
-  }, [currentUser, dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
+  }, [currentUser, currentSchoolId, dateVal, absentTeachers, absenceConfigs, cancelledClasses, cancelledClassConfigs,
       useCancelledTeachers, schoolHalfDay, schoolHalfDayPeriod, lunchDuties, attendanceDuties, subs, clubs, report]);
 
   const allTeachers = useMemo(() => getAllTeachers(df), [df]);
@@ -812,6 +1123,7 @@ export default function App() {
       const arr = await saveArrangement({
         title: resolvedTitle,
         date: dateVal, day: selectedDay, created_by: currentUser,
+        school_id: currentSchoolId!,
         form_state: formState, report_rows: report, is_shared: false,
       });
       setSavedArrangementId(arr.id);
@@ -868,10 +1180,43 @@ export default function App() {
       lunchDuties, attendanceDuties, subs, clubs]);
 
 
+  function handleSignOut() {
+    try {
+      localStorage.removeItem('kv_auth'); localStorage.removeItem('kv_role');
+      localStorage.removeItem('kv_teacher_name'); localStorage.removeItem('kv_school_id');
+      localStorage.removeItem('kv_school_name');
+    } catch {}
+    setAuthed(false); setCurrentSchoolId(null); setCurrentSchoolName('');
+  }
+
   if (authed === null) return null;
-  if (!authed) return <LoginScreen onLogin={(role, user, tName) => {
-    setUserRole(role); setCurrentUser(user); setTeacherName(tName); setAuthed(true);
+  if (!authed) return <LoginScreen onLogin={(role, user, tName, schoolId, schoolName) => {
+    setUserRole(role);
+    setCurrentUser(user);
+    setTeacherName(tName);
+    setCurrentSchoolId(schoolId);
+    setCurrentSchoolName(schoolName);
+    setAuthed(true);
   }} />;
+
+  // Stale pre-migration session: admin/teacher logged in without a school → force re-login
+  if (authed && userRole !== 'super_admin' && !currentSchoolId) {
+    handleSignOut();
+    return null;
+  }
+
+  // Super admin with no school selected → show school picker dashboard
+  if (userRole === 'super_admin' && !currentSchoolId) return (
+    <SuperAdminDashboard
+      currentUser={currentUser}
+      onEnterSchool={(school) => {
+        setCurrentSchoolId(school.id);
+        setCurrentSchoolName(school.name);
+        try { localStorage.setItem('kv_school_id', String(school.id)); localStorage.setItem('kv_school_name', school.name); } catch {}
+      }}
+      onSignOut={handleSignOut}
+    />
+  );
 
   if (loading) return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -883,11 +1228,12 @@ export default function App() {
   );
 
   if (userRole === 'teacher') return (
-    <TeacherView df={df} teacherName={teacherName} onSignOut={() => {
+    <TeacherView df={df} teacherName={teacherName} schoolId={currentSchoolId ?? 1} onSignOut={() => {
       try {
         localStorage.removeItem('kv_auth');
         localStorage.removeItem('kv_role');
         localStorage.removeItem('kv_teacher_name');
+        localStorage.removeItem('kv_school_id');
       } catch {}
       setAuthed(false);
     }} />
@@ -908,8 +1254,10 @@ export default function App() {
       <AppSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onSignOut={() => { try { localStorage.removeItem('kv_auth'); localStorage.removeItem('kv_role'); localStorage.removeItem('kv_teacher_name'); } catch {} setAuthed(false); }}
+        onSignOut={handleSignOut}
+        onBackToSchools={userRole === 'super_admin' ? () => { setCurrentSchoolId(null); setCurrentSchoolName(''); try { localStorage.removeItem('kv_school_id'); localStorage.removeItem('kv_school_name'); } catch {} } : undefined}
         currentUser={currentUser}
+        schoolName={currentSchoolName}
         absentCount={absentTeachers.length}
         coveredCount={covered}
         totalPeriods={absentPeriods.length}
@@ -1290,7 +1638,7 @@ export default function App() {
         {/* ── History Tab ── */}
         {activeTab === 'history' && (
           <div className="kv-tab-content">
-          <HistoryTab currentUser={currentUser} onLoad={handleLoadArrangement} />
+          <HistoryTab currentUser={currentUser} schoolId={currentSchoolId!} onLoad={handleLoadArrangement} />
           </div>
         )}
 
@@ -1305,10 +1653,9 @@ export default function App() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-slate-800 truncate">{currentUser.split('@')[0]}</div>
-                <div className="text-xs text-slate-400 mt-0.5">Admin · KV Burhanpur</div>
+                <div className="text-xs text-slate-400 mt-0.5">Admin · {currentSchoolName || 'KV Burhanpur'}</div>
               </div>
-              <button
-                onClick={() => { try { localStorage.removeItem('kv_auth'); localStorage.removeItem('kv_role'); localStorage.removeItem('kv_teacher_name'); } catch {} setAuthed(false); }}
+              <button onClick={handleSignOut}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-red-500 bg-red-50 border border-red-100 hover:bg-red-100 hover:text-red-700 transition-all flex-shrink-0">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -1318,19 +1665,19 @@ export default function App() {
             </div>
 
             <CollapsibleSection label="Analytics" title="Statistics" noBorderTop>
-              <StatsPanel currentUser={currentUser} />
+              <StatsPanel currentUser={currentUser} schoolId={currentSchoolId!} />
             </CollapsibleSection>
 
             <CollapsibleSection
               label="Admin" title="School Periods"
               subtitle="Define periods with start and end times. Visible to teachers on login.">
-              <PeriodsPanel />
+              <PeriodsPanel schoolId={currentSchoolId!} />
             </CollapsibleSection>
 
             <CollapsibleSection
               label="Admin" title="Timetable"
               subtitle="Upload a CSV timetable to replace the current one.">
-              <TimetableUploadPanel df={df} uploaded={timetableUploaded} onReplaced={rows => { setDf(rows); setTimetableUploaded(true); }} />
+              <TimetableUploadPanel df={df} uploaded={timetableUploaded} schoolId={currentSchoolId!} onReplaced={rows => { setDf(rows); setTimetableUploaded(true); }} />
             </CollapsibleSection>
 
             <CollapsibleSection
@@ -1339,6 +1686,7 @@ export default function App() {
               <AssignmentRulesPanel
                 allTeachers={allTeachers}
                 rules={assignmentRules}
+                schoolId={currentSchoolId!}
                 onSaved={setAssignmentRules}
               />
             </CollapsibleSection>
@@ -1346,7 +1694,7 @@ export default function App() {
             <CollapsibleSection
               label="Admin" title="Teacher Accounts"
               subtitle="Create and manage teacher login credentials.">
-              <TeachersPanel allTeachers={allTeachers} />
+              <TeachersPanel allTeachers={allTeachers} schoolId={currentSchoolId!} />
             </CollapsibleSection>
           </div>
         )}
@@ -1795,13 +2143,13 @@ function ArrangementTab({
 // ─────────────────────────────────────────────────────────────────────────────
 // Stats Panel
 // ─────────────────────────────────────────────────────────────────────────────
-function StatsPanel({ currentUser }: { currentUser: string }) {
+function StatsPanel({ currentUser, schoolId }: { currentUser: string; schoolId: number }) {
   const [arrangements, setArrangements] = useState<Arrangement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getMyArrangements(currentUser).then(setArrangements).finally(() => setLoading(false));
-  }, [currentUser]);
+    getMyArrangements(currentUser, schoolId).then(setArrangements).finally(() => setLoading(false));
+  }, [currentUser, schoolId]);
 
   const stats = useMemo(() => {
     if (!arrangements.length) return null;
@@ -1974,7 +2322,7 @@ function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs: FormState, title?: string | null, id?: string) => void }) {
+function HistoryTab({ currentUser, schoolId, onLoad }: { currentUser: string; schoolId: number; onLoad: (fs: FormState, title?: string | null, id?: string) => void }) {
   const [mine, setMine] = useState<Arrangement[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -1986,7 +2334,7 @@ function HistoryTab({ currentUser, onLoad }: { currentUser: string; onLoad: (fs:
   async function load() {
     setLoading(true); setErr(null);
     try {
-      const m = await getMyArrangements(currentUser);
+      const m = await getMyArrangements(currentUser, schoolId);
       setMine(m);
     } catch { setErr('Failed to load. Check your connection.'); }
     finally { setLoading(false); }
@@ -2766,7 +3114,7 @@ function ClassStatusCard({ cd }: { cd: { cls: string; periods: ClassPeriodInfo[]
 // ─────────────────────────────────────────────────────────────────────────────
 // School Periods Panel (admin only, inside Settings tab)
 // ─────────────────────────────────────────────────────────────────────────────
-function PeriodsPanel() {
+function PeriodsPanel({ schoolId }: { schoolId: number }) {
   const [periods, setPeriods] = useState<SchoolPeriod[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -2798,16 +3146,17 @@ function PeriodsPanel() {
     setLoading(true);
     (async () => {
       try {
-        let data = await getPeriods();
+        let data = await getPeriods(schoolId);
 
-        // Seed only once per page-load session
-        if (data.length === 0 && !_periodSeedDone) {
-          _periodSeedDone = true;
+        // Seed only once per session per school
+        if (data.length === 0 && !_periodSeedDone.has(schoolId)) {
+          _periodSeedDone.add(schoolId);
           data = await bulkCreatePeriods(
-            KV_DEFAULT_PERIODS.map((d, i) => ({ name: d.name, start_time: d.start, end_time: d.end, sort_order: i }))
+            KV_DEFAULT_PERIODS.map((d, i) => ({ name: d.name, start_time: d.start, end_time: d.end, sort_order: i })),
+            schoolId,
           );
         } else {
-          _periodSeedDone = true;
+          _periodSeedDone.add(schoolId);
         }
 
         // Auto-remove duplicates (keep earliest by created_at per name)
@@ -2858,7 +3207,7 @@ function PeriodsPanel() {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const p = await createPeriod(name.trim(), fmtTime(startH, startM, startAmPm), fmtTime(endH, endM, endAmPm), periods.length);
+      const p = await createPeriod(name.trim(), fmtTime(startH, startM, startAmPm), fmtTime(endH, endM, endAmPm), periods.length, schoolId);
       setPeriods(prev => [...prev, p]);
       setName('');
     } catch (e) { alert('Failed to save: ' + (e instanceof Error ? e.message : String(e))); }
@@ -2993,7 +3342,7 @@ function PeriodsPanel() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Manage Teachers Panel (admin only, inside HistoryTab)
 // ─────────────────────────────────────────────────────────────────────────────
-function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
+function TeachersPanel({ allTeachers, schoolId }: { allTeachers: string[]; schoolId: number }) {
   const [accounts, setAccounts] = useState<TeacherAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [addTeacherName, setAddTeacherName] = useState('');
@@ -3008,14 +3357,14 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
 
   useEffect(() => {
     setLoadingAccounts(true);
-    getTeacherAccounts().then(setAccounts).catch(() => {}).finally(() => setLoadingAccounts(false));
+    getTeacherAccounts(schoolId).then(setAccounts).catch(() => {}).finally(() => setLoadingAccounts(false));
   }, []);
 
   async function handleAdd() {
     if (!addTeacherName || !addUsername || !addPassword) return;
     setSaving(true);
     try {
-      const acc = await createTeacherAccount(addUsername.trim(), addPassword.trim(), addTeacherName);
+      const acc = await createTeacherAccount(addUsername.trim(), addPassword.trim(), addTeacherName, schoolId);
       setAccounts(prev => [...prev, acc]);
       setAddTeacherName(''); setAddUsername(''); setAddPassword('');
     } catch (e) {
@@ -3161,7 +3510,7 @@ function TeachersPanel({ allTeachers }: { allTeachers: string[] }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher View (shown to logged-in teachers instead of admin app)
 // ─────────────────────────────────────────────────────────────────────────────
-function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teacherName: string; onSignOut: () => void }) {
+function TeacherView({ df, teacherName, schoolId, onSignOut }: { df: TimetableRow[]; teacherName: string; schoolId: number; onSignOut: () => void }) {
   // Resolve stored teacher_name to best-matching name in the current timetable.
   // Falls back through: exact → case-insensitive → shortName match → original.
   const resolvedName = useMemo(() => {
@@ -3185,7 +3534,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
   const periodBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getPeriods().then(setSchoolPeriods).catch(() => {});
+    getPeriods(schoolId).then(setSchoolPeriods).catch(() => {});
   }, []);
 
   // Tick every minute so current-period highlight stays live
@@ -3219,7 +3568,7 @@ function TeacherView({ df, teacherName, onSignOut }: { df: TimetableRow[]; teach
   useEffect(() => {
     setLoadingArr(true);
     setArrangement(null);
-    getSharedArrangementForDate(dateVal)
+    getSharedArrangementForDate(dateVal, schoolId)
       .then(arr => setArrangement(arr))
       .catch(() => setArrangement(null))
       .finally(() => setLoadingArr(false));
@@ -3441,7 +3790,7 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function TimetableUploadPanel({ df, uploaded, onReplaced }: { df: TimetableRow[]; uploaded: boolean; onReplaced: (rows: TimetableRow[]) => void }) {
+function TimetableUploadPanel({ df, uploaded, schoolId, onReplaced }: { df: TimetableRow[]; uploaded: boolean; schoolId: number; onReplaced: (rows: TimetableRow[]) => void }) {
   const [preview, setPreview] = useState<{ rows: TimetableRow[]; teachers: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -3501,7 +3850,7 @@ function TimetableUploadPanel({ df, uploaded, onReplaced }: { df: TimetableRow[]
     if (!preview) return;
     setUploading(true);
     try {
-      await replaceTimetable(preview.rows);
+      await replaceTimetable(preview.rows, schoolId);
       onReplaced(preview.rows);
       setPreview(null);
       if (fileRef.current) fileRef.current.value = '';
@@ -3585,8 +3934,8 @@ const KV_DEFAULT_RULES: Omit<AssignmentRule, 'id'>[] = [
 interface RuleRow { teacher: string; retain_floor: number; force_assign_min_free: number | null }
 
 function AssignmentRulesPanel({
-  allTeachers, rules, onSaved,
-}: { allTeachers: string[]; rules: AssignmentRule[]; onSaved: (r: AssignmentRule[]) => void }) {
+  allTeachers, rules, schoolId, onSaved,
+}: { allTeachers: string[]; rules: AssignmentRule[]; schoolId: number; onSaved: (r: AssignmentRule[]) => void }) {
   const [rows, setRows] = useState<RuleRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -3641,7 +3990,7 @@ function AssignmentRulesPanel({
         retain_floor: r.retain_floor,
         force_assign_min_free: r.force_assign_min_free,
       }));
-      await replaceAssignmentRules(toSave);
+      await replaceAssignmentRules(toSave, schoolId);
       onSaved(toSave as AssignmentRule[]);
       setDirty(false);
     } catch (err) {

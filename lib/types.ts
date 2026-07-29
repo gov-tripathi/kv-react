@@ -84,6 +84,7 @@ export interface TeacherAccount {
   username: string;
   password: string;
   teacher_name: string;
+  school_id: number;
   created_at: string;
 }
 
@@ -102,4 +103,19 @@ export interface AssignmentRule {
   priority_rank: number;         // lower = assigned first
   retain_floor: number;          // min free periods the teacher must keep
   force_assign_min_free: number | null; // if origFree >= this value, force ≥1 assignment
+}
+
+export interface School {
+  id: number;
+  name: string;
+  code: string;
+  created_at: string;
+}
+
+export interface SchoolAdmin {
+  id: string;
+  school_id: number;
+  email: string;
+  password: string;
+  created_at: string;
 }
