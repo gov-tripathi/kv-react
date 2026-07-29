@@ -33,9 +33,13 @@ export function shortName(name: string): string {
 }
 
 // True when this row needs arrangement if the teacher is absent.
-// Defaults to true when column is absent (DB rows before migration).
 export function needsArrangement(row: TimetableRow): boolean {
-  return row.Use_For_Arrangement !== false;
+  if (row.Use_For_Arrangement === false) return false;
+  // Backward compat: old DB rows without the column still have "Not Req" subject
+  if (row.Use_For_Arrangement === undefined || row.Use_For_Arrangement === null) {
+    return !row.Subject.startsWith('Not Req');
+  }
+  return true;
 }
 
 // True when this row is an explicit free period (no class assigned).
