@@ -833,8 +833,8 @@ function LoginScreen({ onLogin }: {
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600&display=swap');
-        .kv-marketing { display: none; }
-        @media (min-width: 1040px) { .kv-marketing { display: block; } .kv-mob-hdr { display: none !important; } }
+        .kv-marketing { display: block; }
+        @media (min-width: 1040px) { .kv-mob-hdr { display: none !important; } }
         .kv-main-grid { display: grid; grid-template-columns: 1fr; align-items: start; gap: clamp(28px,4vw,64px); padding: clamp(34px,5vw,64px) clamp(20px,4vw,56px) 0; }
         @media (min-width: 1040px) { .kv-main-grid { grid-template-columns: minmax(0,1fr) 392px; } }
         .kv-aside { position: static; }
@@ -886,7 +886,7 @@ function LoginScreen({ onLogin }: {
           </div>
           <div style={{ width: 1, height: 30, background: 'rgba(126,158,214,.28)', flexShrink: 0 }} />
           <div style={{ fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase' as const, color: '#56657F' }}>
-            Built by<b style={{ display: 'block', color: '#7E8FAD', fontWeight: 500, letterSpacing: '.06em', fontSize: 12 }}>GoIntoLabs</b>
+            Built by<b style={{ display: 'block', color: '#7E8FAD', fontWeight: 500, letterSpacing: '.06em', fontSize: 12 }}>Divyanshu Tripathi</b>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 11, color: '#7E8FAD' }}>
             <span className="kv-pulse-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: '#37D9A0', display: 'inline-block', flexShrink: 0 }} />
@@ -1120,7 +1120,7 @@ function LoginScreen({ onLogin }: {
         {/* ── Footer ── */}
         <footer style={{ marginTop: 64, padding: '20px clamp(20px,4vw,56px)', borderTop: '1px solid rgba(126,158,214,.13)', display: 'flex', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' as const, fontFamily: "'IBM Plex Mono',monospace", fontSize: 10.5, letterSpacing: '.11em', textTransform: 'uppercase' as const, color: '#56657F' }}>
           <span>PM SHRI Kendriya Vidyalayas &middot; Arrangement Desk</span>
-          <span>GoIntoLabs &copy; 2026</span>
+          <span>Divyanshu Tripathi &copy; 2026</span>
         </footer>
       </div>
     </div>
