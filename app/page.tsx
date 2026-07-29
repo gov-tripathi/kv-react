@@ -2901,7 +2901,6 @@ function TeacherStatusTab({ df, allTeachers, absentTeachers, absentPeriods, abse
     { color: '#F59E0B', label: 'Substituting' },
     { color: '#F97316', label: 'Clubbing' },
     { color: '#E2E8F0', label: 'Free' },
-    { color: '#A855F7', label: 'Upper Class' },
     { color: '#FCA5A5', label: 'Absent (part)' },
   ];
 
@@ -2973,7 +2972,7 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
   const busyCount = activePeriods.length - td.freeCount;
   const loadPct = activePeriods.length ? busyCount / activePeriods.length : 0;
 
-  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', clubbed: '#F97316', free: '#E2E8F0', notReq: '#A855F7', absent: '#FCA5A5' };
+  const dotColor = { teaching: '#3B82F6', sub: '#F59E0B', clubbed: '#F97316', free: '#E2E8F0', notReq: '#3B82F6', absent: '#FCA5A5' };
   const dotText  = { teaching: '#fff', sub: '#fff', clubbed: '#fff', free: '#94A3B8', notReq: '#fff', absent: '#EF4444' };
 
   return (
@@ -3001,7 +3000,7 @@ function TeacherStatusCard({ td, activePeriods }: { td: TeacherData; activePerio
       <div className="flex gap-1 flex-wrap mt-2.5 mb-2">
         {activePeriods.map(p => {
           const s = td.periodStatus[p];
-          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'clubbed' ? 'C' : s === 'notReq' ? 'UC' : s === 'absent' ? 'A' : String(p);
+          const lbl = s === 'teaching' ? 'T' : s === 'sub' ? 'S' : s === 'clubbed' ? 'C' : s === 'notReq' ? 'T' : s === 'absent' ? 'A' : String(p);
           return (
             <div key={p} title={`P${p}: ${td.periodClass[p] || s}`}
               className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-default select-none"
@@ -3623,7 +3622,7 @@ function TeacherView({ df, teacherName, schoolId, onSignOut }: { df: TimetableRo
     clubbed:  { bg: 'bg-orange-50', border: 'border-l-orange-400', badge: 'bg-orange-100 text-orange-700', label: 'Clubbing'  },
     absent:   { bg: 'bg-red-50',    border: 'border-l-red-300',    badge: 'bg-red-100 text-red-600',     label: 'Absent'      },
     free:     { bg: 'bg-white',     border: 'border-l-slate-200',  badge: 'bg-slate-100 text-slate-400', label: 'Free'        },
-    notReq:   { bg: 'bg-purple-50', border: 'border-l-purple-300', badge: 'bg-purple-100 text-purple-700', label: 'Upper Class' },
+    notReq:   { bg: 'bg-blue-50',   border: 'border-l-blue-400',   badge: 'bg-blue-100 text-blue-700',   label: 'Teaching'    },
   };
 
   const fmtLong = (d: string) =>
