@@ -1270,12 +1270,24 @@ export default function App() {
         {/* Mobile sticky header */}
         <div className="lg:hidden sticky top-0 z-30 px-3 py-2.5 flex items-center justify-between"
           style={{ background: 'rgba(241,245,249,0.96)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
-          <div className="flex items-center gap-2.5">
-            <img src="/2023042075.png" alt="KV" className="h-7 w-auto"
-              style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,.2))' }} />
-            <div>
-              <div className="text-sm font-extrabold text-slate-800 leading-none">KV Burhanpur</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Arrangement · 2026–27</div>
+          <div className="flex items-center gap-2">
+            {userRole === 'super_admin' && (
+              <button
+                onClick={() => { setCurrentSchoolId(null); setCurrentSchoolName(''); try { localStorage.removeItem('kv_school_id'); localStorage.removeItem('kv_school_name'); } catch {} }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 text-xs font-bold active:bg-blue-100 transition-colors flex-shrink-0">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Schools
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <img src="/2023042075.png" alt="KV" className="h-7 w-auto"
+                style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,.2))' }} />
+              <div>
+                <div className="text-sm font-extrabold text-slate-800 leading-none">{currentSchoolName || 'KV Burhanpur'}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Arrangement · 2026–27</div>
+              </div>
             </div>
           </div>
           <StatusChip color="accent" size="sm">{selectedDay}</StatusChip>
