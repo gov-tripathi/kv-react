@@ -769,104 +769,214 @@ function LoginScreen({ onLogin }: {
   const DEMO_URL = 'https://calendly.com/gointoolabs/30min';
 
   const features = [
-    { icon: '⚡', title: 'Instant Arrangements', desc: 'Full substitute assignments generated in one click' },
-    { icon: '🧠', title: 'Smart Priority Rules', desc: 'Auto-assigns based on workload, rules & free periods' },
-    { icon: '📱', title: 'WhatsApp Reports', desc: 'Share formatted arrangement reports instantly' },
-    { icon: '👩‍🏫', title: 'Teacher Portal', desc: 'Real-time schedule & duty view for every teacher' },
-    { icon: '🏫', title: 'Multi-School Ready', desc: 'Manage multiple schools from one dashboard' },
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+      title: 'Instant Arrangements', desc: '1-click substitute generation', color: '#F59E0B',
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18" />
+        </svg>
+      ),
+      title: 'Smart Priority Rules', desc: 'Workload-balanced auto-assign', color: '#6366F1',
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      ),
+      title: 'WhatsApp Reports', desc: 'Share formatted reports instantly', color: '#10B981',
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      ),
+      title: 'Teacher Portal', desc: 'Real-time duty view per teacher', color: '#60A5FA',
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      ),
+      title: 'Multi-School Ready', desc: 'One dashboard, many campuses', color: '#A78BFA',
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+      title: 'Coverage Analytics', desc: 'Track and export daily reports', color: '#F472B6',
+    },
+  ];
+
+  const stats = [
+    { value: '< 1 min', label: 'Setup time' },
+    { value: '100%', label: 'Automated' },
+    { value: 'Real-time', label: 'Coverage track' },
   ];
 
   return (
     <div className="min-h-screen flex relative overflow-hidden"
-      style={{ background: 'linear-gradient(140deg, #06091a 0%, #0f1e4a 50%, #1a2f80 100%)' }}>
+      style={{ background: 'linear-gradient(140deg, #05071a 0%, #0d1a3e 45%, #0f2060 100%)' }}>
+
+      <style>{`
+        @keyframes floatA { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-14px) rotate(-2deg)} }
+        @keyframes floatB { 0%,100%{transform:translateY(0) rotate(1.5deg)} 50%{transform:translateY(-10px) rotate(1.5deg)} }
+        @keyframes floatC { 0%,100%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(-18px) rotate(-1deg)} }
+        @keyframes shimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes blobPulse { 0%,100%{transform:scale(1) translate(-50%,-40%)} 50%{transform:scale(1.08) translate(-50%,-40%)} }
+        .float-a{animation:floatA 6s ease-in-out infinite}
+        .float-b{animation:floatB 8s ease-in-out infinite 1.5s}
+        .float-c{animation:floatC 7s ease-in-out infinite 3s}
+        .shimmer-text{background:linear-gradient(90deg,#60A5FA,#A78BFA,#60A5FA);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 4s linear infinite}
+        .blob-pulse{animation:blobPulse 8s ease-in-out infinite}
+      `}</style>
 
       {/* Background grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
-        backgroundSize: '48px 48px',
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)',
+        backgroundSize: '60px 60px',
       }} />
 
-      {/* Ambient glows */}
-      <div className="absolute top-0 left-1/3 w-[700px] h-[700px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.12), transparent 65%)', transform: 'translate(-50%, -40%)' }} />
-      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.14), transparent 65%)', transform: 'translate(30%, 30%)' }} />
+      {/* Ambient blobs */}
+      <div className="blob-pulse absolute top-0 left-1/3 w-[800px] h-[800px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.1), transparent 65%)', transform: 'translate(-50%, -40%)' }} />
+      <div className="absolute bottom-0 right-0 w-[700px] h-[700px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12), transparent 65%)', transform: 'translate(30%, 35%)' }} />
+      <div className="absolute top-1/2 left-1/2 w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.07), transparent 65%)', transform: 'translate(-50%, -50%)' }} />
 
-      {/* ── LEFT: Marketing panel (desktop only) ── */}
-      <div className="hidden lg:flex flex-col justify-between w-[54%] px-14 py-12 relative z-10">
-        {/* Top section */}
-        <div>
+      {/* ── LEFT: Marketing panel ── */}
+      <div className="hidden lg:flex flex-col w-[54%] px-14 py-10 relative z-10 overflow-hidden">
+
+        {/* Floating preview cards — positioned absolutely */}
+        <div className="float-a absolute right-6 top-16 w-52 rounded-2xl p-3.5 pointer-events-none select-none"
+          style={{ background: 'rgba(15,25,65,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-bold text-emerald-400 tracking-wide uppercase">Coverage Today</span>
+          </div>
+          <div className="flex items-baseline gap-1 mb-1.5">
+            <span className="text-2xl font-black text-white">8</span>
+            <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.35)' }}>/10 periods</span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <div className="h-full rounded-full" style={{ width: '80%', background: 'linear-gradient(90deg,#10B981,#6EE7B7)' }} />
+          </div>
+          <span className="text-[10px]" style={{ color: 'rgba(110,231,183,0.6)' }}>80% covered · 2 pending</span>
+        </div>
+
+        <div className="float-b absolute right-14 top-[250px] w-48 rounded-2xl p-3.5 pointer-events-none select-none"
+          style={{ background: 'rgba(15,25,65,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(59,130,246,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+          <div className="text-[9px] font-bold text-blue-400 tracking-widest uppercase mb-2">Period 3 · Auto-assigned</div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-6 h-6 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-[9px] font-black text-blue-300">M</div>
+            <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+            <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-[9px] font-black text-indigo-300">S</div>
+          </div>
+          <div className="text-[10px]" style={{ color: 'rgba(147,197,253,0.5)' }}>MOHIT → SHARMA · V A</div>
+        </div>
+
+        <div className="float-c absolute right-4 top-[430px] w-44 rounded-2xl p-3.5 pointer-events-none select-none"
+          style={{ background: 'rgba(15,25,65,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(16,185,129,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <svg className="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.5 2A9.5 9.5 0 002 11.5c0 1.673.437 3.243 1.2 4.608L2 22l6.064-1.183A9.5 9.5 0 1011.5 2zm0 17.5a7.984 7.984 0 01-4.042-1.098l-.29-.172-3.004.587.604-2.927-.19-.3A7.986 7.986 0 013.5 11.5c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>
+            <span className="text-[10px] font-bold text-emerald-400">Report Sent</span>
+          </div>
+          <div className="text-[10px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>WhatsApp arrangement shared to all staff ✓</div>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-col flex-1">
           {/* Logos + brand */}
-          <div className="flex items-center gap-4 mb-12">
-            <img src="/2023042075.png" alt="KV" className="h-12 w-auto"
+          <div className="flex items-center gap-4 mb-10">
+            <img src="/2023042075.png" alt="KV" className="h-11 w-auto"
               style={{ filter: 'brightness(1.2) drop-shadow(0 4px 16px rgba(0,0,0,.6))' }} />
-            <img src="/2025021137.png" alt="PM SHRI" className="h-10 w-auto"
+            <img src="/2025021137.png" alt="PM SHRI" className="h-9 w-auto"
               style={{ filter: 'brightness(1.2) drop-shadow(0 4px 16px rgba(0,0,0,.6))' }} />
-            <div className="h-8 w-px mx-1" style={{ background: 'rgba(255,255,255,0.12)' }} />
+            <div className="h-7 w-px mx-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
             <div>
-              <p className="text-[9px] font-bold tracking-[0.2em] uppercase" style={{ color: 'rgba(147,197,253,0.45)' }}>Powered by</p>
+              <p className="text-[9px] font-bold tracking-[0.2em] uppercase" style={{ color: 'rgba(147,197,253,0.4)' }}>Powered by</p>
               <p className="text-sm font-extrabold text-white leading-none">GoIntoLabs</p>
             </div>
           </div>
 
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-6"
-            style={{ background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)' }}>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full mb-5 self-start"
+            style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}>
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
-            <span className="text-xs font-bold text-indigo-300 tracking-wide">AI-Powered School Management</span>
+            <span className="text-[11px] font-bold text-indigo-300 tracking-wide">AI-Powered School Management</span>
           </div>
 
-          {/* Hero headline */}
-          <h1 className="text-5xl font-black text-white leading-[1.1] mb-5">
+          {/* Headline */}
+          <h1 className="text-[42px] font-black text-white leading-[1.1] mb-4 max-w-[380px]">
             Smart Teacher<br />
-            <span style={{ background: 'linear-gradient(135deg, #60A5FA 0%, #A78BFA 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Arrangement System
-            </span>
+            <span className="shimmer-text">Arrangement System</span>
           </h1>
-          <p className="text-base leading-relaxed mb-10 max-w-md" style={{ color: 'rgba(186,215,255,0.6)' }}>
-            Automate daily substitute assignments, track coverage in real-time, and keep every PM SHRI Kendriya Vidyalaya running smoothly.
+          <p className="text-[13px] leading-relaxed mb-8 max-w-[360px]" style={{ color: 'rgba(186,215,255,0.55)' }}>
+            Automate substitute assignments, track real-time coverage, and keep every PM SHRI KV running without disruption.
           </p>
 
-          {/* Features */}
-          <div className="space-y-4 mb-12">
+          {/* 2-col feature grid */}
+          <div className="grid grid-cols-2 gap-3 mb-8 max-w-[400px]">
             {features.map(f => (
-              <div key={f.title} className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)' }}>
+              <div key={f.title} className="flex items-start gap-3 p-3 rounded-2xl transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: `${f.color}18`, border: `1px solid ${f.color}30`, color: f.color }}>
                   {f.icon}
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-white/90">{f.title}</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'rgba(147,197,253,0.45)' }}>{f.desc}</div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold text-white/90 leading-none mb-0.5">{f.title}</div>
+                  <div className="text-[10px] leading-snug" style={{ color: 'rgba(147,197,253,0.4)' }}>{f.desc}</div>
                 </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Stats row */}
+          <div className="flex items-center gap-6 mb-8">
+            {stats.map((s, i) => (
+              <div key={i}>
+                <div className="text-lg font-black text-white">{s.value}</div>
+                <div className="text-[10px] font-semibold" style={{ color: 'rgba(147,197,253,0.4)' }}>{s.label}</div>
               </div>
             ))}
           </div>
 
           {/* CTA */}
           <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-7 py-4 rounded-2xl font-bold text-sm text-white transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 8px 40px rgba(79,70,229,0.45), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            className="inline-flex items-center gap-3 px-6 py-3.5 rounded-2xl font-bold text-sm text-white self-start transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
+            style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 8px 40px rgba(79,70,229,0.5), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             Book a Free Demo
-            <svg className="w-4 h-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
           </a>
-        </div>
 
-        {/* Bottom */}
-        <p className="text-xs pt-6" style={{ color: 'rgba(147,197,253,0.25)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          Trusted by PM SHRI Kendriya Vidyalayas · GoIntoLabs © 2026
-        </p>
+          <p className="text-[10px] mt-auto pt-8" style={{ color: 'rgba(147,197,253,0.2)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            Trusted by PM SHRI Kendriya Vidyalayas · GoIntoLabs © 2026
+          </p>
+        </div>
       </div>
 
       {/* ── RIGHT: Login form ── */}
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 relative z-10">
 
-        {/* Mobile-only branding */}
+        {/* Mobile branding */}
         <div className="lg:hidden flex flex-col items-center mb-8 w-full max-w-sm">
           <div className="flex items-center gap-3 mb-3">
             <img src="/2023042075.png" alt="KV" className="h-10 w-auto"
@@ -877,7 +987,7 @@ function LoginScreen({ onLogin }: {
           <h1 className="text-sm font-extrabold text-white tracking-widest uppercase text-center mb-0.5">PM SHRI KV BURHANPUR</h1>
           <p className="text-xs mb-5" style={{ color: 'rgba(147,197,253,0.5)' }}>Teacher Arrangement System · 2026–27</p>
           <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.98]"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.97]"
             style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 4px 20px rgba(79,70,229,0.4)' }}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -886,58 +996,60 @@ function LoginScreen({ onLogin }: {
           </a>
         </div>
 
-        {/* Form card */}
+        {/* Form */}
         <div className="w-full max-w-sm">
           <div className="hidden lg:block mb-7">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg mb-3"
+              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="text-[10px] font-bold text-indigo-300 tracking-wide">SECURE LOGIN</span>
+            </div>
             <h2 className="text-2xl font-black text-white">Welcome back</h2>
-            <p className="text-sm mt-1" style={{ color: 'rgba(147,197,253,0.5)' }}>Sign in to your school account</p>
-          </div>
-          <div className="lg:hidden mb-4 text-center">
-            <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Sign in to your account</p>
+            <p className="text-sm mt-1" style={{ color: 'rgba(147,197,253,0.45)' }}>Sign in to your school account</p>
           </div>
 
-          <div className="rounded-3xl p-7 shadow-2xl"
-            style={{ background: 'rgba(255,255,255,0.055)', backdropFilter: 'blur(32px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
+          <div className="rounded-3xl p-7"
+            style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(40px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-xs font-bold mb-2 tracking-wide" style={{ color: 'rgba(186,215,255,0.7)' }}>
+                <label className="block text-[11px] font-bold mb-2 tracking-widest uppercase" style={{ color: 'rgba(186,215,255,0.6)' }}>
                   Email or Username
                 </label>
                 <input type="text" value={email} placeholder="admin@school.edu" autoComplete="username"
                   onChange={e => { setEmail(e.target.value); setError(''); }}
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white transition-all focus:outline-none"
-                  style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)' }}
-                  onFocus={e => { e.target.style.border = '1px solid rgba(99,102,241,0.6)'; e.target.style.background = 'rgba(255,255,255,0.09)'; }}
-                  onBlur={e => { e.target.style.border = '1px solid rgba(255,255,255,0.13)'; e.target.style.background = 'rgba(255,255,255,0.07)'; }} />
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white transition-all duration-200 focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.7)'; e.target.style.background = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
+                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.boxShadow = 'none'; }} />
               </div>
               <div>
-                <label className="block text-xs font-bold mb-2 tracking-wide" style={{ color: 'rgba(186,215,255,0.7)' }}>
+                <label className="block text-[11px] font-bold mb-2 tracking-widest uppercase" style={{ color: 'rgba(186,215,255,0.6)' }}>
                   Password
                 </label>
                 <div className="relative">
                   <input type={showPw ? 'text' : 'password'} value={password} placeholder="••••••••" autoComplete="current-password"
                     onChange={e => { setPassword(e.target.value); setError(''); }}
-                    className="w-full px-4 py-3 pr-16 rounded-xl text-sm text-white transition-all focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)' }}
-                    onFocus={e => { e.target.style.border = '1px solid rgba(99,102,241,0.6)'; e.target.style.background = 'rgba(255,255,255,0.09)'; }}
-                    onBlur={e => { e.target.style.border = '1px solid rgba(255,255,255,0.13)'; e.target.style.background = 'rgba(255,255,255,0.07)'; }} />
+                    className="w-full px-4 py-3 pr-16 rounded-xl text-sm text-white transition-all duration-200 focus:outline-none"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.7)'; e.target.style.background = 'rgba(255,255,255,0.09)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.background = 'rgba(255,255,255,0.06)'; e.target.style.boxShadow = 'none'; }} />
                   <button type="button" onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold transition-colors"
-                    style={{ color: 'rgba(147,197,253,0.55)' }}>
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-bold transition-colors"
+                    style={{ color: 'rgba(147,197,253,0.5)' }}>
                     {showPw ? 'hide' : 'show'}
                   </button>
                 </div>
               </div>
               {error && (
                 <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
-                  style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
                   <span className="text-red-300 text-xs font-medium">{error}</span>
                 </div>
               )}
               <button type="submit" disabled={loading}
-                className="w-full h-12 rounded-xl font-bold text-sm text-white transition-all duration-200 disabled:opacity-60 hover:scale-[1.01] active:scale-[0.99]"
-                style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', boxShadow: '0 6px 24px rgba(37,99,235,0.45)', marginTop: '4px' }}>
+                className="w-full h-12 rounded-xl font-bold text-sm text-white transition-all duration-200 disabled:opacity-60 hover:brightness-110 active:scale-[0.99]"
+                style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', boxShadow: '0 6px 28px rgba(37,99,235,0.5)', marginTop: '2px' }}>
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <LoadingSpinner size="sm" className="border-white/70 border-t-transparent" />
@@ -948,12 +1060,11 @@ function LoginScreen({ onLogin }: {
             </form>
           </div>
 
-          {/* Footer link */}
-          <div className="flex items-center justify-center gap-2 mt-6">
+          <div className="flex items-center justify-center gap-2 mt-5">
             <span className="text-[11px]" style={{ color: 'rgba(147,197,253,0.3)' }}>Not a user yet?</span>
             <a href={DEMO_URL} target="_blank" rel="noopener noreferrer"
-              className="text-[11px] font-bold transition-colors"
-              style={{ color: 'rgba(129,140,248,0.7)' }}>
+              className="text-[11px] font-bold transition-colors hover:text-indigo-300"
+              style={{ color: 'rgba(129,140,248,0.65)' }}>
               Request a demo →
             </a>
           </div>
