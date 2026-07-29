@@ -35,10 +35,9 @@ export function shortName(name: string): string {
 // True when this row needs arrangement if the teacher is absent.
 export function needsArrangement(row: TimetableRow): boolean {
   if (row.Use_For_Arrangement === false) return false;
-  // Backward compat: old DB rows without the column still have "Not Req" subject
-  if (row.Use_For_Arrangement === undefined || row.Use_For_Arrangement === null) {
-    return !row.Subject.startsWith('Not Req');
-  }
+  // Covers: (a) old DB rows where subject is "Not Req" regardless of flag value,
+  // (b) data corrupted by a prior buggy upload that set flag=true for these rows.
+  if (row.Subject.startsWith('Not Req')) return false;
   return true;
 }
 
