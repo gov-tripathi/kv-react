@@ -833,20 +833,20 @@ function LoginScreen({ onLogin }: {
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600&display=swap');
-        .kv-marketing { display: block; }
-        @media (min-width: 1040px) { .kv-mob-hdr { display: none !important; } }
-        .kv-main-grid { display: block; padding: clamp(34px,5vw,64px) clamp(20px,4vw,56px) 0; }
-        @media (min-width: 1040px) { .kv-main-grid { padding-right: 476px; } }
-        .kv-aside { position: static; }
+        .kv-marketing { display: none; }
+        .kv-main-grid { display: block; padding: 0; }
+        .kv-aside { position: static; min-height: calc(100vh - 73px); display: flex; flex-direction: column; justify-content: center; padding: 24px 20px 48px; }
         @media (min-width: 1040px) {
+          .kv-marketing { display: block; }
+          .kv-mob-hdr { display: none !important; }
+          .kv-main-grid { display: block; padding: clamp(34px,5vw,64px) clamp(20px,4vw,56px) 0; padding-right: 476px; }
           .kv-aside {
-            position: fixed; right: 0; top: 0; bottom: 0; width: 440px; z-index: 20;
+            position: fixed; right: 0; top: 0; bottom: 0; width: 440px; z-index: 20; min-height: unset;
             display: flex; flex-direction: column; justify-content: center;
             padding: 40px 36px; overflow-y: auto;
             border-left: 1px solid rgba(126,158,214,.18);
             background: rgba(10,16,28,0.92); backdrop-filter: blur(24px);
           }
-          .kv-mob-hdr { display: none !important; }
         }
         @keyframes kvPing { 0%{box-shadow:0 0 0 0 rgba(55,217,160,.5)} 70%{box-shadow:0 0 0 9px rgba(55,217,160,0)} 100%{box-shadow:0 0 0 0 rgba(55,217,160,0)} }
         .kv-pulse-dot { animation: kvPing 2.4s infinite; }
@@ -872,6 +872,10 @@ function LoginScreen({ onLogin }: {
         .kv-scroller { overflow-x:auto; scrollbar-width:thin; scrollbar-color:rgba(126,158,214,.2) transparent; }
         .kv-scroller::-webkit-scrollbar { height:4px; }
         .kv-scroller::-webkit-scrollbar-thumb { background:rgba(126,158,214,.2); border-radius:2px; }
+        .kv-masthead { padding: 12px 16px; }
+        @media (min-width: 1040px) { .kv-masthead { padding: 22px clamp(20px,4vw,56px); } }
+        .kv-mast-extra { display: none; }
+        @media (min-width: 1040px) { .kv-mast-extra { display: flex; align-items: center; } }
         @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
       `}</style>
 
@@ -883,7 +887,7 @@ function LoginScreen({ onLogin }: {
       <div style={{ position: 'relative', zIndex: 1 }}>
 
         {/* ── Masthead ── */}
-        <header style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' as const, padding: '22px clamp(20px,4vw,56px)', borderBottom: '1px solid rgba(126,158,214,.13)' }}>
+        <header className="kv-masthead" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' as const, borderBottom: '1px solid rgba(126,158,214,.13)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 38, height: 38, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, border: '1px solid rgba(246,166,35,.45)', background: 'radial-gradient(circle at 50% 120%,rgba(246,166,35,.35),rgba(246,166,35,.04))', fontSize: 15, fontWeight: 600, color: '#FFC15E', lineHeight: 1, userSelect: 'none' as const }}>
               {'कें'}
@@ -893,11 +897,11 @@ function LoginScreen({ onLogin }: {
               <span style={{ display: 'block', fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase' as const, color: '#56657F' }}>Arrangement Desk</span>
             </div>
           </div>
-          <div style={{ width: 1, height: 30, background: 'rgba(126,158,214,.28)', flexShrink: 0 }} />
-          <div style={{ fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase' as const, color: '#56657F' }}>
+          <div className="kv-mast-extra" style={{ width: 1, height: 30, background: 'rgba(126,158,214,.28)', flexShrink: 0 }} />
+          <div className="kv-mast-extra" style={{ fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase' as const, color: '#56657F' }}>
             Built by<b style={{ display: 'block', color: '#7E8FAD', fontWeight: 500, letterSpacing: '.06em', fontSize: 12 }}>Divyanshu Tripathi</b>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 11, color: '#7E8FAD' }}>
+          <div className="kv-mast-extra" style={{ marginLeft: 'auto', gap: 10, fontFamily: "'IBM Plex Mono',ui-monospace,monospace", fontSize: 11, color: '#7E8FAD' }}>
             <span className="kv-pulse-dot" style={{ width: 7, height: 7, borderRadius: '50%', background: '#37D9A0', display: 'inline-block', flexShrink: 0 }} />
             4 campuses live &middot; session 2026&ndash;27
           </div>
