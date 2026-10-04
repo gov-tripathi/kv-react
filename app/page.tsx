@@ -2293,10 +2293,10 @@ function ArrangementTab({
                         <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                           <td className="px-3 py-2.5 font-bold text-blue-700">{r.Period}</td>
                           <td className="px-3 py-2.5 text-slate-600">{shortName(r.Absent_Teacher)}</td>
-                          <td className="px-3 py-2.5 font-medium text-slate-700">{r.Class}</td>
+                          <td className="px-3 py-2.5 font-medium text-slate-700">{r.Type === 'CLUBBED' ? r.Sub_Own_Class : r.Class}</td>
                           <td className="px-3 py-2.5">
                             {r.Type === 'CLUBBED'
-                              ? <span className="inline-flex items-center gap-1 text-amber-700 font-semibold"><Icon name="shuffle" className="w-3 h-3" />{shortName(r.Substitute)}{r.Sub_Own_Class ? ` (${r.Sub_Own_Class})` : ''}</span>
+                              ? <span className="inline-flex items-center gap-1 text-amber-700 font-semibold"><Icon name="shuffle" className="w-3 h-3" />{shortName(r.Substitute)}{r.Class ? ` (clubs ${r.Class})` : ''}</span>
                               : <span className="font-semibold text-slate-800">{shortName(r.Substitute)}</span>
                             }
                           </td>

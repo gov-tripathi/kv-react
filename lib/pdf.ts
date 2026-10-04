@@ -122,17 +122,18 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
     for (let j = 0; j < span; j++) {
       const r = sorted[i + j];
       rowNum++;
+      const displayClass = r.Type === 'CLUBBED' ? r.Sub_Own_Class : r.Class;
       const subDisplay =
         r.Substitute === '— Not Assigned —' ? 'UNASSIGNED ⚠' :
         r.Type === 'CLUBBED'
-          ? `${titleName(r.Substitute)}\n(clubbing: ${r.Sub_Own_Class}${r.Sub_Own_Subject ? ' · ' + r.Sub_Own_Subject : ''})`
+          ? `${titleName(r.Substitute)}\n(clubbing: ${r.Class}${r.Sub_Own_Subject ? ' · ' + r.Sub_Own_Subject : ''})`
           : titleName(r.Substitute);
       if (j === 0) {
         tableRows.push([
           String(rowNum),
           { content: titleName(teacher), rowSpan: span, styles: { valign: 'middle', fontStyle: 'bold', halign: 'left' } },
           ordinal(r.Period),
-          r.Class,
+          displayClass,
           r.Subject,
           subDisplay,
           '',
@@ -141,7 +142,7 @@ export async function generatePDF(rows: ReportRow[], day: string, dateStr: strin
         tableRows.push([
           String(rowNum),
           ordinal(r.Period),
-          r.Class,
+          displayClass,
           r.Subject,
           subDisplay,
           '',
