@@ -3930,8 +3930,14 @@ function TeacherView({ df, teacherName, schoolId, onSignOut }: { df: TimetableRo
         );
         if (subDuty) {
           status = subDuty.Type === 'CLUBBED' ? 'clubbed' : 'sub';
-          const displayClass = subDuty.Type === 'CLUBBED' ? subDuty.Sub_Own_Class : subDuty.Class;
-          info = `${displayClass} · ${subDuty.Subject}`;
+          if (subDuty.Type === 'CLUBBED') {
+            // Look up THIS teacher's own class live from df — more reliable than saved Sub_Own_Class
+            const ownRow = df.find(r => r.Teacher_Name === resolvedName && r.Day === selectedDay && r.Period === p);
+            const ownClass = ownRow?.Class || subDuty.Sub_Own_Class || subDuty.Class;
+            info = `${ownClass} · ${subDuty.Subject}`;
+          } else {
+            info = `${subDuty.Class} · ${subDuty.Subject}`;
+          }
           subForTeacher = shortName(subDuty.Absent_Teacher);
         } else if (regularRow) {
           if (!needsArrangement(regularRow) && !isFreeRow(regularRow)) {
