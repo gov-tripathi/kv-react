@@ -1,10 +1,30 @@
 import { ReportRow, DutyEntry } from './types';
 import { shortName } from './timetable';
 
+const GENDER_PREFIX: Record<string, 'Mr.' | 'Ms.'> = {
+  'AMIT KUMAR':        'Mr.',
+  'ARPIT SAINI':       'Mr.',
+  'DEEKSHA CHAUHAN':   'Ms.',
+  'DIVYANSHU TRIPATHI':'Mr.',
+  'JITENDRA SAPKAL':   'Mr.',
+  'KRISHNA MAHAJAN':   'Mr.',
+  'NARGISH SHEHZADI':  'Ms.',
+  'POOJA CHOUHAN':     'Ms.',
+  'PRATIKSHA':         'Ms.',
+  'R P ARYA':          'Mr.',
+  'RACHNA CHATURVEDI': 'Ms.',
+  'SAKSHI YADAV':      'Ms.',
+  'SATENDER SINGH':    'Mr.',
+  'SHIVA KANT':        'Mr.',
+  'SHUBHAM AWASTHI':   'Mr.',
+};
+
 function titleName(name: string): string {
   const u = name.toUpperCase();
   if (u.startsWith('MS. ') || u.startsWith('MS.')) return 'Ms. ' + shortName(name);
   if (u.startsWith('MR. ') || u.startsWith('MR.')) return 'Mr. ' + shortName(name);
+  const prefix = GENDER_PREFIX[u.trim()];
+  if (prefix) return `${prefix} ${shortName(name)}`;
   return shortName(name);
 }
 

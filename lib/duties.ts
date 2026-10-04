@@ -7,7 +7,7 @@ import { shortName } from './timetable';
 // Fill in the correct class for each teacher — update once per academic year.
 export const CLASS_TEACHER_MAP: Record<string, string> = {
   'SAKSHI':     '',
-  'RUPESH':     '',
+  'POOJA':      '',
   'PRATIKSHA':  '',
   'ARPIT':      '',
   'DEEKSHA':    '',

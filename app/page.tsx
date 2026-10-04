@@ -4266,7 +4266,7 @@ const KV_DEFAULT_RULES: Omit<AssignmentRule, 'id'>[] = [
   { teacher_pattern: 'RACHNA',     priority_rank: 1,  retain_floor: 1, force_assign_min_free: null },
   { teacher_pattern: 'MADHUBALA',  priority_rank: 2,  retain_floor: 1, force_assign_min_free: null },
   { teacher_pattern: 'SAKSHI',     priority_rank: 3,  retain_floor: 1, force_assign_min_free: null },
-  { teacher_pattern: 'RUPESH',     priority_rank: 4,  retain_floor: 1, force_assign_min_free: null },
+  { teacher_pattern: 'POOJA',      priority_rank: 4,  retain_floor: 1, force_assign_min_free: null },
   { teacher_pattern: 'PRATIKSHA',  priority_rank: 5,  retain_floor: 1, force_assign_min_free: null },
   { teacher_pattern: 'ARPIT',      priority_rank: 6,  retain_floor: 1, force_assign_min_free: null },
   { teacher_pattern: 'DEEKSHA',    priority_rank: 7,  retain_floor: 1, force_assign_min_free: null },
