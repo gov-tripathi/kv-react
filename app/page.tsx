@@ -1325,21 +1325,31 @@ export default function App() {
   const skipSubsReset = useRef(true);
   const skipDayReset = useRef(true);
   const teacherDropdownRef = useRef<HTMLDivElement>(null);
+  const teacherInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    function handleOutside(e: PointerEvent) {
-      if (teacherDropdownRef.current && !teacherDropdownRef.current.contains(e.target as Node)) {
+    function handleOutside(e: MouseEvent | TouchEvent) {
+      const target = e instanceof TouchEvent ? e.touches[0]?.target : (e as MouseEvent).target;
+      if (teacherDropdownRef.current && !teacherDropdownRef.current.contains(target as Node)) {
         setShowTeacherDropdown(false);
+        setTeacherSearch('');
       }
     }
-    document.addEventListener('pointerdown', handleOutside);
-    return () => document.removeEventListener('pointerdown', handleOutside);
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
   }, []);
 
   useEffect(() => {
     if (skipSubsReset.current) { skipSubsReset.current = false; return; }
     setSubs({}); setClubs({}); setReport(null);
-  }, [selectedDay, absentTeachers]);
+  }, [selectedDay]);
+  useEffect(() => {
+    setReport(null);
+  }, [absentTeachers]);
   useEffect(() => {
     if (skipDayReset.current) { skipDayReset.current = false; return; }
     setCancelledClasses([]); setCancelledClassConfigs({}); setUseCancelledTeachers(false);
@@ -1647,17 +1657,18 @@ export default function App() {
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input type="text" placeholder="Search or tap to see all teachers…"
+                <input ref={teacherInputRef} type="text" placeholder="Search or tap to see all teachers…"
                   value={teacherSearch}
                   onChange={e => setTeacherSearch(e.target.value)}
                   onFocus={() => setShowTeacherDropdown(true)}
+                  onKeyDown={e => { if (e.key === 'Escape') { setShowTeacherDropdown(false); setTeacherSearch(''); } }}
                   className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400" />
               </div>
               {showTeacherDropdown && (
                 <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
                   {filteredTeachers.map(t => (
                     <button key={t}
-                      onPointerDown={e => { e.preventDefault(); e.stopPropagation(); setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); }}
+                      onPointerDown={e => { e.preventDefault(); setAbsentTeachers(prev => [...prev, t]); setTeacherSearch(''); setTimeout(() => teacherInputRef.current?.focus(), 0); }}
                       className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-slate-50 last:border-0 flex items-center gap-2.5">
                       <span className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0"
                         style={{ background: avColor(t) }}>
