@@ -3930,7 +3930,8 @@ function TeacherView({ df, teacherName, schoolId, onSignOut }: { df: TimetableRo
         );
         if (subDuty) {
           status = subDuty.Type === 'CLUBBED' ? 'clubbed' : 'sub';
-          info = `${subDuty.Class} · ${subDuty.Subject}`;
+          const displayClass = subDuty.Type === 'CLUBBED' ? subDuty.Sub_Own_Class : subDuty.Class;
+          info = `${displayClass} · ${subDuty.Subject}`;
           subForTeacher = shortName(subDuty.Absent_Teacher);
         } else if (regularRow) {
           if (!needsArrangement(regularRow) && !isFreeRow(regularRow)) {
